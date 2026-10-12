@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+.react-router/
+coverage/
+*.tsbuildinfo
+
+# Test artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Local agent configuration
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
+.impeccable/config.local.json
+.impeccable/review/
+.impeccable/build/
+.impeccable/mocks/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
