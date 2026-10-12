@@ -1,0 +1,13 @@
+{
+  "name": "Solveit Indonesia",
+  "short_name": "Solveit",
+  "lang": "id",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#f1f4f9",
+  "theme_color": "#1452ed",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}

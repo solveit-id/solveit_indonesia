@@ -1,0 +1,479 @@
+@import "tailwindcss";
+
+/* Archivo (OFL-1.1), subset and axis-limited by scripts/subset-font.py:
+   width 100-120%, weight 400-800, Latin glyphs for Indonesian copy. */
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 800;
+  font-stretch: 100% 120%;
+  src: url("../assets/fonts/archivo-solveit.woff2") format("woff2");
+}
+
+/*
+ * Solveit Indonesia design tokens, derived from the logo SVGs.
+ * See docs/design-system.md for the rationale and contrast checks.
+ *
+ * Shape rule: anything single-line and interactive is a full capsule (the
+ * logo's own geometry); containers and multi-line fields use --radius-panel.
+ * Angle rule: the logo's capsules sit at 33deg; that is the only diagonal.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Logo palette, unchanged */
+  --brand-navy: #082a56;
+  --brand-slate: #5c7392;
+  --brand-cobalt: #1452ed;
+  --brand-deep: #1136d6;
+  --brand-azure: #178bff;
+  --brand-cyan: #19b8f2;
+
+  /* Light scene: daylight office or phone at midday */
+  --paper: #f1f4f9;
+  --paper-raised: #f8fafd;
+  --paper-sunken: #e6ecf5;
+  --ink: #082a56;
+  --ink-muted: #4a6283;
+  --ink-faint: #6b809d;
+  --line: rgb(8 42 86 / 0.13);
+  --line-strong: rgb(8 42 86 / 0.28);
+  --accent: #1452ed;
+  --accent-hover: #1136d6;
+  --accent-ink: #f6f9ff;
+  --accent-text: #1146d8;
+  --field: #1136d6;
+  --field-ink: #f4f7ff;
+  --field-ink-muted: #c9d6fb;
+  --field-line: rgb(244 247 255 / 0.22);
+  --focus: #1452ed;
+  --selection: rgb(20 82 237 / 0.18);
+  --shadow-tint: 8 42 86;
+  --logo-word: #082a56;
+  --logo-sub: #5c7392;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #050f22;
+    --paper-raised: #0a1830;
+    --paper-sunken: #030a18;
+    --ink: #e9effa;
+    --ink-muted: #a3b5cf;
+    --ink-faint: #8094b3;
+    --line: rgb(233 239 250 / 0.12);
+    --line-strong: rgb(233 239 250 / 0.26);
+    --accent: #1452ed;
+    --accent-hover: #2a66ff;
+    --accent-ink: #f6f9ff;
+    --accent-text: #6aa6ff;
+    --field: #0f34cc;
+    --focus: #6aa6ff;
+    --selection: rgb(106 166 255 / 0.3);
+    --shadow-tint: 0 0 0;
+    --logo-word: #e9effa;
+    --logo-sub: #a3b5cf;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-text: var(--accent-text);
+  --color-field: var(--field);
+  --color-field-ink: var(--field-ink);
+  --color-field-ink-muted: var(--field-ink-muted);
+  --color-field-line: var(--field-line);
+  --color-cyan: var(--brand-cyan);
+  --color-azure: var(--brand-azure);
+}
+
+@theme {
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-panel: 1.75rem;
+  --radius-field: 1.25rem;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+
+  --spacing-gutter: clamp(1rem, 4vw, 3rem);
+  --spacing-section: clamp(5rem, 11vw, 9.5rem);
+
+  --text-display: clamp(2.5rem, 4.7vw, 4.4rem);
+  --text-display--line-height: 1;
+  --text-title: clamp(2rem, 4.2vw, 3.6rem);
+  --text-title--line-height: 1.02;
+  --text-heading: clamp(1.4rem, 2.1vw, 1.85rem);
+  --text-heading--line-height: 1.15;
+  --text-lede: clamp(1.125rem, 1.5vw, 1.375rem);
+  --text-lede--line-height: 1.5;
+
+  --z-header: 40;
+  --z-menu: 50;
+  --z-progress: 60;
+  --z-skip: 70;
+}
+
+/* ---------------------------------------------------------------- base */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scrollbar-color: var(--line-strong) var(--paper);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:focus-within {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    font-stretch: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--selection);
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 0.375rem;
+  }
+
+  a {
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    font-stretch: 112%;
+    letter-spacing: -0.03em;
+    font-weight: 720;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  input,
+  textarea,
+  select {
+    caret-color: var(--accent);
+  }
+
+  [id] {
+    scroll-margin-top: 6rem;
+  }
+}
+
+/* ------------------------------------------------------------ utilities */
+
+@utility shell {
+  width: 100%;
+  max-width: 88rem;
+  margin-inline: auto;
+  padding-inline: var(--spacing-gutter);
+}
+
+@utility font-wide {
+  font-stretch: 118%;
+}
+
+@utility font-normal-width {
+  font-stretch: 100%;
+}
+
+@utility measure {
+  max-width: 64ch;
+}
+
+@utility hairline {
+  border-color: var(--line);
+}
+
+/* Link with an underline that sweeps in from the left. */
+@utility link-sweep {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size 0.45s var(--ease-out-expo);
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    background-size: 100% 1px;
+  }
+}
+
+@utility capsule {
+  border-radius: 9999px;
+}
+
+/* ----------------------------------------------------------- components */
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 3rem;
+    padding-inline: 1.4rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      background-color 0.25s var(--ease-out-expo),
+      color 0.25s var(--ease-out-expo),
+      border-color 0.25s var(--ease-out-expo),
+      transform 0.25s var(--ease-out-expo),
+      box-shadow 0.35s var(--ease-out-expo);
+  }
+
+  .btn:active {
+    transform: translateY(1px) scale(0.985);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 10px 24px -14px rgb(17 54 214 / 0.75);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 14px 30px -14px rgb(17 54 214 / 0.85);
+  }
+
+  .btn-secondary {
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    background: transparent;
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--ink);
+  }
+
+  .btn-on-field {
+    background: var(--field-ink);
+    color: var(--field);
+  }
+
+  .btn-on-field:hover {
+    background: #ffffff;
+  }
+
+  .btn-icon {
+    transition: transform 0.35s var(--ease-out-expo);
+  }
+
+  .btn:hover .btn-icon {
+    transform: translateX(3px);
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .field-hint {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+  }
+
+  .field-error {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #b42318;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .field-error {
+      color: #ff9c8f;
+    }
+  }
+
+  .field-input {
+    width: 100%;
+    min-height: 3.25rem;
+    padding: 0.85rem 1.25rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    background: var(--paper-raised);
+    color: var(--ink);
+    font: inherit;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  textarea.field-input {
+    border-radius: var(--radius-field);
+    min-height: 9rem;
+    resize: vertical;
+  }
+
+  .field-input::placeholder {
+    color: var(--ink-faint);
+  }
+
+  .field-input:hover {
+    border-color: var(--ink-muted);
+  }
+
+  .field-input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--selection);
+  }
+
+  .field-input[aria-invalid="true"] {
+    border-color: #b42318;
+  }
+
+  /* Choice capsule: a radio or checkbox rendered as a selectable pill. */
+  .choice {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .choice input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .choice span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    color: var(--ink);
+    background: var(--paper-raised);
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .choice input:hover + span {
+    border-color: var(--ink-muted);
+  }
+
+  .choice input:checked + span {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  .choice input:focus-visible + span {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+}
+
+/* -------------------------------------------------------------- motion */
+
+/*
+ * Above-the-fold copy enters with CSS so it paints with the first frame and
+ * never waits for JavaScript (LCP). GSAP owns everything scroll-driven.
+ */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.6em, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .enter {
+    animation: rise-in 0.9s var(--ease-out-expo) both;
+    animation-delay: calc(var(--enter-index, 0) * 90ms + 60ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Process rail markers: lit by default (no JS, reduced motion); once motion
+   arms the rail, each marker lights as the reader passes it. */
+@layer components {
+  .rail-marker {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  [data-rail][data-armed="true"] [data-step]:not(.is-passed) .rail-marker {
+    border-color: var(--line-strong);
+    background: var(--paper);
+    color: var(--ink-muted);
+  }
+}
+
+/* Hero mark waits for its GSAP entrance (motion-capable visitors only). If the
+   script never runs, the failsafe shows it after 3s. */
+@keyframes failsafe-show {
+  to {
+    opacity: 1;
+  }
+}
+
+.motion [data-hero-stage] {
+  opacity: 0;
+  animation: failsafe-show 0.6s ease 3s forwards;
+}

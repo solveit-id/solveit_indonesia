@@ -1,0 +1,419 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T00:00:00Z",
+  "title": "Design System: Solveit Indonesia",
+  "extensions": {
+    "colorMeta": {
+      "brand-navy": {
+        "role": "neutral",
+        "displayName": "Logo Navy",
+        "canonical": "#082a56",
+        "tonalRamp": [
+          "#030a18",
+          "#050f22",
+          "#082a56",
+          "#1f416e",
+          "#4a6283",
+          "#8094b3",
+          "#c3d0e4",
+          "#e9effa"
+        ]
+      },
+      "brand-slate": {
+        "role": "neutral",
+        "displayName": "Logo Slate",
+        "canonical": "#5c7392",
+        "tonalRamp": [
+          "#1a2433",
+          "#2c3a4f",
+          "#3f526d",
+          "#5c7392",
+          "#7d91ad",
+          "#a3b5cf",
+          "#cbd6e5",
+          "#eef2f8"
+        ]
+      },
+      "brand-cobalt": {
+        "role": "primary",
+        "displayName": "Logo Cobalt",
+        "canonical": "#1452ed",
+        "tonalRamp": [
+          "#0a2272",
+          "#0f34cc",
+          "#1136d6",
+          "#1452ed",
+          "#2a66ff",
+          "#6aa6ff",
+          "#c9d6fb",
+          "#f4f7ff"
+        ]
+      },
+      "brand-deep": {
+        "role": "primary",
+        "displayName": "Logo Deep Cobalt",
+        "canonical": "#1136d6"
+      },
+      "brand-azure": {
+        "role": "secondary",
+        "displayName": "Logo Azure",
+        "canonical": "#178bff"
+      },
+      "brand-cyan": {
+        "role": "secondary",
+        "displayName": "Logo Cyan",
+        "canonical": "#19b8f2"
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Porcelain",
+        "canonical": "#f1f4f9"
+      },
+      "paper-raised": {
+        "role": "neutral",
+        "displayName": "Porcelain Raised",
+        "canonical": "#f8fafd"
+      },
+      "paper-sunken": {
+        "role": "neutral",
+        "displayName": "Porcelain Sunken",
+        "canonical": "#e6ecf5"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Logo Navy Ink",
+        "canonical": "#082a56"
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Slate Ink",
+        "canonical": "#4a6283"
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Slate Ink (large text only)",
+        "canonical": "#6b809d"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "rgb(8 42 86 / 0.13)"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "rgb(8 42 86 / 0.28)"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Logo Cobalt (action)",
+        "canonical": "#1452ed"
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Logo Deep Cobalt (hover)",
+        "canonical": "#1136d6"
+      },
+      "accent-ink": {
+        "role": "neutral",
+        "displayName": "Ink on Cobalt",
+        "canonical": "#f6f9ff"
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Accent Text Cobalt",
+        "canonical": "#1146d8"
+      },
+      "field": {
+        "role": "primary",
+        "displayName": "Field Cobalt",
+        "canonical": "#1136d6"
+      },
+      "field-ink": {
+        "role": "neutral",
+        "displayName": "Field Ink",
+        "canonical": "#f4f7ff"
+      },
+      "field-ink-muted": {
+        "role": "neutral",
+        "displayName": "Field Ink Muted",
+        "canonical": "#c9d6fb"
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "rgb(244 247 255 / 0.22)"
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Cobalt",
+        "canonical": "#1452ed"
+      },
+      "selection": {
+        "role": "primary",
+        "displayName": "Selection Cobalt",
+        "canonical": "rgb(20 82 237 / 0.18)"
+      },
+      "paper-dark": {
+        "role": "neutral",
+        "displayName": "Night Ground",
+        "canonical": "#050f22"
+      },
+      "paper-raised-dark": {
+        "role": "neutral",
+        "displayName": "Night Raised",
+        "canonical": "#0a1830"
+      },
+      "paper-sunken-dark": {
+        "role": "neutral",
+        "displayName": "Night Sunken",
+        "canonical": "#030a18"
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "#e9effa"
+      },
+      "ink-muted-dark": {
+        "role": "neutral",
+        "displayName": "Night Ink Muted",
+        "canonical": "#a3b5cf"
+      },
+      "ink-faint-dark": {
+        "role": "neutral",
+        "displayName": "Night Ink Faint",
+        "canonical": "#8094b3"
+      },
+      "accent-hover-dark": {
+        "role": "primary",
+        "displayName": "Bright Cobalt (dark hover)",
+        "canonical": "#2a66ff"
+      },
+      "accent-text-dark": {
+        "role": "primary",
+        "displayName": "Sky Accent Text (dark)",
+        "canonical": "#6aa6ff"
+      },
+      "field-dark": {
+        "role": "primary",
+        "displayName": "Night Field Cobalt",
+        "canonical": "#0f34cc"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page H1s only (hero and inner-page intros), 15 to 18ch, width 118%."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section H2s, 12 to 18ch."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "H3s in tiles, process steps, large project cards."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "One-sentence summary under a heading, muted ink, up to 64ch."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text at normal width, tabular numerals, 64ch measure."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels and legends, sentence case."
+      }
+    },
+    "shadows": [
+      {
+        "name": "cobalt-lift",
+        "value": "0 10px 24px -14px rgb(17 54 214 / 0.75)",
+        "purpose": "Primary button at rest; the only shadow in the system."
+      },
+      {
+        "name": "cobalt-lift-hover",
+        "value": "0 14px 30px -14px rgb(17 54 214 / 0.85)",
+        "purpose": "Primary button hover."
+      },
+      {
+        "name": "focus-field",
+        "value": "0 0 0 3px var(--selection)",
+        "purpose": "Text input focus ring alongside a cobalt border."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for state transitions, link sweep, entrances."
+      },
+      {
+        "name": "button-state",
+        "value": "0.25s ease-out-expo",
+        "purpose": "Button color, border, and press transform."
+      },
+      {
+        "name": "link-sweep",
+        "value": "background-size 0.45s ease-out-expo",
+        "purpose": "Inline link underline sweeping in from the left."
+      },
+      {
+        "name": "rise-in",
+        "value": "0.9s ease-out-expo, 90ms stagger + 60ms",
+        "purpose": "CSS entrance for above-the-fold copy (opacity and 0.6em rise)."
+      },
+      {
+        "name": "diagonal-wipe",
+        "value": "clip-path along 33deg, 1.3s expo.out, 0.12s stagger",
+        "purpose": "Bento tiles and closing band reveal."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Cobalt capsule for the single primary action per view, with a trailing arrow.",
+      "html": "<a class=\"ds-btn ds-btn-primary\" href=\"#\">Mulai konsultasi <svg class=\"ds-btn-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M224.49,136.49l-72,72a12,12,0,0,1-17-17L187,140H40a12,12,0,0,1,0-24H187L135.51,64.48a12,12,0,0,1,17-17l72,72A12,12,0,0,1,224.49,136.49Z\"/></svg></a>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; min-height: 3rem; padding-inline: 1.4rem; border-radius: 9999px; font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 1rem; line-height: 1; white-space: nowrap; text-decoration: none; transition: background-color 0.25s cubic-bezier(0.16,1,0.3,1), border-color 0.25s cubic-bezier(0.16,1,0.3,1), transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s cubic-bezier(0.16,1,0.3,1); } .ds-btn:active { transform: translateY(1px) scale(0.985); } .ds-btn:focus-visible { outline: 2px solid var(--focus, #1452ed); outline-offset: 3px; } .ds-btn-icon { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); } .ds-btn:hover .ds-btn-icon { transform: translateX(3px); } .ds-btn-primary { background: var(--accent, #1452ed); color: var(--accent-ink, #f6f9ff); box-shadow: 0 10px 24px -14px rgb(17 54 214 / 0.75); } .ds-btn-primary:hover { background: var(--accent-hover, #1136d6); box-shadow: 0 14px 30px -14px rgb(17 54 214 / 0.85); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined capsule for secondary navigation actions.",
+      "html": "<a class=\"ds-btn2\" href=\"#\">Lihat semua proyek</a>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; min-height: 3rem; padding-inline: 1.4rem; border-radius: 9999px; border: 1px solid var(--line-strong, rgb(8 42 86 / 0.28)); background: transparent; color: var(--ink, #082a56); font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 1rem; line-height: 1; text-decoration: none; transition: border-color 0.25s cubic-bezier(0.16,1,0.3,1), transform 0.25s cubic-bezier(0.16,1,0.3,1); } .ds-btn2:hover { border-color: var(--ink, #082a56); } .ds-btn2:active { transform: translateY(1px) scale(0.985); } .ds-btn2:focus-visible { outline: 2px solid var(--focus, #1452ed); outline-offset: 3px; }"
+    },
+    {
+      "name": "On-Field Button",
+      "kind": "button",
+      "refersTo": "button-on-field",
+      "description": "Light capsule with cobalt text, used on the cobalt closing band.",
+      "html": "<div class=\"ds-field-wrap\"><a class=\"ds-btn-field\" href=\"#\">Mulai konsultasi</a></div>",
+      "css": ".ds-field-wrap { background: var(--field, #1136d6); padding: 2rem; } .ds-btn-field { display: inline-flex; align-items: center; min-height: 3rem; padding-inline: 1.4rem; border-radius: 9999px; background: var(--field-ink, #f4f7ff); color: var(--field, #1136d6); font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 1rem; line-height: 1; text-decoration: none; transition: background-color 0.25s cubic-bezier(0.16,1,0.3,1); } .ds-btn-field:hover { background: #ffffff; } .ds-btn-field:focus-visible { outline: 2px solid #f4f7ff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Capsule text field with cobalt focus border and soft ring.",
+      "html": "<label class=\"ds-label\">Nama<input class=\"ds-input\" placeholder=\"Nama lengkap\"></label>",
+      "css": ".ds-label { display: grid; gap: 0.5rem; font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 600; color: var(--ink, #082a56); } .ds-input { width: 100%; min-height: 3.25rem; padding: 0.85rem 1.25rem; border: 1px solid var(--line-strong, rgb(8 42 86 / 0.28)); border-radius: 9999px; background: var(--paper-raised, #f8fafd); color: var(--ink, #082a56); font: inherit; font-weight: 400; caret-color: var(--accent, #1452ed); transition: border-color 0.2s ease, box-shadow 0.2s ease; } .ds-input:hover { border-color: var(--ink-muted, #4a6283); } .ds-input:focus-visible { outline: none; border-color: var(--accent, #1452ed); box-shadow: 0 0 0 3px var(--selection, rgb(20 82 237 / 0.18)); }"
+    },
+    {
+      "name": "Choice Capsule",
+      "kind": "chip",
+      "refersTo": "choice-capsule",
+      "description": "Radio rendered as a selectable pill; checked inverts to navy.",
+      "html": "<div class=\"ds-choices\"><label class=\"ds-choice\"><input type=\"radio\" name=\"ds-l\" checked><span>Website</span></label><label class=\"ds-choice\"><input type=\"radio\" name=\"ds-l\"><span>Aplikasi web</span></label></div>",
+      "css": ".ds-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; } .ds-choice { position: relative; display: inline-flex; } .ds-choice input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; } .ds-choice span { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.55rem 1.1rem; border: 1px solid var(--line-strong, rgb(8 42 86 / 0.28)); border-radius: 9999px; font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 550; color: var(--ink, #082a56); background: var(--paper-raised, #f8fafd); transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; } .ds-choice input:hover + span { border-color: var(--ink-muted, #4a6283); } .ds-choice input:checked + span { background: var(--ink, #082a56); border-color: var(--ink, #082a56); color: var(--paper, #f1f4f9); } .ds-choice input:focus-visible + span { outline: 2px solid var(--focus, #1452ed); outline-offset: 3px; }"
+    },
+    {
+      "name": "Desktop Navigation",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Muted text links with a 3px cobalt capsule underline that scales in from the left.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" aria-current=\"page\">Layanan</a><a href=\"#\">Portofolio</a><a href=\"#\">Proses</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 0.25rem; font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; } .ds-nav a { position: relative; display: inline-flex; align-items: center; height: 2.75rem; padding: 0 1rem; font-size: 0.97rem; font-weight: 500; color: var(--ink-muted, #4a6283); text-decoration: none; transition: color 0.2s; } .ds-nav a::after { content: \"\"; position: absolute; left: 1rem; right: 1rem; bottom: 0.5rem; height: 3px; border-radius: 9999px; background: var(--accent, #1452ed); transform: scaleX(0); transform-origin: left; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); } .ds-nav a:hover { color: var(--ink, #082a56); } .ds-nav a:hover::after, .ds-nav a[aria-current=page]::after { transform: scaleX(1); } .ds-nav a[aria-current=page] { color: var(--ink, #082a56); } .ds-nav a:focus-visible { outline: 2px solid var(--focus, #1452ed); outline-offset: 3px; border-radius: 0.375rem; }"
+    },
+    {
+      "name": "Project Card",
+      "kind": "card",
+      "refersTo": "panel-raised",
+      "description": "28px cover panel of generative 33deg capsules, wide-face title, and a capsule arrow well that fills cobalt on hover.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-cover\"><svg viewBox=\"0 0 800 600\" preserveAspectRatio=\"xMidYMid slice\" aria-hidden=\"true\"><defs><linearGradient id=\"ds-lit\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#19B8F2\"/><stop offset=\"1\" stop-color=\"#F4F7FF\"/></linearGradient></defs><rect width=\"800\" height=\"600\" fill=\"#1452ED\"/><g fill=\"#F4F7FF\" fill-opacity=\"0.2\"><rect x=\"75\" y=\"113\" width=\"330\" height=\"74\" rx=\"37\" transform=\"rotate(-33 240 150)\"/><rect x=\"285\" y=\"313\" width=\"330\" height=\"74\" rx=\"37\" transform=\"rotate(-33 450 350)\"/></g><rect x=\"165\" y=\"213\" width=\"360\" height=\"74\" rx=\"37\" fill=\"url(#ds-lit)\" transform=\"rotate(-33 345 250)\"/><rect x=\"405\" y=\"413\" width=\"300\" height=\"74\" rx=\"37\" fill=\"#F4F7FF\" transform=\"rotate(-33 555 450)\"/></svg></div><div class=\"ds-card-foot\"><div><h3>Sistem reservasi klinik</h3><p>Aplikasi web <span></span> Kesehatan</p><p class=\"ds-demo\">Konsep demonstrasi, bukan proyek klien</p></div><span class=\"ds-well\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M204,64V168a12,12,0,0,1-24,0V93L72.49,200.49a12,12,0,0,1-17-17L163,76H88a12,12,0,0,1,0-24H192A12,12,0,0,1,204,64Z\"/></svg></span></div></article>",
+      "css": ".ds-card { max-width: 30rem; font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; color: var(--ink, #082a56); } .ds-card-cover { aspect-ratio: 4/3; overflow: hidden; border-radius: 1.75rem; } .ds-card-cover svg { display: block; width: 100%; height: 100%; transition: transform 1.2s cubic-bezier(0.16,1,0.3,1); } .ds-card:hover .ds-card-cover svg { transform: scale(1.04); } .ds-card-foot { margin-top: 1.25rem; display: flex; justify-content: space-between; gap: 1.5rem; } .ds-card h3 { margin: 0.5rem 0 0; font-size: 1.25rem; font-weight: 720; font-stretch: 118%; letter-spacing: -0.025em; line-height: 1.375; } .ds-card p { margin: 0.5rem 0 0; display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; color: var(--ink-muted, #4a6283); } .ds-card p span { width: 1px; height: 0.75rem; background: var(--line-strong, rgb(8 42 86 / 0.28)); } .ds-card .ds-demo { display: inline-flex; margin-top: 0.75rem; padding: 0.25rem 0.75rem; border: 1px dashed var(--line-strong, rgb(8 42 86 / 0.28)); border-radius: 9999px; font-size: 0.8125rem; font-weight: 500; } .ds-well { display: grid; place-items: center; flex-shrink: 0; width: 2.75rem; height: 2.75rem; margin-top: 0.25rem; border-radius: 9999px; border: 1px solid var(--line-strong, rgb(8 42 86 / 0.28)); transition: background-color 0.5s cubic-bezier(0.16,1,0.3,1), color 0.5s cubic-bezier(0.16,1,0.3,1), border-color 0.5s cubic-bezier(0.16,1,0.3,1), transform 0.5s cubic-bezier(0.16,1,0.3,1); } .ds-card:hover .ds-well { transform: rotate(45deg); border-color: var(--accent, #1452ed); background: var(--accent, #1452ed); color: var(--accent-ink, #f6f9ff); }"
+    },
+    {
+      "name": "Accent Tile",
+      "kind": "card",
+      "refersTo": "panel-accent",
+      "description": "Committed cobalt panel used in the principles bento and process panels.",
+      "html": "<article class=\"ds-tile\"><h3>Progres yang bisa Anda lihat.</h3><p>Setiap tahap pengembangan punya versi pratinjau.</p></article>",
+      "css": ".ds-tile { display: flex; flex-direction: column; justify-content: space-between; gap: 2.5rem; max-width: 26rem; padding: 2rem; border-radius: 1.75rem; background: var(--accent, #1452ed); color: var(--accent-ink, #f6f9ff); font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; } .ds-tile h3 { margin: 0; font-size: clamp(1.4rem, 2.1vw, 1.85rem); line-height: 1.15; font-weight: 720; font-stretch: 118%; letter-spacing: -0.03em; } .ds-tile p { margin: 0; font-size: 1.0625rem; line-height: 1.6; color: #dfe7ff; }"
+    },
+    {
+      "name": "Process Rail Step",
+      "kind": "custom",
+      "refersTo": "process-rail",
+      "description": "Vertical hairline with a cobalt fill and capsule markers that light as passed.",
+      "html": "<ol class=\"ds-rail\"><li><span class=\"ds-mark is-lit\">1</span><div><h3>Konsultasi</h3><p>Kami memahami kebutuhan Anda.</p></div></li><li><span class=\"ds-mark\">2</span><div><h3>Ruang lingkup</h3><p>Fitur dan biaya disepakati tertulis.</p></div></li></ol>",
+      "css": ".ds-rail { position: relative; list-style: none; margin: 0; padding: 0; font-family: \"Archivo Variable\", ui-sans-serif, system-ui, sans-serif; color: var(--ink, #082a56); } .ds-rail::before { content: \"\"; position: absolute; top: 0.5rem; bottom: 0.5rem; left: 1.375rem; width: 1px; background: var(--line-strong, rgb(8 42 86 / 0.28)); } .ds-rail li { position: relative; display: grid; grid-template-columns: 2.75rem 1fr; column-gap: 1.5rem; padding-bottom: 3rem; } .ds-rail li:last-child { padding-bottom: 0; } .ds-mark { position: relative; z-index: 1; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; border: 1px solid var(--line-strong, rgb(8 42 86 / 0.28)); background: var(--paper, #f1f4f9); color: var(--ink-muted, #4a6283); font-size: 0.875rem; font-weight: 700; transition: background-color 0.5s, color 0.5s, border-color 0.5s; } .ds-mark.is-lit { border-color: var(--accent, #1452ed); background: var(--accent, #1452ed); color: var(--accent-ink, #f6f9ff); } .ds-rail h3 { margin: 0.375rem 0 0; font-size: clamp(1.4rem, 2.1vw, 1.85rem); line-height: 1.15; font-weight: 720; font-stretch: 118%; letter-spacing: -0.03em; } .ds-rail p { margin: 0.75rem 0 0; color: var(--ink-muted, #4a6283); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Precision in Motion",
+    "overview": "Every surface is built from the logo: four rounded capsules, each tilted to the same 33 degree axis, that lock together into an S. The capsule is the system's one shape for anything single-line and interactive, the 33 degree line is its only diagonal, and the logo's cobalt is its only accent. Parts becoming a solution is the brand story, and the hero tells it literally by assembling the mark from its four capsules.\n\nThe ground is cool porcelain read in daylight, with logo navy as ink. Cobalt shows up two ways: sparingly as the action color, and boldly as committed fields (the closing call to action and footer band, accent tiles, process panels). Type is one variable grotesk, Archivo, pushed semi-expanded and heavy for display, normal width for reading. Density is moderate and generous with section rhythm; layouts are asymmetric 12-column splits rather than centred stacks. Dark mode follows `prefers-color-scheme` and keeps the same structure on a deep navy night ground.\n\nThe build rejects the SaaS template: centred headline over a gradient, three identical feature cards, testimonial carousels, decorative glow, and arbitrary decorative icons.",
+    "keyCharacteristics": [
+      "Full capsules for buttons, inputs, choice pills, tags, and icon wells; 28px panels for containers.",
+      "33 degrees is the only diagonal: hero lattice, generative cover art, menu icon, system map connectors, tile wipes.",
+      "One accent (cobalt), committed as fields, never sprinkled; cyan lives only inside capsule gradients.",
+      "Archivo variable on its width axis: wide and heavy for headings, normal width for text.",
+      "Flat surfaces separated by tone and hairlines; the only shadow is the primary button's cobalt lift.",
+      "Scroll-coupled motion with a distinct role per section, all of it optional under reduced motion."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Cobalt is the only accent. Where it appears in quantity it is a committed field or tile, not a tint scattered across components.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gradient Containment Rule",
+        "body": "Gradients exist only inside capsules (azure and cyan stops on the mark and cover art). No gradient backgrounds, no gradient text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Width Axis Rule",
+        "body": "Hierarchy comes from width and weight together: headings expand (112 to 118 percent) and go to 720; text never leaves 100 percent width.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "No uppercase tracked labels. Small headings, legends, and metadata stay sentence case at normal tracking.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tone Not Shadow Rule",
+        "body": "Containers separate by tone and hairline. Cards and panels carry no shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do make every single-line interactive element a full capsule (9999px) and every container a 28px panel.",
+      "Do keep 33 degrees as the only diagonal, for lines, capsules, icons, and clip-path wipes alike.",
+      "Do spend cobalt as a committed field or the single action color, and keep azure and cyan inside capsule gradients.",
+      "Do set headings in Archivo at 720 weight, 112 to 118 percent width, -0.03em tracking; keep running text at normal width, 1.0625rem, line-height 1.6.",
+      "Do separate sections with the section rhythm (clamp(5rem, 11vw, 9.5rem)) plus a hairline or tonal step.",
+      "Do keep content visible without JavaScript and under reduced motion; hero copy enters by CSS, everything scroll-driven belongs to GSAP and is optional.",
+      "Do use generative capsule covers for portfolio imagery, and label demonstration concepts with the dashed demo capsule."
+    ],
+    "donts": [
+      "Don't build the SaaS template: centred headline over a gradient, three identical feature cards, testimonial carousel.",
+      "Don't use glow, gradient backgrounds, or gradient text; gradients belong inside capsules only.",
+      "Don't add shadows to cards or panels; the cobalt lift is reserved for the primary button.",
+      "Don't introduce uppercase tracked eyebrows or kickers above headings.",
+      "Don't use arbitrary decorative icons; icons are functional Phosphor arrows and carets.",
+      "Don't alter the logo's shapes; only its monochrome version on cobalt and the dark-mode wordmark color are allowed variations.",
+      "Don't use Faint Slate Ink for small text."
+    ]
+  }
+}
