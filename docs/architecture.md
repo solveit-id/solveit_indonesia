@@ -55,4 +55,4 @@ Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau e
 | Tanpa WebGL/Three.js | Identitas visual cukup dibawa SVG + transform; biaya performa tidak sebanding |
 | Tanpa custom smooth scroll | Native scroll lebih stabil dan aksesibel |
 | Formulir via WhatsApp/email | Kanal resmi yang sudah dikonfirmasi; tidak ada klaim "terkirim" tanpa backend |
-| `eslint-plugin-jsx-a11y` di ESLint 10 | Plugin belum mendeklarasikan ESLint 10 sebagai peer, tetapi berjalan normal; a11y juga diverifikasi oleh axe di Playwright |
+| ESLint 9, bukan 10 | `eslint-plugin-jsx-a11y` belum mendukung ESLint 10 (peer `^9`); ESLint 9 menjaga `npm ci` tetap ketat tanpa `--legacy-peer-deps`. A11y juga diverifikasi oleh axe di Playwright |

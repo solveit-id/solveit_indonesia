@@ -6,7 +6,7 @@ Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `npm run lint` (ESLint 10, typescript-eslint, react-hooks, jsx-a11y) | Lulus, 0 masalah |
+| `npm run lint` (ESLint 9, typescript-eslint, react-hooks, jsx-a11y) | Lulus, 0 masalah |
 | `npm run typecheck` (TS 6, strict, `noUncheckedIndexedAccess`) | Lulus |
 | `npm test` (Vitest) | 21/21 lulus: integritas konten (slug, demo tanpa hasil, kategori, peta sistem, nomor WhatsApp, tanpa em dash), validasi dan penyusunan inquiry, helper SEO, perilaku formulir |
 | `npm run build` | Lulus; 11 halaman terindeks + 404 di-prerender |
