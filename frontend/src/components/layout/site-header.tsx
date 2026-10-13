@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
-import { Logo } from "~/components/brand/logo";
+import { HeaderLogo } from "~/components/brand/header-logo";
 import { WhatsAppMenu } from "~/components/contact/whatsapp-contacts";
 import { primaryNav } from "~/data/navigation";
 import { useI18n } from "~/i18n";
@@ -180,13 +180,9 @@ export function SiteHeader() {
           into a floating capsule (clip-path and opacity only, no layout). */}
       <div aria-hidden className="header-plate" />
       <div aria-hidden className="header-edge" />
-      <div className="relative shell flex h-[4.5rem] items-center justify-between gap-4 lg:gap-6">
-        <Link
-          to={path("home")}
-          className="header-logo shrink-0 rounded-md"
-          aria-label={t.common.homeLink}
-        >
-          <Logo className="w-[6.75rem] sm:w-[7.5rem]" title="Solveit Indonesia" />
+      <div className="header-bar relative shell flex h-[var(--header-h)] items-center justify-between gap-4 lg:gap-6">
+        <Link to={path("home")} className="header-logo shrink-0" aria-label={t.common.homeLink}>
+          <HeaderLogo />
         </Link>
 
         <nav aria-label={t.nav.main} className="main-nav hidden lg:block">
@@ -231,6 +227,7 @@ export function SiteHeader() {
             ref={toggleRef}
             type="button"
             className="btn btn-secondary min-h-11 px-4 lg:hidden"
+            data-close-control={open || undefined}
             aria-expanded={open}
             aria-controls="mobile-menu"
             onClick={() => setOpen((value) => !value)}
@@ -262,7 +259,7 @@ export function SiteHeader() {
         onAnimationEnd={(event) => {
           if (event.target === event.currentTarget && menu === "closing") setMenu("closed");
         }}
-        className="mobile-menu relative h-[calc(100dvh-4.5rem)] overflow-y-auto overscroll-contain border-t border-line bg-paper lg:hidden"
+        className="mobile-menu relative h-[calc(100dvh-var(--header-h))] overflow-y-auto overscroll-contain border-t border-line bg-paper lg:hidden"
       >
         <nav
           aria-label={t.nav.mobile}

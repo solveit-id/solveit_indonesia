@@ -3,6 +3,7 @@ import { Form, Link } from "react-router";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import { BrandMark } from "~/components/brand/brand-mark";
 import { serviceParam, useI18n } from "~/i18n";
+import { bootSettled } from "~/lib/boot";
 import { isLiteDevice } from "~/lib/device";
 import { motionQueries, useMotion } from "~/lib/motion";
 import { getServices } from "~/services/content";
@@ -33,8 +34,11 @@ export function Hero() {
           const capsules = gsap.utils.toArray<SVGPathElement>("[data-capsule]");
           gsap.set("[data-hero-stage]", { opacity: 1 });
 
-          gsap
-            .timeline({ delay: 0.15 })
+          // On a first load the assembly waits for the branded overlay to
+          // start leaving, so it plays where the visitor can see it.
+          const intro = gsap.timeline({ delay: 0.15, paused: true });
+          void bootSettled().then(() => intro.play());
+          intro
             .from("[data-lattice]", { autoAlpha: 0, scale: 0.94, duration: 1.6 }, 0)
             .from(
               capsules,
@@ -110,9 +114,9 @@ export function Hero() {
     <section
       ref={scope}
       aria-labelledby="hero-title"
-      className="relative overflow-hidden pt-[4.5rem]"
+      className="relative overflow-hidden pt-[var(--header-h)]"
     >
-      <div className="shell grid min-h-[calc(100dvh-4.5rem)] items-center gap-y-10 py-10 lg:grid-cols-12 lg:gap-x-10 lg:py-16">
+      <div className="shell grid min-h-[calc(100dvh-var(--header-h))] items-center gap-y-10 py-10 lg:grid-cols-12 lg:gap-x-10 lg:py-16">
         <div data-hero-copy className="relative z-10 lg:col-span-7">
           <h1
             id="hero-title"

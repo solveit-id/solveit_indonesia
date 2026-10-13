@@ -285,7 +285,7 @@ Confident capsules with an arrow that nudges forward on hover.
 - **Motion:** opens in 420ms from the launcher corner, closes in 220ms; each new message enters from its own side.
 
 ### Loading feedback
-- No full-screen loader: every page is prerendered HTML and paints at once. Client navigations show a thin indeterminate cobalt runner along the top edge after 150ms, and after 900ms a porcelain status chip whose mark is the four capsules drifting apart on the 33 degree axis and locking back together. No percentages.
+- Branded load screen on document loads only ("Four capsules. One solution."), full (about 1.3s) on the first load in a browser tab and a compressed version (about 0.6s) on later reloads in that tab: a fullscreen porcelain sheet where the four capsules of the primary lockup arrive along the 33 degree axis, the wordmark slides out from behind the mark, and INDONESIA drops in; as soon as the fourth capsule locks and the page is ready the stage lifts and the sheet, trailed by a cobalt band, wipes away to the bottom right. Static CSS and SVG driven by `<html data-boot>`, capped at 2.6s, never shown without JavaScript, a still mark and a short fade under reduced motion. Client navigations show a thin indeterminate cobalt runner along the top edge after 150ms, and after 900ms a porcelain status chip whose mark is the four capsules drifting apart and locking back together. No percentages.
 
 ### Client stories
 - Until a client approves a testimonial, the home page shows a pledge: a quotation mark built from two gradient capsules on the 33 degree axis, the promise, and dashed capsule slots for what every story will carry (name and role, project context, approval date).
@@ -316,5 +316,5 @@ A vertical hairline with a cobalt fill that grows as the reader scrolls; capsule
 - **Don't** use arbitrary decorative icons; icons are functional Phosphor arrows and carets.
 - **Don't** alter the logo's shapes; only its monochrome version on cobalt and the dark-mode wordmark color are allowed variations.
 - **Don't** set a global `scroll-behavior: smooth` or add a smooth-scroll library; both break Back-button scroll restoration or nested scrolling here.
-- **Don't** show a full-screen loader or fake progress; loading feedback scales with the real wait.
+- **Don't** show fake progress or hold the page back for an animation; the one full-screen moment is the first-load brand sequence, which leaves as soon as its entrance has played and the page is ready, and every other wait gets feedback scaled to its real length.
 - **Don't** use Faint Slate Ink for small text.

@@ -2,6 +2,108 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Putaran 4 (2026-10-13): layar pemuatan bermerek, morph navbar, kontrol mengambang, detail portofolio
+
+Cakupan: 16 masukan pengguna dari evaluasi langsung. Layar pemuatan fullscreen bermerek (membatalkan keputusan putaran 3, atas permintaan pengguna), tombol tema dan pemilih bahasa, header lebih lega dengan morph logo primer ke ikon, urutan menu baru, dock kembali ke atas dan asisten, audit kursor dan kontrol tutup merah, logo teknologi, desain ulang detail studi kasus, dan penghalusan motion. Baseline: `main` pada `1ea6eea`.
+
+### Pemeriksaan otomatis
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run format:check`, `npm run lint`, `npm run typecheck` | Lulus. Satu-satunya peringatan format adalah cache lokal hook desain (`frontend/.impeccable/hook.cache.json`, di-exclude dari git) |
+| `npm test` (Vitest) | 60/60 lulus. Baru: `lib/boot.test.ts` (urutan penuh lalu singkat dalam satu tab, exit begitu kapsul keempat mengunci, storage diblokir tetap penuh, reduced motion, batas 2,6 s, hook opt-out, `bootSettled`; setiap tes di dokumen terpisah) dan `data/technologies.test.ts` (setiap teknologi proyek terdeskripsi, hanya logo yang dibundel, REST API tanpa logo merek, judul "diusulkan"/"proposed") |
+| `npm run build` | Lulus; 22 halaman terindeks + 404 per bahasa |
+| E2E Chromium desktop 1440, 1 worker | 118 lulus, 0 gagal, 5 dilewati sesuai desain (123) |
+| E2E Chromium tablet 820, 1 worker | 113 lulus, 0 gagal, 10 dilewati (123) |
+| E2E Chromium Pixel 7, 1 worker | 100 lulus, 0 gagal, 23 dilewati (123) |
+| E2E Firefox desktop, 1 worker | 117 lulus, 0 gagal, 6 dilewati (123) |
+| E2E WebKit desktop, 1 worker | 116 lulus, 0 gagal, 7 dilewati (123) |
+| E2E WebKit iPhone 14, 1 worker | 99 lulus, 0 gagal, 24 dilewati (123) |
+| axe-core WCAG 2.0/2.1/2.2 A dan AA | 0 pelanggaran di 14 halaman x 2 tema di keenam project di atas |
+
+Satu putaran regresi bersih pada kode final, dijalankan berurutan per project dengan 1 worker (memori bebas 1,1 sampai 2,5 GB). Dua run sebelumnya dihentikan sistem karena tekanan memori (satu run Lighthouse dan satu run e2e paralel yang worker-nya gagal mulai dengan `0xC0000142`); keduanya diulang dengan cara berurutan, bukan dengan mematikan perlindungan memori.
+
+Cakupan e2e baru (`tests/e2e/refinement.spec.ts`): layar pemuatan (urutan penuh pada muatan pertama, singkat pada reload di tab yang sama dan lebih cepat dari yang penuh, penuh lagi di tab baru; menutupi paint pertama, ukuran layar penuh, `pointer-events: none`, judul halaman sudah ada di bawahnya, exit paling lambat 2,6 s setelah frame pertama entrance, hilang setelah sapuan; sekali per dokumen, tidak muncul pada navigasi klien; tema gelap dari frame pertama di route EN; reduced motion tanpa gerak kapsul; tanpa JavaScript tidak tampil; jaringan lambat tetap tampil lalu pergi), gulungan ikon tema dan `view-transition-name`, gulungan label bahasa berlawanan arah dan toggle ponsel, lipatan wordmark ke mark dan kembali (kedua varian lebar), area di luar kapsul header tetap bisa diklik, tombol kembali ke atas di samping peluncur dan tidak tertutup panel asisten, peluncur yang terbuka dipangkas, kontrol tutup merah, kursor (pointer, not-allowed, text), lima studi kasus x dua bahasa menampilkan setiap teknologi dengan logo dan nama tanpa tautan atau tombol, rail bab mengikuti pembaca dan urutan cerita. Urutan menu baru diuji di kedua bahasa.
+
+Opt-out e2e: fixture menulis `window.__solveitBoot = "off"` sebelum skrip halaman berjalan, sehingga tes lain tidak menunggu sekitar 1,3 s per muatan; tes layar pemuatan memakai `bootLoader: true` dan melihat urutan yang sebenarnya.
+
+### Temuan yang diperbaiki selama QA
+
+| Temuan | Sumber | Perbaikan |
+|---|---|---|
+| TBT Beranda naik 440 ke 581 ms (run berurutan) | Lighthouse, `long-tasks` | Long task terbesar (sekitar 300 ms, juga di baseline) adalah semua setup GSAP yang berjalan beruntun saat GSAP pertama tiba. `useMotion` kini mengantrekan setup pada muatan pertama, satu per task, urutan tetap; setelah GSAP dimuat (navigasi klien) setup tetap sinkron sehingga entrance tidak berkedip. TBT Beranda menjadi 191 ms vs 255 ms baseline |
+| Speed Index naik karena overlay menutupi halaman yang sudah terlukis | Lighthouse, filmstrip | Timeline dipadatkan dua kali (1,7 s ke 1,5 s ke sekitar 1,3 s total) tanpa membuang ketukan: kedatangan kapsul, wordmark, INDONESIA, sapuan 33 derajat. Sisa kenaikan dijelaskan di bawah |
+| Overlay bisa tertahan bila main thread sibuk saat batas 2,6 s jatuh tempo (timer tidak bisa menyela long task) | Tes kontrak waktu di dalam halaman | Failsafe CSS: animasi `boot-failsafe` dengan delay 3,4 s yang dijalankan compositor, sama di keadaan `intro` dan `exit` sehingga tidak pernah mulai ulang |
+| Ikon tema tetap miring setelah diketuk di layar sentuh (hover tersangkut) | e2e tablet/ponsel | Semua hover yang menggerakkan sesuatu hanya di `@media (hover: hover)` |
+| Elemen `<header>` tetap menangkap klik di luar kapsul mengambang | e2e `elementFromPoint` | `pointer-events: none` pada header saat ringkas, kontrol di dalamnya tetap aktif |
+| Ikon teknologi terlalu kecil dan pucat (MySQL tidak terbaca) | Screenshot | Sumur 2,5 rem, ikon 1,375 rem, warna tinta penuh |
+| Path logo muncul tiga kali per halaman (header, overlay, footer) | Ukuran HTML | Satu sprite `<symbol>`/`<use>` bersama (`logo-sprite.tsx`); ikon teknologi juga satu sprite per studi kasus |
+| WebKit melaporkan `cursor: auto` untuk tautan dan input teks | e2e WebKit | Kursor dinyatakan eksplisit di base layer (`a[href]` pointer, input teks dan textarea `text`) agar sama di semua mesin |
+| Nilai clip-path diserialisasi `71.400002%` di WebKit | e2e WebKit iPhone | Tes membandingkan angka dengan pembulatan 0,1 |
+| Dua tes yang mengunjungi 14 halaman melewati 30 s | Run penuh 16 worker | Diukur: 14 muatan tanpa JS sekitar 1,4 s pada build lama maupun baru (Pixel 7), jadi bukan regresi tetapi kepadatan worker. Lulus pada batas bawaan 30 s dengan 1 dan 2 worker; kenaikan batas waktu yang sempat dibuat dibatalkan |
+| Overlay penuh menutupi halaman sekitar 1,3 s pada setiap muatan dokumen | Speed Index | Disetujui pemilik produk: urutan penuh hanya pada muatan pertama di tab (`sessionStorage`), versi singkat sekitar 0,6 s pada refresh berikutnya, dan exit dimulai begitu kapsul keempat mengunci. Terukur: penuh 1,29 s, singkat 0,58 s dari paint pertama sampai overlay hilang |
+
+### Lighthouse
+
+Lighthouse 13.5, mobile default (Moto G Power teremulasi, slow 4G, CPU 4x). **Run berselang-seling** tiga varian per halaman, 3 run masing-masing, median; semua build tanpa `VITE_SITE_URL`, disajikan satu proses Node dengan logika `scripts/serve.mjs`, satu browser pada satu waktu:
+
+- **Sebelum**: `main` `1ea6eea`.
+- **Penuh**: build final, muatan pertama di tab (urutan sekitar 1,3 s).
+- **Singkat**: build final yang sama dengan pemeriksaan sesi dipaksa "sudah dilihat" pada salinan sementara, karena Lighthouse selalu membuka tab baru sehingga reload dalam sesi tidak bisa diulang langsung. Hanya satu ekspresi di skrip head yang diganti; kode produksi tidak berubah.
+
+| Halaman | Performance sebelum / penuh / singkat | LCP (s) | TBT (ms) | Speed Index (s) | CLS |
+|---|---|---|---|---|---|
+| `/` | 96 / **97** / **98** | 1,59 / 1,58 / 1,57 | 196 / 153 / 147 | 2,96 / 3,21 / 2,89 | 0 |
+| `/portofolio` | 99 / **98** / **98** | 1,57 / 1,57 / 1,57 | 92 / 109 / 79 | 2,71 / 3,25 / 3,08 | 0 |
+| `/portofolio/sistem-antrean-klinik` | 99 / **98** / **98** | 1,57 / 1,58 / 1,58 | 101 / 135 / 130 | 2,56 / 2,78 / 2,89 | 0 |
+| `/kontak` | 100 / **99** / **99** | 1,44 / 1,59 / 1,58 | 85 / 90 / 85 | 1,95 / 2,58 / 2,32 | 0 |
+| `/en` | 97 / **97** / **98** | 1,45 / 1,58 / 1,58 | 193 / 152 / 101 | 2,72 / 3,09 / 2,87 | 0 |
+
+Accessibility, Best Practices, dan SEO 100 pada ketiga varian di kelima halaman. Data mentah: `lh-f-*` (varian final), serta `lh-r2*`/`lh-r3*` dari putaran pengukuran sebelumnya di direktori kerja QA.
+
+Riwayat optimasi selama putaran ini (run berurutan, lalu berselang-seling): build pertama menurunkan Beranda 87 ke 82 (TBT 440 ke 581 ms). Setelah setup GSAP diantrekan per task dan timeline dipadatkan, Beranda 94 ke 96 dan `/en` 93 ke 96 dengan TBT lebih rendah dari baseline. Exit begitu kapsul mengunci dan mode singkat menurunkan biaya Speed Index lagi (tabel di atas).
+
+Accessibility, Best Practices, dan SEO 100 di semua halaman yang diukur, sebelum dan sesudah.
+
+Trade-off layar pemuatan (dilaporkan apa adanya): Performance tetap 97 sampai 99, LCP di bawah 1,6 s, CLS 0, dan TBT setara atau lebih rendah dari baseline di sebagian besar halaman. **Speed Index naik** karena overlay menutupi halaman yang sudah terlukis: urutan penuh +0,22 sampai +0,63 s, versi singkat -0,07 sampai +0,38 s dibanding baseline. `/kontak` memiliki baseline paling cepat (FCP 0,84 s) sehingga kenaikannya paling terlihat (LCP 1,44 ke 1,59 s, tetap jauh di bawah 2,5 s). Alternatif yang belum diterapkan: overlay tidak penuh (logo merakit di tengah sementara konten sudah terlihat redup di bawahnya).
+
+### Ukuran
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| CSS (transfer brotli) | 13 KB | 15 KB |
+| HTML Beranda (brotli) | 17,0 KB | 17,6 KB |
+| HTML studi kasus (brotli) | 13,1 KB | 19,3 KB (logo teknologi, sampul mini sebelumnya/berikutnya, struktur bab) |
+
+### Review visual
+
+Bukti disimpan lokal di `.impeccable/review/round-4/` (folder ini di-gitignore seperti review putaran sebelumnya), diambil dari build final lewat screencast CDP (paint nyata, tanpa jeda screenshot):
+
+| Bukti | Isi |
+|---|---|
+| `loader-full-desktop.png`, `loader-full-mobile.png`, `loader-full-dark-en.png` | Muatan pertama: lembar porselen (atau gelap bila tema gelap dipilih, route EN), kapsul merakit, wordmark dan INDONESIA, sapuan 33 derajat dengan pita cobalt, lalu mark hero merakit di halaman |
+| `loader-short-reload.png` | Reload di tab yang sama: logo terakit dalam sekitar 0,2 s, sapuan, halaman tampil. Timeline terukur: paint pertama 184 ms, exit 399 ms, selesai 760 ms |
+| `loader-slow-network.png` | 1,6 Mbps, latensi 150 ms, CPU 4x: paint pertama 2,2 s, overlay tetap tampil penuh lalu pergi |
+| `navbar-condense.png`, `navbar-expand.png` | Wordmark ditelan mark saat meringkas (sekitar 0,6 s) dan keluar lagi saat mengembang; kapsul pelat menyusut dan melebar mengikuti |
+| `theme-toggle.png`, `language-switch.png` | Matahari dan bulan bergulir dua arah; thumb bahasa meregang dan label menggulung |
+| `dock-assistant-open.png`, `assistant-close-hover.png` | Panel asisten di atas baris dock, tombol kembali ke atas terlihat di sampingnya, peluncur "Tutup" terpangkas; tombol X merah halus saat hover |
+| `case-study-desktop-chapters.png`, `case-study-dark-technology.png`, `case-study-mobile-facts.png` | Bab studi kasus, logo teknologi di tema gelap, lembar fakta di ponsel |
+
+Timeline urutan penuh terukur: paint pertama 248 ms, kapsul keempat mengunci dan exit 891 ms, selesai 1533 ms (1,29 s tertutup). Tidak ada error konsol pada sesi screenshot.
+
+Status verifikasi:
+
+- **Lulus terverifikasi**: format, lint, typecheck, unit 60/60, build, e2e enam project (663 lulus, 0 gagal), axe 0 pelanggaran, Lighthouse lima halaman x tiga varian, bukti visual di atas.
+- **Gagal terverifikasi**: tidak ada pada kode final.
+- **Terhambat lingkungan**: run paralel penuh (lebih dari 2 worker) tidak dapat dijalankan dengan memori mesin ini; diganti run berurutan 1 worker.
+- **Tidak diuji**: Safari iOS dan Android fisik, pembaca layar nyata, angka lapangan (CrUX/INP) sebelum domain aktif.
+
+### Keterbatasan
+
+- Lighthouse adalah emulasi di mesin pengembang dengan memori terbatas; angka lapangan baru tersedia setelah domain aktif.
+- Firefox dan WebKit diuji lewat build Playwright, bukan Safari iOS fisik; pembaca layar nyata belum diuji manual.
+- Logo teknologi adalah merek milik pemiliknya (Simple Icons, CC0), dipakai hanya untuk mengidentifikasi teknologi yang diusulkan.
+
 ## Putaran 3 (2026-10-13): motion, interaksi premium, asisten, testimoni
 
 Cakupan: tombol tema dan pemilih bahasa, header adaptif dengan urutan menu baru, tombol kembali ke atas, umpan balik pemuatan, Asisten Solveit (panduan otomatis), seksi cerita klien, kosakata motion, dan evaluasi Lenis. Baseline: `main` pada `d2b9956`.

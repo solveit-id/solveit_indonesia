@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { ArrowUp } from "@phosphor-icons/react/dist/ssr/ArrowUp";
 import { X } from "@phosphor-icons/react/dist/ssr/X";
@@ -21,10 +21,13 @@ const TOP_AFTER = 1.2;
 const SHEET_QUERY = "(max-width: 639px)";
 
 /**
- * Bottom-right controls, stacked so they never collide: back-to-top above the
- * Solveit Assistant launcher. Rendered after hydration only, so neither ever
- * shows as a dead button. Both step aside while a `[data-floating-avoid]`
- * element (the contact form's send buttons) is near the bottom of the screen.
+ * Bottom-right controls in one row, so they never collide: back-to-top sits
+ * beside the Solveit Assistant launcher, and the assistant panel opens above
+ * the whole row, so back-to-top stays usable while it is open (the phone
+ * bottom sheet is modal and covers both). Rendered after hydration only, so
+ * neither ever shows as a dead button. Both step aside while a
+ * `[data-floating-avoid]` element (the contact form's send buttons) is near
+ * the bottom of the screen.
  */
 export function FloatingDock({ compact = false }: { compact?: boolean }) {
   const hydrated = useHydrated();
@@ -33,6 +36,7 @@ export function FloatingDock({ compact = false }: { compact?: boolean }) {
   const dockRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLButtonElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
   const [state, setState] = useState<AssistantState>("closed");
   const [requested, setRequested] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -77,6 +81,26 @@ export function FloatingDock({ compact = false }: { compact?: boolean }) {
     setLastPath(pathname);
     if (sheet && state === "open") setState("closed");
   }
+
+  // "Tutup" is shorter than "Tanya Solveit": the open launcher trims the
+  // difference from its left edge (clip and transform, no layout), so the
+  // capsule hugs its label instead of keeping an empty tail.
+  useLayoutEffect(() => {
+    const dock = dockRef.current;
+    const label = labelRef.current;
+    if (!dock || !label) return;
+    const measure = () => {
+      const width = (name: string) =>
+        label.querySelector<HTMLElement>(`[data-label="${name}"]`)?.offsetWidth ?? 0;
+      const trim = label.offsetWidth > 0 ? Math.max(0, width("open") - width("close")) : 0;
+      dock.style.setProperty("--launcher-trim", `${trim}px`);
+    };
+    measure();
+    void document.fonts?.ready.then(measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(label);
+    return () => observer.disconnect();
+  }, [hydrated, locale, compact]);
 
   // Back-to-top visibility follows the scroll position through the shared
   // ScrollTrigger listener; attributes change only when the state flips.
@@ -137,6 +161,7 @@ export function FloatingDock({ compact = false }: { compact?: boolean }) {
       ref={dockRef}
       className="floating-dock"
       data-assistant={state}
+      data-sheet={sheet && state !== "closed" ? "true" : undefined}
       data-avoid="false"
       data-compact={compact}
     >
@@ -150,7 +175,7 @@ export function FloatingDock({ compact = false }: { compact?: boolean }) {
         title={t.backToTop}
         className="dock-top"
       >
-        <ArrowUp aria-hidden weight="bold" className="size-[1.125rem]" />
+        <ArrowUp aria-hidden weight="bold" className="dock-top-icon size-[1.125rem]" />
       </button>
 
       <button
@@ -162,6 +187,7 @@ export function FloatingDock({ compact = false }: { compact?: boolean }) {
         aria-expanded={open}
         aria-controls={requested ? "assistant-panel" : undefined}
         title={open ? t.assistant.close : t.assistant.open}
+        data-close-control={open || undefined}
         className="dock-launcher"
       >
         <span aria-hidden className="dock-launcher-icon">
@@ -173,7 +199,7 @@ export function FloatingDock({ compact = false }: { compact?: boolean }) {
           </span>
         </span>
         {/* Both labels share one cell, so the capsule keeps its width. */}
-        <span aria-hidden className={cn("dock-launcher-label", compact && "hidden")}>
+        <span ref={labelRef} aria-hidden className={cn("dock-launcher-label", compact && "hidden")}>
           <span data-label="open">{t.assistant.launcher}</span>
           <span data-label="close">{t.nav.close}</span>
         </span>

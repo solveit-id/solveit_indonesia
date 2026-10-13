@@ -91,13 +91,13 @@ test("header order follows the visitor journey, with contact as the closing caps
     "Home",
     "About Us",
     "Services",
-    "Portfolio",
     "Process",
+    "Portfolio",
   ]);
   await page.goto("/");
   await expect(
     page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link"),
-  ).toHaveText(["Beranda", "Tentang Kami", "Layanan", "Portofolio", "Proses Kerja"]);
+  ).toHaveText(["Beranda", "Tentang Kami", "Layanan", "Proses Kerja", "Portofolio"]);
   await page.goto("/kontak");
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Mulai konsultasi" }),

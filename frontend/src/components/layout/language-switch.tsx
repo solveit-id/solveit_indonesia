@@ -24,6 +24,22 @@ function useTargetLocale(): { target: Locale; busy: boolean } {
 }
 
 /**
+ * A label in a one-line mask. Its copy waits below the mask, so hover rolls
+ * the word up and out while the copy rolls in, and a switch rolls the labels
+ * in opposite directions, like two gears. Decorative: the link's name comes
+ * from screen-reader text beside it.
+ */
+function RollLabel({ text }: { text: string }) {
+  return (
+    <span aria-hidden className="lang-roll">
+      <span className="lang-roll-track" data-text={text}>
+        {text}
+      </span>
+    </span>
+  );
+}
+
+/**
  * ID / EN segmented capsule. Each option links to the same page in that
  * language (case studies map slug to slug) and keeps the scroll position,
  * since both versions share one structure. The choice is remembered only to
@@ -49,21 +65,25 @@ export function LanguageSwitch({
     const other = locales.find((option) => option !== locale)!;
     const meta = localeMeta[other];
     // Both labels are stacked in one cell; the one naming the language you
-    // would switch to rolls into view, the other rolls out.
+    // would switch to rolls up into view as the other rolls up and out.
     return (
       <Link
         to={alternatePath(pathname, other)}
         hrefLang={meta.htmlLang}
         lang={meta.htmlLang}
         preventScrollReset
-        onClick={() => rememberLocale(other)}
+        onClick={(event) => {
+          rememberLocale(other);
+          // Arms the roll only for real switches, never on load.
+          event.currentTarget.dataset.moved = "true";
+        }}
         data-shows={locales.find((option) => option !== target)}
         aria-busy={busy || undefined}
         className={cn("lang-toggle", className)}
       >
         {locales.map((option) => (
-          <span key={option} aria-hidden data-label={option} className="lang-toggle-label">
-            {localeMeta[option].short}
+          <span key={option} data-label={option} className="lang-toggle-label">
+            <RollLabel text={localeMeta[option].short} />
           </span>
         ))}
         <span className="sr-only">{meta.name}</span>
@@ -101,14 +121,8 @@ export function LanguageSwitch({
             }}
             className="lang-option"
           >
-            {variant === "full" ? (
-              meta.name
-            ) : (
-              <>
-                <span aria-hidden>{meta.short}</span>
-                <span className="sr-only">{meta.name}</span>
-              </>
-            )}
+            <RollLabel text={variant === "full" ? meta.name : meta.short} />
+            <span className="sr-only">{meta.name}</span>
           </Link>
         );
       })}
