@@ -10,7 +10,10 @@ import {
   useLocation,
 } from "react-router";
 import archivo from "./assets/fonts/archivo-solveit.woff2?url";
+import { BootLoader } from "./components/brand/boot-loader";
+import { LogoSprite } from "./components/brand/logo-sprite";
 import { getMessages, localeFromPath, localeMeta, pathFor, storageKeys, useLocale } from "./i18n";
+import { bootLoaderScript } from "./lib/boot";
 import { themeColors } from "./lib/theme";
 import type { Route } from "./+types/root";
 import "./styles/app.css";
@@ -32,13 +35,15 @@ export const links: Route.LinksFunction = () => [
  *   /en. Crawlers keep no storage, so they are never redirected.
  * - Motion: marks motion-capable visitors so the hero mark can wait for its
  *   entrance instead of flashing. Never set under reduced motion.
+ * - Load sequence: arms the branded overlay on <html data-boot> (see
+ *   src/lib/boot.ts). Never armed without JavaScript.
  */
-const bootScript = `(function(d){try{if(localStorage.getItem("${storageKeys.theme}")==="dark"){d.dataset.theme="dark";var m=document.querySelector('meta[name="theme-color"]');if(m)m.content="${themeColors.dark}"}var r=document.referrer;if(location.pathname==="/"&&localStorage.getItem("${storageKeys.locale}")==="en"&&!(r&&new URL(r).origin===location.origin))location.replace("${pathFor("home", "en")}"+location.search+location.hash)}catch(e){}if(matchMedia("(prefers-reduced-motion: no-preference)").matches)d.classList.add("motion")})(document.documentElement)`;
+const bootScript = `(function(d){try{if(localStorage.getItem("${storageKeys.theme}")==="dark"){d.dataset.theme="dark";var m=document.querySelector('meta[name="theme-color"]');if(m)m.content="${themeColors.dark}"}var r=document.referrer;if(location.pathname==="/"&&localStorage.getItem("${storageKeys.locale}")==="en"&&!(r&&new URL(r).origin===location.origin))location.replace("${pathFor("home", "en")}"+location.search+location.hash)}catch(e){}if(matchMedia("(prefers-reduced-motion: no-preference)").matches)d.classList.add("motion");${bootLoaderScript}})(document.documentElement)`;
 
 export function Layout({ children }: { children: ReactNode }) {
   const locale = localeFromPath(useLocation().pathname);
   return (
-    // `data-theme` and the `motion` class are set before paint by bootScript;
+    // `data-theme`, `data-boot`, and the `motion` class are set before paint;
     // React never renders them, so hydration and re-renders leave them alone.
     <html lang={localeMeta[locale].htmlLang} suppressHydrationWarning>
       <head>
@@ -50,6 +55,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <Links />
       </head>
       <body>
+        <LogoSprite />
+        <BootLoader />
         {children}
         <ScrollRestoration />
         <Scripts />

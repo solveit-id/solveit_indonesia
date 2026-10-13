@@ -1,15 +1,9 @@
-import { useId } from "react";
 import { cn } from "~/lib/cn";
-import {
-  type LogoCapsule,
-  primaryCapsules,
-  primaryDescriptor,
-  primaryViewBox,
-  primaryWordmark,
-} from "./logo-paths";
+import { type LogoCapsule as CapsuleSpec, primaryCapsules, primaryViewBox } from "./logo-paths";
+import { LogoCapsule, logoPart } from "./logo-sprite";
 
 interface CapsuleGradientsProps {
-  capsules: LogoCapsule[];
+  capsules: CapsuleSpec[];
   idPrefix: string;
 }
 
@@ -46,8 +40,8 @@ interface LogoProps {
   title?: string;
 }
 
+/** Primary lockup, drawn from the shared definitions in <LogoSprite />. */
 export function Logo({ className, variant = "color", title = "Solveit Indonesia" }: LogoProps) {
-  const id = useId().replace(/:/g, "");
   const mono = variant === "mono";
   return (
     <svg
@@ -57,13 +51,12 @@ export function Logo({ className, variant = "color", title = "Solveit Indonesia"
       aria-label={title}
       focusable="false"
     >
-      {!mono && <CapsuleGradients capsules={primaryCapsules} idPrefix={id} />}
-      {primaryCapsules.map((capsule, index) => (
-        <path key={index} d={capsule.d} fill={mono ? "currentColor" : `url(#${id}-${index})`} />
+      {primaryCapsules.map((_, index) => (
+        <LogoCapsule key={index} index={index} mono={mono} />
       ))}
-      <path d={primaryWordmark} fill={mono ? "currentColor" : "var(--logo-word)"} />
-      <path
-        d={primaryDescriptor}
+      <use href={`#${logoPart.word}`} fill={mono ? "currentColor" : "var(--logo-word)"} />
+      <use
+        href={`#${logoPart.descriptor}`}
         fill={mono ? "currentColor" : "var(--logo-sub)"}
         opacity={mono ? 0.8 : 1}
       />

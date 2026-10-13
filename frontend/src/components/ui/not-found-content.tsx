@@ -8,7 +8,7 @@ export function NotFoundContent() {
   const { t, path } = useI18n();
   const links = sitemapNav.filter((key) => key !== "contact");
   return (
-    <section className="shell grid min-h-[100dvh] items-center gap-14 pt-[calc(4.5rem+3rem)] pb-24 lg:grid-cols-12">
+    <section className="shell grid min-h-[100dvh] items-center gap-14 pt-[calc(var(--header-h)+3rem)] pb-24 lg:grid-cols-12">
       <div className="lg:col-span-7">
         <p className="enter text-lg font-semibold text-accent-text [--enter-index:0]">
           {t.notFound.eyebrow}
