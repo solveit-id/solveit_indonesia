@@ -4,19 +4,22 @@ import { Principles } from "~/components/sections/home/principles";
 import { ProcessRail } from "~/components/sections/home/process-rail";
 import { ServiceIndex } from "~/components/sections/home/service-index";
 import { WorkShowcase } from "~/components/sections/home/work-showcase";
-import { company } from "~/data/company";
+import { getMessages, localeFromPath, pathFor } from "~/i18n";
 import { buildMeta, organizationSchema, websiteSchema } from "~/lib/seo";
 import type { Route } from "./+types/home";
 
-export const meta: Route.MetaFunction = () =>
-  buildMeta({
-    title: `${company.name} | Software House: Website, Aplikasi Web, dan Sistem Informasi`,
+export const meta: Route.MetaFunction = ({ location }) => {
+  const locale = localeFromPath(location.pathname);
+  const t = getMessages(locale).meta;
+  return buildMeta({
+    locale,
+    title: t.homeTitle,
     absoluteTitle: true,
-    description:
-      "Solveit Indonesia adalah software house yang membangun website, aplikasi web, sistem informasi, dan custom software untuk UMKM, startup, dan perusahaan di Indonesia.",
-    path: "/",
-    jsonLd: [organizationSchema(), websiteSchema()],
+    description: t.homeDescription,
+    path: pathFor("home", locale),
+    jsonLd: [organizationSchema(locale), websiteSchema(locale)],
   });
+};
 
 export default function Home() {
   return (

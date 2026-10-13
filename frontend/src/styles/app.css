@@ -20,7 +20,7 @@
  * Angle rule: the logo's capsules sit at 33deg; that is the only diagonal.
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* Logo palette, unchanged */
   --brand-navy: #082a56;
@@ -49,33 +49,42 @@
   --field-line: rgb(244 247 255 / 0.22);
   --focus: #1452ed;
   --selection: rgb(20 82 237 / 0.18);
+  --danger: #b42318;
   --shadow-tint: 8 42 86;
   --logo-word: #082a56;
   --logo-sub: #5c7392;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #050f22;
-    --paper-raised: #0a1830;
-    --paper-sunken: #030a18;
-    --ink: #e9effa;
-    --ink-muted: #a3b5cf;
-    --ink-faint: #8094b3;
-    --line: rgb(233 239 250 / 0.12);
-    --line-strong: rgb(233 239 250 / 0.26);
-    --accent: #1452ed;
-    --accent-hover: #2a66ff;
-    --accent-ink: #f6f9ff;
-    --accent-text: #6aa6ff;
-    --field: #0f34cc;
-    --focus: #6aa6ff;
-    --selection: rgb(106 166 255 / 0.3);
-    --shadow-tint: 0 0 0;
-    --logo-word: #e9effa;
-    --logo-sub: #a3b5cf;
-  }
+/*
+ * Night scene. Light is the default for every visitor (the OS preference is
+ * deliberately not followed); dark applies only when chosen with the theme
+ * switch, restored before first paint by the boot script in root.tsx.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #050f22;
+  --paper-raised: #0a1830;
+  --paper-sunken: #030a18;
+  --ink: #e9effa;
+  --ink-muted: #a3b5cf;
+  --ink-faint: #8094b3;
+  --line: rgb(233 239 250 / 0.12);
+  --line-strong: rgb(233 239 250 / 0.26);
+  --accent: #1452ed;
+  --accent-hover: #2a66ff;
+  --accent-ink: #f6f9ff;
+  --accent-text: #6aa6ff;
+  --field: #0f34cc;
+  --focus: #6aa6ff;
+  --selection: rgb(106 166 255 / 0.3);
+  --danger: #ff9c8f;
+  --shadow-tint: 0 0 0;
+  --logo-word: #e9effa;
+  --logo-sub: #a3b5cf;
 }
+
+/* Tailwind's `dark:` variant follows the chosen theme, not the OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-paper: var(--paper);
@@ -94,6 +103,7 @@
   --color-field-ink: var(--field-ink);
   --color-field-ink-muted: var(--field-ink-muted);
   --color-field-line: var(--field-line);
+  --color-danger: var(--danger);
   --color-cyan: var(--brand-cyan);
   --color-azure: var(--brand-azure);
 }
@@ -141,6 +151,11 @@
   }
 
   body {
+    /* Pinned sections round their spacer to whole pixels; at fractional
+       device scaling (e.g. 150%) that can exceed the viewport by a fraction of
+       a pixel. clip (unlike hidden) creates no scroll container, so sticky
+       positioning keeps working. */
+    overflow-x: clip;
     background-color: var(--paper);
     color: var(--ink);
     font-family: var(--font-sans);
@@ -309,6 +324,68 @@
     box-shadow: none;
   }
 
+  /* Form rhythm: groups are separated by a hairline, fields by 1.5rem, and
+     label, hint, control, and error by 0.5rem. */
+  .form-group {
+    display: grid;
+    gap: 1.75rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .form-group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.125rem;
+    font-stretch: 112%;
+    letter-spacing: -0.02em;
+  }
+
+  .form-group-index {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-stretch: 100%;
+    letter-spacing: 0;
+    color: var(--accent-text);
+  }
+
+  .field {
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  /* <fieldset> ignores display: grid in some engines; the legend sits above. */
+  fieldset.field {
+    display: block;
+  }
+
+  fieldset.field > legend {
+    margin-bottom: 0.5rem;
+  }
+
+  fieldset.field > :not(legend) + * {
+    margin-top: 0.5rem;
+  }
+
+  /* Doubled class: .field-input's background shorthand comes later in the file. */
+  .field-input.field-select {
+    appearance: none;
+    padding-right: 3rem;
+    background-repeat: no-repeat;
+    background-size: 1rem;
+    background-position: right 1.25rem center;
+    text-overflow: ellipsis;
+  }
+
   .field-label {
     display: block;
     font-size: 0.9375rem;
@@ -324,13 +401,7 @@
   .field-error {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #b42318;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .field-error {
-      color: #ff9c8f;
-    }
+    color: var(--danger);
   }
 
   .field-input {
@@ -368,7 +439,7 @@
   }
 
   .field-input[aria-invalid="true"] {
-    border-color: #b42318;
+    border-color: var(--danger);
   }
 
   /* Choice capsule: a radio or checkbox rendered as a selectable pill. */
@@ -432,10 +503,23 @@
   }
 }
 
+/* Page headlines rise without fading: they are the largest element on first
+   paint, and an element that starts at opacity 0 cannot count as painted. */
+@keyframes rise-in-solid {
+  from {
+    transform: translate3d(0, 0.35em, 0);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .enter {
     animation: rise-in 0.9s var(--ease-out-expo) both;
     animation-delay: calc(var(--enter-index, 0) * 90ms + 60ms);
+  }
+
+  .enter.enter-solid {
+    animation-name: rise-in-solid;
+    animation-delay: 0ms;
   }
 }
 
@@ -476,4 +560,355 @@
 .motion [data-hero-stage] {
   opacity: 0;
   animation: failsafe-show 0.6s ease 3s forwards;
+}
+
+/* ------------------------------------------------- theme and language */
+
+/* Theme changes run as one View Transition (see src/lib/theme.ts): the new
+   snapshot is wiped in along the 33deg axis instead of cross-fading. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@layer components {
+  .theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    color: var(--ink);
+    transition:
+      border-color 0.25s var(--ease-out-expo),
+      transform 0.25s var(--ease-out-expo);
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--ink);
+  }
+
+  .theme-toggle:active {
+    transform: scale(0.94);
+  }
+
+  .theme-icon {
+    grid-area: 1 / 1;
+    width: 1.15rem;
+    height: 1.15rem;
+    transition:
+      transform 0.7s var(--ease-out-expo),
+      opacity 0.3s ease;
+  }
+
+  .theme-icon-moon {
+    opacity: 0;
+    transform: rotate(-70deg) scale(0.4);
+  }
+
+  :root:not([data-theme="dark"]) .theme-toggle:hover .theme-icon-sun {
+    transform: rotate(33deg);
+  }
+
+  [data-theme="dark"] .theme-icon-sun {
+    opacity: 0;
+    transform: rotate(70deg) scale(0.4);
+  }
+
+  [data-theme="dark"] .theme-icon-moon {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-theme="dark"] .theme-toggle:hover .theme-icon-moon {
+    transform: rotate(-20deg);
+  }
+
+  /* ID / EN segmented capsule; the ink thumb slides to the active language. */
+  .lang-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    height: 2.75rem;
+    padding: 3px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+  }
+
+  .lang-thumb {
+    position: absolute;
+    inset-block: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    border-radius: 9999px;
+    background: var(--ink);
+    transition: transform 0.55s var(--ease-out-expo);
+  }
+
+  .lang-switch[data-active="en"] .lang-thumb {
+    transform: translateX(100%);
+  }
+
+  .lang-option {
+    position: relative;
+    display: grid;
+    flex: 1 1 0;
+    place-items: center;
+    min-width: 2.6rem;
+    padding-inline: 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 650;
+    line-height: 1;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition: color 0.3s var(--ease-out-expo);
+  }
+
+  .lang-option:hover {
+    color: var(--ink);
+  }
+
+  .lang-option[aria-current="true"] {
+    color: var(--paper);
+  }
+
+  /* Phone header: one capsule that names the other language. */
+  .lang-toggle {
+    display: inline-grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: var(--ink);
+    text-decoration: none;
+    transition: border-color 0.25s var(--ease-out-expo);
+  }
+
+  .lang-toggle:hover {
+    border-color: var(--ink);
+  }
+
+  .lang-switch-full {
+    display: flex;
+    height: 3rem;
+  }
+
+  .lang-switch-full .lang-option {
+    font-size: 0.9375rem;
+  }
+
+  /* -------------------------------------------------------- navigation */
+
+  .nav-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 2.75rem;
+    font-size: 0.97rem;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition: color 0.3s var(--ease-out-expo);
+  }
+
+  .nav-link:hover,
+  .nav-link[aria-current="page"] {
+    color: var(--ink);
+  }
+
+  /* Before hydration (and without JS) the current page keeps a static
+     underline exactly where the sliding indicator will sit. */
+  .main-nav:not([data-enhanced]) .nav-link[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    inset-inline: 14px;
+    bottom: 0.5rem;
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--accent);
+  }
+
+  .nav-indicator {
+    position: absolute;
+    left: 0;
+    bottom: 0.5rem;
+    width: 100px;
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--accent);
+    pointer-events: none;
+    opacity: 0;
+    transform-origin: left center;
+    transform: translateX(var(--x, 0)) scaleX(var(--s, 0));
+  }
+
+  .nav-indicator[data-visible="true"] {
+    opacity: 1;
+  }
+
+  .nav-indicator[data-ready="true"] {
+    transition:
+      transform 0.55s var(--ease-out-expo),
+      opacity 0.3s ease;
+  }
+
+  .main-nav:not([data-enhanced]) .nav-indicator {
+    display: none;
+  }
+
+  /* The contact capsule doubles as the last nav item: it reads as pressed on /kontak. */
+  .btn-nav[aria-current="page"] {
+    background: var(--brand-deep);
+    box-shadow: inset 0 0 0 1px rgb(246 249 255 / 0.32);
+  }
+
+  .mobile-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 0.95rem;
+    font-size: clamp(1.75rem, 8vw, 2.6rem);
+    font-weight: 700;
+    font-stretch: 118%;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .mobile-nav-link[aria-current="page"] {
+    color: var(--accent-text);
+  }
+
+  /* A short capsule on the logo's axis marks the current page. */
+  .mobile-nav-marker {
+    display: block;
+    width: 0.9rem;
+    height: 0.3rem;
+    border-radius: 9999px;
+    background: var(--accent);
+    transform: rotate(-33deg) scale(0);
+    transition: transform 0.5s var(--ease-out-expo);
+  }
+
+  .mobile-nav-link[aria-current="page"] .mobile-nav-marker {
+    transform: rotate(-33deg) scale(1);
+  }
+
+  /* ----------------------------------------------------------- contact */
+
+  .btn-field-outline {
+    border: 1px solid rgb(244 247 255 / 0.5);
+    color: var(--field-ink);
+    background: transparent;
+  }
+
+  .btn-field-outline:hover {
+    border-color: var(--field-ink);
+  }
+
+  .wa-menu > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .wa-menu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Overlays are the one place a soft shadow is allowed: it says "above the page". */
+  .wa-panel {
+    position: absolute;
+    z-index: 30;
+    width: min(19.5rem, calc(100vw - 2rem));
+    padding: 0.375rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-field);
+    background: var(--paper-raised);
+    color: var(--ink);
+    box-shadow: 0 24px 48px -28px rgb(var(--shadow-tint) / 0.6);
+  }
+
+  .wa-row {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 3rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.875rem;
+    color: var(--ink);
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+  }
+
+  .wa-row:hover {
+    background: var(--paper-sunken);
+  }
+
+  .wa-row:focus-visible {
+    outline-offset: -2px;
+    border-radius: 0.875rem;
+  }
+
+  .wa-row-index {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink-muted);
+    transition:
+      background-color 0.25s ease,
+      border-color 0.25s ease,
+      color 0.25s ease;
+  }
+
+  .wa-row:hover .wa-row-index,
+  .wa-row:focus-visible .wa-row-index {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .contact-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-field);
+    background: var(--paper-raised);
+    color: var(--ink);
+    text-decoration: none;
+    transition: border-color 0.25s var(--ease-out-expo);
+  }
+
+  .contact-card:hover {
+    border-color: var(--ink-muted);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wa-menu[open] > .wa-panel {
+    animation: pop-in 0.38s var(--ease-out-expo) both;
+  }
 }

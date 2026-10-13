@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useI18n } from "~/i18n";
 import { cn } from "~/lib/cn";
 import type { Project } from "~/types/content";
 
@@ -11,6 +12,7 @@ import type { Project } from "~/types/content";
 const RISE_REM = 2.6;
 
 export function SystemMap({ system }: { system: Project["system"] }) {
+  const { t } = useI18n();
   const { actors, handoffs } = system;
   const last = actors.length - 1;
 
@@ -49,7 +51,9 @@ export function SystemMap({ system }: { system: Project["system"] }) {
                   className="absolute top-7 left-full hidden h-px w-[4.77rem] origin-left -rotate-[33deg] bg-accent lg:block"
                 />
                 <span className="mt-3 block pl-5 text-sm text-ink-muted">
-                  <span className="sr-only">Mengirim ke {actors[index + 1]}: </span>
+                  <span className="sr-only">
+                    {t.project.systemHandoff(actors[index + 1] ?? "")}
+                  </span>
                   {handoffs[index]}
                 </span>
               </>
@@ -58,8 +62,7 @@ export function SystemMap({ system }: { system: Project["system"] }) {
         ))}
       </ol>
       <figcaption className="mt-10 max-w-[60ch] text-sm text-ink-muted">
-        Diagram konsep: bagian-bagian solusi dan data yang berpindah di antaranya. Bukan tangkapan
-        layar sistem nyata.
+        {t.project.systemCaption}
       </figcaption>
     </figure>
   );

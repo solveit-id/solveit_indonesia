@@ -8,6 +8,7 @@ type GsapApi = typeof GsapModule;
 export const motionQueries = {
   motion: "(prefers-reduced-motion: no-preference)",
   reduce: "(prefers-reduced-motion: reduce)",
+  tablet: "(min-width: 768px)",
   desktop: "(min-width: 1024px)",
   finePointer: "(hover: hover) and (pointer: fine)",
 } as const;

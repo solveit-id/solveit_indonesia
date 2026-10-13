@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./fixtures";
 import { SITE_URL } from "../../playwright.config";
 import { pages } from "./routes";
 

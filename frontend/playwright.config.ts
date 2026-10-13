@@ -27,6 +27,20 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 }, hasTouch: true },
     },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    // Cross-engine pass on demand (CI stays on Chromium): PW_ALL_BROWSERS=1.
+    ...(process.env.PW_ALL_BROWSERS
+      ? [
+          {
+            name: "firefox",
+            use: { ...devices["Desktop Firefox"], viewport: { width: 1440, height: 900 } },
+          },
+          {
+            name: "webkit",
+            use: { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } },
+          },
+          { name: "webkit-mobile", use: { ...devices["iPhone 14"] } },
+        ]
+      : []),
   ],
   webServer: {
     command: "npm run build && node scripts/serve.mjs",

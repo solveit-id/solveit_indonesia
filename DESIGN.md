@@ -149,7 +149,7 @@ components:
 
 Every surface is built from the logo: four rounded capsules, each tilted to the same 33 degree axis, that lock together into an S. The capsule is the system's one shape for anything single-line and interactive, the 33 degree line is its only diagonal, and the logo's cobalt is its only accent. Parts becoming a solution is the brand story, and the hero tells it literally by assembling the mark from its four capsules.
 
-The ground is cool porcelain read in daylight, with logo navy as ink. Cobalt shows up two ways: sparingly as the action color, and boldly as committed fields (the closing call to action and footer band, accent tiles, process panels). Type is one variable grotesk, Archivo, pushed semi-expanded and heavy for display, normal width for reading. Density is moderate and generous with section rhythm; layouts are asymmetric 12-column splits rather than centred stacks. Dark mode follows `prefers-color-scheme` and keeps the same structure on a deep navy night ground.
+The ground is cool porcelain read in daylight, with logo navy as ink. Cobalt shows up two ways: sparingly as the action color, and boldly as committed fields (the closing call to action and footer band, accent tiles, process panels). Type is one variable grotesk, Archivo, pushed semi-expanded and heavy for display, normal width for reading. Density is moderate and generous with section rhythm; layouts are asymmetric 12-column splits rather than centred stacks. Light is the default for every visitor; a dark theme, chosen with the header switch and remembered, keeps the same structure on a deep navy night ground. Every page exists in Indonesian and English with the same composition.
 
 The build rejects the SaaS template: centred headline over a gradient, three identical feature cards, testimonial carousels, decorative glow, and arbitrary decorative icons.
 
@@ -159,7 +159,7 @@ The build rejects the SaaS template: centred headline over a gradient, three ide
 - One accent (cobalt), committed as fields, never sprinkled; cyan lives only inside capsule gradients.
 - Archivo variable on its width axis: wide and heavy for headings, normal width for text.
 - Flat surfaces separated by tone and hairlines; the only shadow is the primary button's cobalt lift.
-- Scroll-coupled motion with a distinct role per section, all of it optional under reduced motion.
+- Scroll-coupled motion with a distinct role per section, all of it optional under reduced motion. Real scroll parallax is used in three places only: the hero's layered planes, portfolio covers drifting inside their frames, and the About mark that reassembles as its section reaches the middle of the screen.
 
 ## Colors
 
@@ -179,7 +179,8 @@ A cool, nearly monochrome blue world: porcelain and navy carry everything, and t
 - **Muted Slate Ink** (ink-muted): secondary text, ledes, breadcrumbs, metadata. A darkened version of the logo's slate so small text passes contrast.
 - **Faint Slate Ink** (ink-faint): large text only (about 3.7:1 on paper).
 - **Hairline** (line) and **Strong Hairline** (line-strong): navy at 13% and 28%. Hairlines divide sections and index rows; strong hairlines outline secondary buttons, inputs, pills, and the hero lattice.
-- **Night ground** (paper-dark, paper-raised-dark, paper-sunken-dark) with **Night Ink** (ink-dark) and its muted and faint steps replace the light neutrals in dark mode; the cobalt accent itself does not change.
+- **Night ground** (paper-dark, paper-raised-dark, paper-sunken-dark) with **Night Ink** (ink-dark) and its muted and faint steps replace the light neutrals in the dark theme (`:root[data-theme="dark"]`); the cobalt accent itself does not change. The OS colour scheme is deliberately not followed: light is the default.
+- **Danger** (`--danger`): #b42318 light, #ff9c8f dark, for field errors and the form error summary only.
 
 ### Named Rules
 **The One Voice Rule.** Cobalt is the only accent. Where it appears in quantity it is a committed field or tile, not a tint scattered across components.
@@ -218,6 +219,7 @@ Flat by default. Depth comes from tonal steps (paper, raised, sunken), hairlines
 
 ### Shadow Vocabulary
 - **Cobalt lift** (`box-shadow: 0 10px 24px -14px rgb(17 54 214 / 0.75)`; hover `0 14px 30px -14px rgb(17 54 214 / 0.85)`): primary button only; removed when disabled.
+- **Overlay** (`0 24px 48px -28px rgb(var(--shadow-tint) / 0.6)`): floating panels only (the WhatsApp number menu), to read as above the page. Cards and panels in the flow still carry none.
 
 ### Named Rules
 **The Tone Not Shadow Rule.** Containers separate by tone and hairline. Cards and panels carry no shadow.
@@ -254,9 +256,22 @@ Confident capsules with an arrow that nudges forward on hover.
 - **Error:** border and message switch to a red (#b42318 light, #ff9c8f dark); hints sit below in muted ink at 0.875rem.
 
 ### Navigation
-- **Desktop:** text links at about 0.97rem, 500 weight, muted ink; hover and active show a 3px cobalt capsule underline that scales in from the left, and the active link goes full ink. A primary capsule button holds the contact action.
-- **Mobile:** a secondary capsule toggle with a two-bar 33 degree icon and a text label opens a full-height panel of large wide-face links divided by hairlines; the active item turns accent-text cobalt.
+- **Order:** Beranda, Layanan, Portofolio, Proses Kerja, Tentang Kami, then the contact page as the primary capsule ("Mulai konsultasi"), so the header never shows two links to one page. "Beranda" joins the desktop row from 1280px; the logo is always the home link.
+- **Desktop:** text links at about 0.97rem, 500 weight, muted ink; the current section (nested case studies included) goes full ink and sits over one 3px cobalt capsule indicator that slides between links on hover and keyboard focus and settles back (transform only, 0.55s expo-out). Before hydration a static underline holds the same spot. On the contact page the capsule button reads as pressed (Logo Deep Cobalt with an inner hairline, in both themes).
+- **Preferences:** an ID / EN segmented capsule (an ink thumb slides to the active language) and a 44px capsule theme switch (sun and moon swap with a turn) sit between the links and the contact capsule. Below 640px a single 44px capsule naming the other language (EN or ID) stays in the header, and the menu panel shows the full segmented switch with language names.
+- **Mobile:** a secondary capsule toggle with a two-bar 33 degree icon and a text label opens a full-height panel of large wide-face links divided by hairlines; the current page turns accent-text cobalt with a short capsule marker on the 33 degree axis. The panel foot holds the contact capsule and the WhatsApp menu.
 - **Inline links:** the link sweep, a 1px underline that sweeps in from the left over 0.45s.
+
+### Contact channels
+- **WhatsApp menu:** one "Chat WhatsApp" capsule (secondary on porcelain, outlined on the cobalt field, or an inline footer link) discloses a raised panel with the three confirmed numbers as equal rows: index capsule, number, arrow. No owner, department, or hours are shown because none are confirmed. Built on `<details>`; closes on Escape, outside click, or a pick.
+- **WhatsApp list:** the same rows laid out in a raised card on the contact page, above the email and Instagram cards.
+- **Contact card:** raised porcelain, hairline, field radius, icon in accent-text cobalt, label over value, arrow that nudges up-right on hover.
+- **Instagram:** the official account as a plain external link (footer, contact page) and in `Organization.sameAs`; no feed or counts.
+
+### Forms
+- The inquiry form is three groups (about you, about the project, send), each opened by a hairline and a heading with a 2rem outlined index capsule, like the process rail markers.
+- Rhythm: 1.75rem between a group heading and its fields, 1.5rem between fields, 0.5rem between label, hint, control, and error. Required fields carry a cobalt asterisk; optional ones say so in muted ink.
+- Paired single-line fields share a two-column row from 768px; selects use the same capsule as inputs with a slate chevron. The WhatsApp recipient is a row of choice capsules; switching it never touches the composed message.
 
 ### Brand mark assembly (signature)
 The logo mark sits over a faint lattice of outlined capsules on the 33 degree axis and assembles from its four capsules on load, with pointer depth on fine pointers. A monochrome version of the mark repeats inside the cobalt closing band.

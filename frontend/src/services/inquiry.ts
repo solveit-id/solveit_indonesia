@@ -1,5 +1,6 @@
 import { company, primaryWhatsApp } from "~/data/company";
-import { serviceById } from "~/data/services";
+import { defaultLocale, getMessages, type Locale } from "~/i18n";
+import { getService } from "~/services/content";
 import type { BudgetRange, InquiryErrors, InquiryPayload, Timeline } from "~/types/inquiry";
 
 /**
@@ -10,19 +11,15 @@ import type { BudgetRange, InquiryErrors, InquiryPayload, Timeline } from "~/typ
  */
 export type InquiryChannel = "whatsapp" | "email";
 
-export const budgetOptions: { value: BudgetRange; label: string }[] = [
-  { value: "belum-tahu", label: "Belum tahu" },
-  { value: "di-bawah-10jt", label: "Di bawah Rp10 juta" },
-  { value: "10-50jt", label: "Rp10 sampai 50 juta" },
-  { value: "50-150jt", label: "Rp50 sampai 150 juta" },
-  { value: "di-atas-150jt", label: "Di atas Rp150 juta" },
+export const budgetValues: BudgetRange[] = [
+  "belum-tahu",
+  "di-bawah-10jt",
+  "10-50jt",
+  "50-150jt",
+  "di-atas-150jt",
 ];
 
-export const timelineOptions: { value: Timeline; label: string }[] = [
-  { value: "fleksibel", label: "Fleksibel" },
-  { value: "1-3-bulan", label: "Dalam 1 sampai 3 bulan" },
-  { value: "segera", label: "Secepatnya" },
-];
+export const timelineValues: Timeline[] = ["fleksibel", "1-3-bulan", "segera"];
 
 export const emptyInquiry: InquiryPayload = {
   name: "",
@@ -37,37 +34,40 @@ export const emptyInquiry: InquiryPayload = {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE = /^\+?[0-9][0-9\s-]{7,16}$/;
 
-export function validateInquiry(payload: InquiryPayload): InquiryErrors {
+export function validateInquiry(
+  payload: InquiryPayload,
+  locale: Locale = defaultLocale,
+): InquiryErrors {
+  const messages = getMessages(locale).form.errors;
   const errors: InquiryErrors = {};
-  if (payload.name.trim().length < 2) errors.name = "Tulis nama Anda, minimal 2 karakter.";
+  if (payload.name.trim().length < 2) errors.name = messages.name;
   const contact = payload.contact.trim();
-  if (!contact) errors.contact = "Tulis email atau nomor WhatsApp agar kami bisa membalas.";
-  else if (!EMAIL.test(contact) && !PHONE.test(contact))
-    errors.contact = "Gunakan alamat email yang valid atau nomor telepon, misalnya 0812 3456 7890.";
-  if (!payload.service)
-    errors.service = "Pilih jenis layanan yang paling mendekati kebutuhan Anda.";
-  if (payload.message.trim().length < 20)
-    errors.message =
-      "Ceritakan kebutuhan Anda minimal dalam 20 karakter, agar kami bisa menyiapkan konsultasi.";
+  if (!contact) errors.contact = messages.contactMissing;
+  else if (!EMAIL.test(contact) && !PHONE.test(contact)) errors.contact = messages.contactInvalid;
+  if (!payload.service) errors.service = messages.service;
+  if (payload.message.trim().length < 20) errors.message = messages.message;
   return errors;
 }
 
-const labelOf = <T extends string>(options: { value: T; label: string }[], value: T) =>
-  options.find((option) => option.value === value)?.label ?? value;
-
-export function composeInquiryMessage(payload: InquiryPayload): string {
-  const service = payload.service ? serviceById(payload.service).name : "-";
+/** The message, written in the language of the page the visitor used. */
+export function composeInquiryMessage(
+  payload: InquiryPayload,
+  locale: Locale = defaultLocale,
+): string {
+  const { form } = getMessages(locale);
+  const labels = form.composed;
+  const service = payload.service ? getService(locale, payload.service).name : "-";
   return [
-    `Halo ${company.name}, saya ingin berkonsultasi.`,
+    labels.greeting(company.name),
     "",
-    `Nama: ${payload.name.trim()}`,
-    payload.organization.trim() ? `Organisasi: ${payload.organization.trim()}` : null,
-    `Kontak: ${payload.contact.trim()}`,
-    `Layanan: ${service}`,
-    `Perkiraan anggaran: ${labelOf(budgetOptions, payload.budget)}`,
-    `Target waktu: ${labelOf(timelineOptions, payload.timeline)}`,
+    `${labels.name}: ${payload.name.trim()}`,
+    payload.organization.trim() ? `${labels.organization}: ${payload.organization.trim()}` : null,
+    `${labels.contact}: ${payload.contact.trim()}`,
+    `${labels.service}: ${service}`,
+    `${labels.budget}: ${form.budgetOptions[payload.budget]}`,
+    `${labels.timeline}: ${form.timelineOptions[payload.timeline]}`,
     "",
-    "Kebutuhan:",
+    labels.needs,
     payload.message.trim(),
   ]
     .filter((line): line is string => line !== null)
@@ -80,9 +80,26 @@ export const whatsappUrl = (e164: string, text?: string): string =>
 export const emailUrl = (subject: string, body: string): string =>
   `mailto:${company.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-export function inquiryHref(channel: InquiryChannel, payload: InquiryPayload): string {
-  const message = composeInquiryMessage(payload);
-  if (channel === "whatsapp") return whatsappUrl(primaryWhatsApp.e164, message);
-  const service = payload.service ? serviceById(payload.service).shortName : "proyek";
-  return emailUrl(`Konsultasi ${service}: ${payload.name.trim()}`, message);
+export const isConfirmedWhatsApp = (e164: string): boolean =>
+  company.whatsapp.some((number) => number.e164 === e164);
+
+interface DeliveryOptions {
+  locale?: Locale;
+  /** One of the confirmed WhatsApp numbers (E.164); anything else falls back to the first. */
+  recipient?: string;
+}
+
+export function inquiryHref(
+  channel: InquiryChannel,
+  payload: InquiryPayload,
+  { locale = defaultLocale, recipient = primaryWhatsApp.e164 }: DeliveryOptions = {},
+): string {
+  const message = composeInquiryMessage(payload, locale);
+  if (channel === "whatsapp")
+    return whatsappUrl(isConfirmedWhatsApp(recipient) ? recipient : primaryWhatsApp.e164, message);
+  const labels = getMessages(locale).form.composed;
+  const service = payload.service
+    ? getService(locale, payload.service).shortName
+    : labels.fallbackService;
+  return emailUrl(labels.subject(service, payload.name.trim()), message);
 }

@@ -1,7 +1,9 @@
+import { useI18n } from "~/i18n";
 import { cn } from "~/lib/cn";
 
 /** Marks illustrative concepts so they are never read as client work. */
 export function DemoLabel({ className }: { className?: string }) {
+  const { t } = useI18n();
   return (
     <p
       className={cn(
@@ -9,7 +11,7 @@ export function DemoLabel({ className }: { className?: string }) {
         className,
       )}
     >
-      Konsep demonstrasi, bukan proyek klien
+      {t.common.demoLabel}
     </p>
   );
 }

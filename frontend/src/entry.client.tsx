@@ -13,7 +13,7 @@ function hydrate() {
   });
 }
 
-// Every page ships as prerendered HTML. Paint it first, then hydrate: waiting
-// one frame keeps hydration and animation setup off the critical render path
-// (FCP/LCP) without changing what the visitor sees.
+// Every page ships as prerendered HTML. In production builds this module is
+// only requested after first contentful paint (scripts/postbuild.mjs); the
+// extra frame here also keeps hydration off the critical path in development.
 requestAnimationFrame(() => setTimeout(hydrate, 0));

@@ -7,8 +7,11 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
 } from "react-router";
 import archivo from "./assets/fonts/archivo-solveit.woff2?url";
+import { getMessages, localeFromPath, localeMeta, pathFor, storageKeys, useLocale } from "./i18n";
+import { themeColors } from "./lib/theme";
 import type { Route } from "./+types/root";
 import "./styles/app.css";
 
@@ -20,23 +23,29 @@ export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/site.webmanifest" },
 ];
 
+/*
+ * Runs before first paint, so nothing flashes:
+ * - Theme: light is the default for everyone (the OS setting is not followed);
+ *   a dark choice saved by the visitor is restored on <html data-theme>.
+ * - Language: the URL decides. Only a returning visitor who chose English and
+ *   lands on the bare Indonesian home page from outside the site is sent to
+ *   /en. Crawlers keep no storage, so they are never redirected.
+ * - Motion: marks motion-capable visitors so the hero mark can wait for its
+ *   entrance instead of flashing. Never set under reduced motion.
+ */
+const bootScript = `(function(d){try{if(localStorage.getItem("${storageKeys.theme}")==="dark"){d.dataset.theme="dark";var m=document.querySelector('meta[name="theme-color"]');if(m)m.content="${themeColors.dark}"}var r=document.referrer;if(location.pathname==="/"&&localStorage.getItem("${storageKeys.locale}")==="en"&&!(r&&new URL(r).origin===location.origin))location.replace("${pathFor("home", "en")}"+location.search+location.hash)}catch(e){}if(matchMedia("(prefers-reduced-motion: no-preference)").matches)d.classList.add("motion")})(document.documentElement)`;
+
 export function Layout({ children }: { children: ReactNode }) {
+  const locale = localeFromPath(useLocation().pathname);
   return (
-    // `motion` class is added before paint by the inline script below.
-    <html lang="id" suppressHydrationWarning>
+    // `data-theme` and the `motion` class are set before paint by bootScript;
+    // React never renders them, so hydration and re-renders leave them alone.
+    <html lang={localeMeta[locale].htmlLang} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#f1f4f9" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#050f22" media="(prefers-color-scheme: dark)" />
-        <script
-          // Marks motion-capable visitors before first paint so the hero mark can
-          // wait for its entrance instead of flashing. Never set under reduced motion.
-          dangerouslySetInnerHTML={{
-            __html:
-              'if(matchMedia("(prefers-reduced-motion: no-preference)").matches)document.documentElement.classList.add("motion")',
-          }}
-        />
+        <meta name="theme-color" content={themeColors.light} suppressHydrationWarning />
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <Meta />
         <Links />
       </head>
@@ -58,11 +67,11 @@ export function HydrateFallback() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const locale = useLocale();
+  const t = getMessages(locale).error;
   const isHttp = isRouteErrorResponse(error);
-  const title = isHttp ? `Kesalahan ${error.status}` : "Terjadi kesalahan";
-  const detail = isHttp
-    ? error.statusText || "Permintaan tidak dapat diproses."
-    : "Halaman gagal dimuat. Muat ulang halaman, atau kembali ke beranda.";
+  const title = isHttp ? t.httpTitle(error.status) : t.title;
+  const detail = isHttp ? error.statusText || t.httpDetail : t.detail;
 
   return (
     <main className="shell flex min-h-dvh flex-col justify-center gap-6 py-24">
@@ -75,8 +84,8 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         </pre>
       )}
       <div>
-        <Link to="/" className="btn btn-primary">
-          Kembali ke beranda
+        <Link to={pathFor("home", locale)} className="btn btn-primary">
+          {t.home}
         </Link>
       </div>
     </main>

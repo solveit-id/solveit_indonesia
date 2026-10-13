@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CaretRight } from "@phosphor-icons/react/dist/ssr/CaretRight";
+import { useI18n } from "~/i18n";
 
 interface PageIntroProps {
   title: ReactNode;
@@ -12,13 +13,14 @@ interface PageIntroProps {
 
 /** Opening block for inner pages: breadcrumb, H1, and an answer-first lede. */
 export function PageIntro({ title, lede, breadcrumbs, children }: PageIntroProps) {
+  const { t, path } = useI18n();
   return (
     <header className="shell pt-[calc(4.5rem+clamp(3rem,8vw,6rem))] pb-[clamp(3rem,7vw,5.5rem)]">
-      <nav aria-label="Breadcrumb" className="enter [--enter-index:0]">
+      <nav aria-label={t.common.breadcrumb} className="enter [--enter-index:0]">
         <ol className="flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">
           <li>
-            <Link to="/" className="link-sweep">
-              Beranda
+            <Link to={path("home")} className="link-sweep">
+              {t.nav.labels.home}
             </Link>
           </li>
           {breadcrumbs.map((crumb) => (
@@ -37,7 +39,7 @@ export function PageIntro({ title, lede, breadcrumbs, children }: PageIntroProps
           ))}
         </ol>
       </nav>
-      <h1 className="enter mt-8 max-w-[18ch] text-display font-wide [--enter-index:1]">{title}</h1>
+      <h1 className="enter enter-solid mt-8 max-w-[18ch] text-display font-wide">{title}</h1>
       <div className="enter mt-8 max-w-[62ch] text-lede text-ink-muted [--enter-index:2]">
         {lede}
       </div>

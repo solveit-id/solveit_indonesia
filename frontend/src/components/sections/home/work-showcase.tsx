@@ -6,6 +6,7 @@ import { useTilt } from "~/hooks/use-tilt";
 import { isLiteDevice } from "~/lib/device";
 import { motionQueries, useMotion } from "~/lib/motion";
 import { getProjects } from "~/services/projects";
+import { useI18n } from "~/i18n";
 
 /**
  * Selected work. On large screens with motion allowed, vertical scroll pans
@@ -14,7 +15,8 @@ import { getProjects } from "~/services/projects";
 export function WorkShowcase() {
   const wrap = useRef<HTMLElement>(null);
   const track = useRef<HTMLDivElement>(null);
-  const projects = getProjects();
+  const { t, locale, path } = useI18n();
+  const projects = getProjects(locale);
 
   useTilt(wrap);
 
@@ -56,15 +58,12 @@ export function WorkShowcase() {
       <div className="shell flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 id="work-title" className="max-w-[17ch] text-title">
-            Konsep yang menunjukkan cara kami berpikir.
+            {t.home.workTitle}
           </h2>
-          <p className="mt-5 measure text-ink-muted">
-            Lima studi kasus konsep untuk sektor berbeda. Semuanya ilustratif, bukan proyek klien;
-            portofolio klien akan tampil setelah mendapat izin publikasi.
-          </p>
+          <p className="mt-5 measure text-ink-muted">{t.home.workLede}</p>
         </div>
-        <Link to="/portofolio" className="btn btn-secondary shrink-0 self-start md:self-end">
-          Lihat portofolio
+        <Link to={path("portfolio")} className="btn btn-secondary shrink-0 self-start md:self-end">
+          {t.common.viewPortfolio}
           <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
         </Link>
       </div>
@@ -72,7 +71,7 @@ export function WorkShowcase() {
       <div
         ref={track}
         role="region"
-        aria-label="Studi kasus konsep"
+        aria-label={t.home.workRegion}
         className="mt-12 flex snap-x snap-mandatory scroll-px-[var(--pan-inset)] [scrollbar-width:thin] gap-5 overflow-x-auto px-[var(--pan-inset)] pb-4 [--pan-inset:max(var(--spacing-gutter),calc((100vw-88rem)/2+var(--spacing-gutter)))] group-data-[pan=true]/pan:overflow-visible md:gap-8 lg:mt-14"
       >
         {projects.map((project) => (
