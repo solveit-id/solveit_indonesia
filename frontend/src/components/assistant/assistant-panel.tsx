@@ -156,6 +156,7 @@ export default function AssistantPanel({ state, modal, onClose, onClosed }: Assi
             type="button"
             onClick={onClose}
             className="assistant-icon-button"
+            data-close-control
             aria-label={t.assistant.close}
             title={t.assistant.close}
           >

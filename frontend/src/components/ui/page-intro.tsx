@@ -15,7 +15,7 @@ interface PageIntroProps {
 export function PageIntro({ title, lede, breadcrumbs, children }: PageIntroProps) {
   const { t, path } = useI18n();
   return (
-    <header className="shell pt-[calc(4.5rem+clamp(3rem,8vw,6rem))] pb-[clamp(3rem,7vw,5.5rem)]">
+    <header className="shell pt-[calc(var(--header-h)+clamp(3rem,8vw,6rem))] pb-[clamp(3rem,7vw,5.5rem)]">
       <nav aria-label={t.common.breadcrumb} className="enter [--enter-index:0]">
         <ol className="flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">
           <li>

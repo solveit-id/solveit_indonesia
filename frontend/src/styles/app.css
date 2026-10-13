@@ -50,6 +50,7 @@
   --focus: #1452ed;
   --selection: rgb(20 82 237 / 0.18);
   --danger: #b42318;
+  --danger-soft: rgb(180 35 24 / 0.1);
   --shadow-tint: 8 42 86;
   --logo-word: #082a56;
   --logo-sub: #5c7392;
@@ -62,6 +63,15 @@
   --dur-overlay: 420ms;
   --dur-exit: 220ms;
   --dur-focal: 700ms;
+
+  /* Fixed header box (src/components/layout/site-header.tsx). */
+  --header-h: 4.75rem;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --header-h: 5.5rem;
+  }
 }
 
 /*
@@ -87,6 +97,7 @@
   --focus: #6aa6ff;
   --selection: rgb(106 166 255 / 0.3);
   --danger: #ff9c8f;
+  --danger-soft: rgb(255 156 143 / 0.14);
   --shadow-tint: 0 0 0;
   --logo-word: #e9effa;
   --logo-sub: #a3b5cf;
@@ -144,6 +155,7 @@
   --z-assistant: 45;
   --z-menu: 50;
   --z-progress: 60;
+  --z-boot: 65;
   --z-skip: 70;
 }
 
@@ -213,8 +225,38 @@
     caret-color: var(--accent);
   }
 
+  /* Pointer only on what really acts on a click (Tailwind's preflight
+     resets buttons to the default arrow); text fields keep the I-beam,
+     disabled controls say so, and work in progress shows as progress. */
+  a[href],
+  button,
+  summary,
+  select,
+  [role="button"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="submit"],
+  input[type="reset"],
+  label:has(> input[type="checkbox"], > input[type="radio"]) {
+    cursor: pointer;
+  }
+
+  input:not([type="checkbox"], [type="radio"], [type="submit"], [type="reset"], [type="button"]),
+  textarea {
+    cursor: text;
+  }
+
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  [aria-busy="true"] {
+    cursor: progress;
+  }
+
   [id] {
-    scroll-margin-top: 6rem;
+    scroll-margin-top: calc(var(--header-h) + 1.5rem);
   }
 }
 
@@ -583,11 +625,22 @@
   mix-blend-mode: normal;
 }
 
+/* The theme switch is its own group: only its live new state shows, so its
+   icon roll plays in full above the sweep. */
+::view-transition-old(theme-toggle) {
+  display: none;
+}
+
+::view-transition-new(theme-toggle) {
+  animation: none;
+}
+
 @layer components {
   /*
    * Preference controls share one state vocabulary: hover tints the capsule
-   * with sunken porcelain and firms the outline; press compresses it (100ms);
-   * keyboard focus draws the global ring. Nothing changes size.
+   * with sunken porcelain, firms the outline, and moves the content a
+   * little; press compresses it (100ms); keyboard focus draws the global
+   * ring. Nothing changes size.
    */
   .theme-toggle {
     position: relative;
@@ -599,69 +652,78 @@
     overflow: hidden;
     border: 1px solid var(--line-strong);
     border-radius: 9999px;
+    background-color: var(--paper-raised);
     color: var(--ink);
+    /* Captured on its own during the theme sweep, so the switch answers at
+       once instead of waiting for the wipe to reach the header. */
+    view-transition-name: theme-toggle;
     transition:
       border-color var(--dur-state) var(--ease-out-expo),
       background-color var(--dur-state) var(--ease-out-expo),
+      box-shadow var(--dur-state) var(--ease-out-expo),
       transform var(--dur-quick) var(--ease-out-expo);
   }
 
   .theme-toggle:hover {
     border-color: var(--ink-muted);
     background-color: var(--paper-sunken);
+    box-shadow: 0 10px 22px -16px rgb(var(--shadow-tint) / 0.7);
   }
 
   .theme-toggle:active {
-    transform: scale(0.92);
+    transform: scale(0.9);
     transition-duration: var(--dur-instant);
   }
 
-  /* Sun and moon ride one dial whose pivot sits below the button: half a
-     turn sets the sun and raises the moon; the reverse plays the path back. */
-  .theme-dial {
-    grid-area: 1 / 1;
-    display: grid;
-    width: 1.15rem;
-    height: 1.15rem;
-    /* Pivot 1.84rem below the icon centre; the moon waits at its mirror image. */
-    transform-origin: 50% calc(50% + 1.84rem);
-    transition: transform 0.62s var(--ease-out-expo);
-  }
-
+  /* One masked cell, two icons rolling through it like a drum. The resting
+     icon lands with a small overshoot; the leaving one exits faster. Each
+     state names its own transitions, so either direction is the reverse of
+     the other and a mid-roll click simply re-targets from where it is. */
   .theme-icon {
     grid-area: 1 / 1;
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.2rem;
+    height: 1.2rem;
     transition:
-      opacity 0.24s ease,
-      transform 0.45s var(--ease-out-expo);
+      transform 0.62s cubic-bezier(0.34, 1.4, 0.5, 1) 0.06s,
+      opacity 0.3s ease 0.06s;
+  }
+
+  .theme-icon-moon,
+  [data-theme="dark"] .theme-icon-sun {
+    opacity: 0;
+    transition:
+      transform 0.34s var(--ease-in-quart),
+      opacity 0.22s ease 0.08s;
   }
 
   .theme-icon-moon {
-    opacity: 0;
-    transform: translateY(3.68rem) rotate(180deg);
-  }
-
-  [data-theme="dark"] .theme-dial {
-    transform: rotate(180deg);
+    transform: translateY(-165%) rotate(-110deg) scale(0.55);
   }
 
   [data-theme="dark"] .theme-icon-sun {
-    opacity: 0;
+    transform: translateY(165%) rotate(110deg) scale(0.55);
   }
 
   [data-theme="dark"] .theme-icon-moon {
     opacity: 1;
-    transition-delay: 0.08s, 0s;
+    transform: none;
+    transition:
+      transform 0.62s cubic-bezier(0.34, 1.4, 0.5, 1) 0.06s,
+      opacity 0.3s ease 0.06s;
   }
 
-  /* Hover answers with a small turn on the logo's axis. */
-  :root:not([data-theme="dark"]) .theme-toggle:hover .theme-icon-sun {
-    transform: rotate(33deg);
-  }
+  /* Hover (real pointers only, so a tap never leaves it stuck): the sun
+     turns a ray-step; the moon tilts. */
+  @media (hover: hover) {
+    :root:not([data-theme="dark"]) .theme-toggle:hover .theme-icon-sun {
+      transform: rotate(45deg) scale(1.1);
+      transition: transform 0.5s var(--ease-out-expo);
+    }
 
-  [data-theme="dark"] .theme-toggle:hover .theme-icon-moon {
-    transform: translateY(3.68rem) rotate(160deg);
+    [data-theme="dark"] .theme-toggle:hover .theme-icon-moon {
+      transform: rotate(-22deg) scale(1.1);
+      transition: transform 0.5s var(--ease-out-expo);
+    }
   }
 
   /* ID / EN segmented capsule; the ink thumb slides to the target language
@@ -674,11 +736,15 @@
     padding: 3px;
     border: 1px solid var(--line-strong);
     border-radius: 9999px;
-    transition: border-color var(--dur-state) var(--ease-out-expo);
+    background-color: var(--paper-raised);
+    transition:
+      border-color var(--dur-state) var(--ease-out-expo),
+      box-shadow var(--dur-state) var(--ease-out-expo);
   }
 
   .lang-switch:hover {
     border-color: var(--ink-muted);
+    box-shadow: 0 10px 22px -16px rgb(var(--shadow-tint) / 0.7);
   }
 
   .lang-thumb {
@@ -686,7 +752,7 @@
     inset-block: 3px;
     left: 3px;
     width: calc(50% - 3px);
-    transition: transform 0.5s var(--ease-out-expo);
+    transition: transform 0.55s var(--ease-out-expo);
   }
 
   .lang-thumb-fill {
@@ -701,12 +767,22 @@
     transform: translateX(100%);
   }
 
+  /* Hovering the other language leans the thumb toward it: a hint of the
+     move a click will make. */
+  .lang-switch[data-active="id"]:has(.lang-option:not([data-target]):hover) .lang-thumb {
+    transform: translateX(7%);
+  }
+
+  .lang-switch[data-active="en"]:has(.lang-option:not([data-target]):hover) .lang-thumb {
+    transform: translateX(93%);
+  }
+
   .lang-switch[data-moved][data-active="en"] .lang-thumb-fill {
-    animation: thumb-stretch-en 0.5s var(--ease-out-expo);
+    animation: thumb-stretch-en 0.55s var(--ease-out-expo);
   }
 
   .lang-switch[data-moved][data-active="id"] .lang-thumb-fill {
-    animation: thumb-stretch-id 0.5s var(--ease-out-expo);
+    animation: thumb-stretch-id 0.55s var(--ease-out-expo);
   }
 
   /* While the other language loads the thumb breathes, so a slow network
@@ -738,7 +814,7 @@
   }
 
   .lang-option:active {
-    transform: scale(0.94);
+    transform: scale(0.92);
     transition-duration: var(--dur-instant);
   }
 
@@ -746,8 +822,50 @@
     color: var(--paper);
   }
 
+  /* Masked label with its copy waiting underneath. */
+  .lang-roll {
+    display: block;
+    overflow: hidden;
+    line-height: 1.25;
+  }
+
+  .lang-roll-track {
+    position: relative;
+    display: block;
+    transition: transform 0.5s var(--ease-out-expo);
+  }
+
+  .lang-roll-track::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 100%;
+    left: 0;
+  }
+
+  .lang-option:focus-visible .lang-roll-track,
+  .lang-toggle:focus-visible .lang-roll-track {
+    transform: translateY(-100%);
+  }
+
+  @media (hover: hover) {
+    .lang-option:hover .lang-roll-track,
+    .lang-toggle:hover .lang-roll-track {
+      transform: translateY(-100%);
+    }
+  }
+
+  /* A switch rolls the two labels in opposite directions. */
+  .lang-switch[data-moved] .lang-option[data-target] .lang-roll-track {
+    animation: roll-up 0.55s var(--ease-out-expo);
+  }
+
+  .lang-switch[data-moved] .lang-option:not([data-target]) .lang-roll-track {
+    animation: roll-down 0.55s var(--ease-out-expo);
+  }
+
   /* Phone header: one capsule that names the other language. Both labels
-     share one cell; the visible one rolls up and out as the next rolls in. */
+     share one cell; on a switch the next one rolls up into view as the
+     current one rolls up and out. */
   .lang-toggle {
     position: relative;
     display: inline-grid;
@@ -758,6 +876,7 @@
     overflow: hidden;
     border: 1px solid var(--line-strong);
     border-radius: 9999px;
+    background-color: var(--paper-raised);
     font-size: 0.875rem;
     font-weight: 650;
     color: var(--ink);
@@ -774,28 +893,30 @@
   }
 
   .lang-toggle:active {
-    transform: scale(0.92);
+    transform: scale(0.9);
     transition-duration: var(--dur-instant);
   }
 
   .lang-toggle-label {
     grid-area: 1 / 1;
-    transition:
-      transform 0.45s var(--ease-out-expo),
-      opacity 0.2s ease;
-  }
-
-  .lang-toggle[data-shows="en"] [data-label="id"],
-  .lang-toggle[data-shows="id"] [data-label="en"] {
-    opacity: 0;
-    transform: translateY(-140%);
   }
 
   /* Before hydration the attribute is already set by the prerender, so the
      right label shows from the first frame. */
-  .lang-toggle[data-shows="id"] [data-label="id"],
-  .lang-toggle[data-shows="en"] [data-label="en"] {
-    transition-delay: 0.06s;
+  .lang-toggle[data-shows="en"] [data-label="id"],
+  .lang-toggle[data-shows="id"] [data-label="en"] {
+    opacity: 0;
+    transform: translateY(-160%);
+  }
+
+  .lang-toggle[data-moved][data-shows="en"] [data-label="en"],
+  .lang-toggle[data-moved][data-shows="id"] [data-label="id"] {
+    animation: label-in 0.55s var(--ease-out-expo) 0.05s both;
+  }
+
+  .lang-toggle[data-moved][data-shows="en"] [data-label="id"],
+  .lang-toggle[data-moved][data-shows="id"] [data-label="en"] {
+    animation: label-out 0.28s var(--ease-in-quart) both;
   }
 
   .lang-toggle[aria-busy="true"] {
@@ -814,15 +935,36 @@
   /* -------------------------------------------------------- navigation */
 
   /*
-   * Adaptive header. The bar keeps one fixed 72px box at every state, so
-   * nothing below it ever moves. What changes is the plate behind it:
-   * transparent over the hero, a full-bleed porcelain surface once content
-   * passes beneath, and a floating capsule (clip-path inset) once the reader
-   * is properly into the page. A hairline capsule fades in to edge it.
+   * Adaptive header. The bar keeps one fixed box at every state
+   * (--header-h), so nothing below it ever moves. What changes is the plate
+   * behind it: transparent over the hero, a full-bleed porcelain surface once
+   * content passes beneath, and, from 768px, a floating capsule (clip-path
+   * inset) once the reader is properly into the page. As it condenses the
+   * wordmark folds into the mark and the capsule contracts from the left to
+   * follow it; expanding plays the same path back. One duration and curve
+   * for every part, so it reads as a single motion.
    */
   .site-header {
+    --logo-w: 7rem;
+    --morph: 0.62s var(--ease-out-expo);
     --plate-x: max(0.375rem, calc((100% - 88rem) / 2 + var(--spacing-gutter) - 0.875rem));
-    --plate-y: 0.4375rem;
+    /* The condensed capsule is 3.75rem tall at every breakpoint. */
+    --plate-y: calc((var(--header-h) - 3.75rem) / 2);
+    /* How far the capsule's left edge follows the folding logo. */
+    --fold: 0px;
+  }
+
+  @media (min-width: 768px) {
+    .site-header {
+      --logo-w: 7.75rem;
+      --fold: calc(var(--logo-w) * 0.774);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .site-header {
+      --logo-w: 8.5rem;
+    }
   }
 
   .header-plate,
@@ -830,7 +972,7 @@
     position: absolute;
     inset-inline: 0;
     top: 0;
-    height: 4.5rem;
+    height: var(--header-h);
     pointer-events: none;
   }
 
@@ -842,7 +984,7 @@
     clip-path: inset(0 0 0 0 round 0);
     transition:
       opacity var(--dur-state) ease,
-      clip-path 0.55s var(--ease-out-expo),
+      clip-path var(--morph),
       box-shadow var(--dur-state) ease;
   }
 
@@ -852,27 +994,38 @@
     opacity: 1;
   }
 
+  /* Hairline and lift of the floating capsule. It fades in once the plate
+     has condensed and leaves first when it expands. */
   .header-edge {
-    inset: var(--plate-y) var(--plate-x) auto;
-    height: calc(4.5rem - var(--plate-y) * 2);
+    inset: var(--plate-y) var(--plate-x) auto calc(var(--plate-x) + var(--fold));
+    height: calc(var(--header-h) - var(--plate-y) * 2);
     border: 1px solid var(--line);
     border-radius: 9999px;
     box-shadow: 0 18px 40px -30px rgb(var(--shadow-tint) / 0.55);
     opacity: 0;
-    transition: opacity var(--dur-exit) ease;
+    transition: opacity 0.12s ease;
   }
 
-  /* The floating capsule needs horizontal room around the controls; phones
-     keep the full-bleed surface and only the logo condenses. */
   @media (min-width: 768px) {
     .site-header[data-compact="true"]:not([data-menu="open"]) .header-plate {
-      clip-path: inset(var(--plate-y) var(--plate-x) round 9999px);
+      clip-path: inset(
+        var(--plate-y) var(--plate-x) var(--plate-y) calc(var(--plate-x) + var(--fold)) round 9999px
+      );
       box-shadow: none;
     }
 
     .site-header[data-compact="true"]:not([data-menu="open"]) .header-edge {
       opacity: 1;
-      transition: opacity var(--dur-overlay) ease 0.12s;
+      transition: opacity var(--dur-overlay) ease 0.3s;
+    }
+
+    /* Outside the capsule the page stays clickable. */
+    .site-header[data-compact="true"]:not([data-menu="open"]) {
+      pointer-events: none;
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-bar > * {
+      pointer-events: auto;
     }
   }
 
@@ -881,13 +1034,122 @@
     backdrop-filter: none;
   }
 
+  /* Logo lockup: mark, wordmark, and INDONESIA as stacked layers. */
   .header-logo {
-    transform-origin: 0% 50%;
-    transition: transform 0.55s var(--ease-out-expo);
+    position: relative;
+    display: block;
+    border-radius: 0.5rem;
+  }
+
+  .header-logo:focus-visible {
+    outline: none;
+  }
+
+  .lockup {
+    position: relative;
+    display: block;
+    width: var(--logo-w);
+    aspect-ratio: 727 / 361;
+  }
+
+  .lockup-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transition:
+      transform var(--morph),
+      clip-path var(--morph),
+      opacity var(--dur-state) ease;
+  }
+
+  /* Pivot at the centre of the four capsules (x 0-200, y 0-250 of 727 x 361). */
+  .lockup-mark {
+    transform-origin: 13.75% 34.6%;
+  }
+
+  .lockup-word {
+    clip-path: inset(0 0 0 28.6%);
+  }
+
+  .lockup-desc {
+    clip-path: inset(0 0 0 0);
+  }
+
+  .logo-hit {
+    position: absolute;
+    inset: -0.25rem;
+    border-radius: 0.5rem;
+  }
+
+  .header-logo:focus-visible .logo-hit {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* The mark answers a hover with a short lean along its own axis. */
+  @media (hover: hover) {
+    .header-logo:hover .lockup-mark {
+      transform: translate(0.6%, -1.2%);
+    }
   }
 
   .site-header[data-compact="true"]:not([data-menu="open"]) .header-logo {
-    transform: scale(0.9);
+    pointer-events: none;
+  }
+
+  .site-header[data-compact="true"]:not([data-menu="open"]) .logo-hit {
+    pointer-events: auto;
+  }
+
+  /* Condensing on phones: the words retract into the mark, which settles to
+     the bar's centre line. The surface stays full-bleed. */
+  @media (max-width: 767px) {
+    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-mark {
+      transform: translateY(15.4%);
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-word {
+      clip-path: inset(0 71.4% 0 28.6%);
+      opacity: 0;
+      transition-delay: 0s, 0s, 0.2s;
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-desc {
+      clip-path: inset(0 100% 0 0);
+      opacity: 0;
+      transition-delay: 0s, 0s, 0.15s;
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .logo-hit {
+      right: 70%;
+    }
+  }
+
+  /* Condensing from 768px: the mark travels right through the wordmark and
+     swallows it (the clip edge rides the mark's trailing side), settling
+     where the contracted capsule begins. INDONESIA leads by a beat. */
+  @media (min-width: 768px) {
+    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-mark {
+      transform: translate(75%, 15.4%) scale(0.82);
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-logo:hover .lockup-mark {
+      transform: translate(75.6%, 14.2%) scale(0.82);
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-word {
+      clip-path: inset(0 0 0 100%);
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-desc {
+      clip-path: inset(0 0 0 100%);
+      transition-duration: 0.46s, 0.46s, var(--dur-state);
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .logo-hit {
+      left: 75%;
+    }
   }
 
   /* The menu panel leaves faster than it arrives. */
@@ -1091,15 +1353,46 @@
 /* The language thumb stretches along its own axis while it travels. */
 @keyframes thumb-stretch-en {
   35% {
-    transform: scaleX(1.18);
+    transform: scale(1.28, 0.9);
     transform-origin: 0% 50%;
   }
 }
 
 @keyframes thumb-stretch-id {
   35% {
-    transform: scaleX(1.18);
+    transform: scale(1.28, 0.9);
     transform-origin: 100% 50%;
+  }
+}
+
+@keyframes roll-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes roll-down {
+  from {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes label-in {
+  from {
+    opacity: 0;
+    transform: translateY(160%);
+  }
+}
+
+@keyframes label-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-160%);
   }
 }
 
@@ -1112,11 +1405,6 @@
 /* Reduced motion keeps the meaning of a state change (which theme, which
    language) as a short crossfade, without spatial movement. */
 @media (prefers-reduced-motion: reduce) {
-  .theme-dial {
-    transform: none !important;
-  }
-
-  .theme-dial,
   .lang-thumb {
     transition: none !important;
   }
@@ -1124,11 +1412,15 @@
   .theme-icon,
   .lang-toggle-label {
     transform: none !important;
+    animation: none !important;
     transition: opacity 160ms linear !important;
   }
 
+  .lang-roll-track,
   .lang-thumb-fill {
+    transform: none !important;
     animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -1258,7 +1550,7 @@
 
 .route-chip {
   position: fixed;
-  top: 5.25rem;
+  top: calc(var(--header-h) + 0.75rem);
   left: 50%;
   z-index: var(--z-progress);
   display: inline-flex;
@@ -1297,23 +1589,266 @@
   }
 }
 
+/* -------------------------------------------------------- boot loader */
+
+/*
+ * "Four capsules. One solution." Fullscreen on first load only (see
+ * src/lib/boot.ts). Shown while <html data-boot> is "intro" or "exit"; the
+ * inline display: none in the markup is the fallback without this sheet.
+ * Everything that moves is a transform or opacity on its own layer.
+ */
+html[data-boot="intro"] .boot-loader,
+html[data-boot="exit"] .boot-loader {
+  display: block !important;
+}
+
+/* CSS failsafe: should the page's main thread be blocked when the script's
+   cap is due (a timer cannot interrupt a long task), the compositor still
+   fades the overlay out 3.4 s after it first appeared. The same animation
+   spans both states, so it never restarts or un-applies on the way out. */
+html[data-boot="intro"] .boot-loader,
+html[data-boot="exit"] .boot-loader {
+  animation: boot-failsafe 0.3s linear 3.4s forwards;
+}
+
+.boot-loader {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-boot);
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Two oversized sheets whose leading edge runs along the 33deg axis
+   (rotate 57deg puts the local y axis at 147deg, i.e. rising 33deg). The
+   cobalt sheet sits underneath and leaves a beat later, so a band of the
+   brand colour sweeps across between the porcelain and the page. */
+.boot-sheet {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  background: var(--paper);
+  transform: rotate(57deg);
+}
+
+.boot-sheet-accent {
+  background: var(--accent);
+}
+
+.boot-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: clamp(1.75rem, 5vh, 2.75rem);
+}
+
+.boot-lockup {
+  position: relative;
+  container-type: inline-size;
+  width: clamp(13rem, 58vw, 21rem);
+  aspect-ratio: 727 / 361;
+}
+
+.boot-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The wordmark slides out from behind the mark; INDONESIA drops out from
+   under the wordmark. The clips are static, only the layers inside move. */
+.boot-clip {
+  position: absolute;
+  inset: 0;
+}
+
+.boot-clip-word {
+  clip-path: inset(0 0 0 28.6%);
+}
+
+.boot-clip-desc {
+  clip-path: inset(76% 0 0 0);
+}
+
+/* Indeterminate and honest: a slow page earns a quiet runner, never a percentage. */
+.boot-wait {
+  position: relative;
+  display: block;
+  width: 4.5rem;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--line);
+  opacity: 0;
+}
+
+.boot-wait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-boot] .boot-capsule {
+    animation: boot-capsule-in 0.52s var(--ease-out-expo) calc(30ms + var(--i) * 50ms) both;
+  }
+
+  html[data-boot] .boot-word {
+    animation: boot-word-in 0.48s var(--ease-out-expo) 0.2s both;
+  }
+
+  html[data-boot] .boot-desc {
+    animation: boot-desc-in 0.38s var(--ease-out-expo) 0.28s both;
+  }
+
+  html[data-boot="intro"] .boot-wait {
+    animation: boot-wait-in var(--dur-state) ease 1.5s both;
+  }
+
+  html[data-boot="intro"] .boot-wait::after {
+    animation: boot-wait-run 1.15s var(--ease-in-out-quart) 1.5s infinite;
+  }
+
+  html[data-boot="exit"] .boot-stage {
+    opacity: 0;
+    transform: translate3d(0, -0.75rem, 0) scale(0.97);
+    transition:
+      opacity 0.22s var(--ease-in-quart),
+      transform 0.28s var(--ease-in-quart);
+  }
+
+  html[data-boot="exit"] .boot-sheet {
+    transform: rotate(57deg) translate3d(150vmax, 0, 0);
+    transition: transform 0.52s cubic-bezier(0.65, 0, 0.35, 1) 0.06s;
+  }
+
+  html[data-boot="exit"] .boot-sheet-accent {
+    transition-delay: 0.1s;
+  }
+}
+
+/* Short sequence (a later load in the same tab): the same beats, compressed
+   to about 0.6 s. The wipe starts as soon as the fourth capsule locks. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-boot-mode="short"] .boot-capsule {
+    animation-duration: 0.22s;
+    animation-delay: calc(var(--i) * 15ms);
+  }
+
+  html[data-boot-mode="short"] .boot-word,
+  html[data-boot-mode="short"] .boot-desc {
+    animation-duration: 0.22s;
+    animation-delay: 0.03s;
+  }
+
+  html[data-boot-mode="short"][data-boot="exit"] .boot-stage {
+    transition-duration: 0.16s;
+  }
+
+  html[data-boot-mode="short"][data-boot="exit"] .boot-sheet {
+    transition-duration: 0.3s;
+    transition-delay: 0.02s;
+  }
+
+  html[data-boot-mode="short"][data-boot="exit"] .boot-sheet-accent {
+    transition-delay: 0.05s;
+  }
+}
+
+/* Reduced motion: the assembled mark rests, then the overlay fades out. The
+   !important beats the global reduced-motion clamp for this one fade. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-boot] .boot-desc {
+    animation: boot-desc-in 1ms both;
+  }
+
+  html[data-boot="exit"] .boot-loader {
+    opacity: 0;
+    transition: opacity 0.28s linear !important;
+  }
+}
+
+/* Entrances on the page underneath wait for the overlay to start leaving,
+   so they play where the visitor can see them. Text stays painted (the
+   headline animates transform only), so LCP is unaffected. */
+html[data-boot="intro"] .enter,
+html[data-boot="intro"] .dock-launcher {
+  animation-play-state: paused;
+}
+
+@keyframes boot-capsule-in {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(var(--d) * 0.839cqw), calc(var(--d) * -0.545cqw), 0) scale(0.9);
+  }
+}
+
+@keyframes boot-word-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-34%, 0, 0);
+  }
+}
+
+@keyframes boot-desc-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -18%, 0);
+  }
+}
+
+@keyframes boot-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes boot-wait-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes boot-wait-run {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
 /* ------------------------------------------------------ floating dock */
 
 /*
- * Bottom-right stack: back-to-top above the assistant launcher. Offsets
+ * Bottom-right row: back-to-top beside the assistant launcher. The panel
+ * opens above the whole row, so neither control is ever covered. Offsets
  * respect phone safe areas. The dock sits under the header (so the mobile
  * menu covers it) and steps aside near [data-floating-avoid].
  */
 .floating-dock {
   --dock-right: max(1rem, calc(env(safe-area-inset-right) + 0.75rem));
   --dock-bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+  --launcher-trim: 0px;
+  --trim: 0px;
   position: fixed;
   right: var(--dock-right);
   bottom: var(--dock-bottom);
   z-index: var(--z-dock);
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.625rem;
   pointer-events: none;
   transition: transform var(--dur-overlay) var(--ease-out-expo);
@@ -1326,8 +1861,11 @@
   }
 }
 
-.floating-dock > button {
-  pointer-events: auto;
+/* The label (and so the trim) only exists from 640px. */
+@media (min-width: 640px) {
+  .floating-dock[data-assistant="open"] {
+    --trim: var(--launcher-trim);
+  }
 }
 
 .floating-dock[data-avoid="true"][data-assistant="closed"]:not(:focus-within) {
@@ -1336,11 +1874,15 @@
   transition-duration: var(--dur-exit);
 }
 
+/* Back-to-top: slides out from behind the launcher, and follows it when the
+   open launcher trims its width. */
 .dock-top {
+  position: relative;
   display: grid;
   place-items: center;
   width: 2.75rem;
   height: 2.75rem;
+  overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 9999px;
   background: var(--paper-raised);
@@ -1348,68 +1890,109 @@
   box-shadow: 0 16px 32px -22px rgb(var(--shadow-tint) / 0.6);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(0.625rem) scale(0.86);
+  transform: translateX(calc(var(--trim) + 0.875rem)) scale(0.8);
   transition:
     opacity var(--dur-exit) ease,
     transform var(--dur-exit) var(--ease-in-quart),
     visibility 0s linear var(--dur-exit),
     border-color var(--dur-state) var(--ease-out-expo),
-    background-color var(--dur-state) var(--ease-out-expo);
+    background-color var(--dur-state) var(--ease-out-expo),
+    box-shadow var(--dur-state) var(--ease-out-expo);
 }
 
 .dock-top[data-visible="true"] {
+  pointer-events: auto;
   opacity: 1;
   visibility: visible;
-  transform: none;
+  transform: translateX(var(--trim));
   transition:
     opacity var(--dur-state) ease,
-    transform var(--dur-overlay) var(--ease-out-expo),
+    transform 0.5s var(--ease-out-expo),
     visibility 0s,
     border-color var(--dur-state) var(--ease-out-expo),
-    background-color var(--dur-state) var(--ease-out-expo);
+    background-color var(--dur-state) var(--ease-out-expo),
+    box-shadow var(--dur-state) var(--ease-out-expo);
 }
 
-/* The assistant panel occupies the space above the launcher. */
-.floating-dock:not([data-assistant="closed"]) .dock-top {
+/* The phone bottom sheet is modal and covers the row. */
+.floating-dock[data-sheet="true"] .dock-top {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(0.625rem) scale(0.86);
-}
-
-.dock-top svg {
-  transition: transform var(--dur-state) var(--ease-out-expo);
 }
 
 .dock-top:hover {
   border-color: var(--ink-muted);
   background-color: var(--paper-sunken);
-}
-
-.dock-top:hover svg {
-  transform: translateY(-2px);
+  box-shadow: 0 18px 34px -20px rgb(var(--shadow-tint) / 0.7);
 }
 
 .dock-top[data-visible="true"]:active {
-  transform: scale(0.92);
+  transform: translateX(var(--trim)) scale(0.9);
   transition-duration: var(--dur-instant);
 }
 
-/* Launcher: a navy capsule with the gradient mark in a porcelain well. */
+/* Hover sends the arrow up and out of the capsule and back in from below:
+   the direction of travel, played once. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .dock-top:hover .dock-top-icon {
+    animation: arrow-loop 0.6s var(--ease-out-expo);
+  }
+}
+
+/* Launcher: a navy capsule with the gradient mark in a porcelain well. The
+   capsule itself is drawn by ::before, which is also the hit area, so the
+   open launcher can trim its empty tail with a clip instead of a width
+   change; ::after is the matching focus ring. */
 .dock-launcher {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
   height: 3.25rem;
   padding: 0.375rem;
   border-radius: 9999px;
-  background: var(--ink);
   color: var(--paper);
   font-size: 0.9375rem;
   font-weight: 650;
-  box-shadow: 0 18px 36px -20px rgb(var(--shadow-tint) / 0.75);
+  filter: drop-shadow(0 12px 14px rgb(var(--shadow-tint) / 0.22));
+  transition: transform var(--dur-quick) var(--ease-out-expo);
+}
+
+.dock-launcher::before,
+.dock-launcher::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+}
+
+.dock-launcher::before {
+  z-index: -1;
+  pointer-events: auto;
+  background: var(--ink);
+  clip-path: inset(0 0 0 var(--trim) round 9999px);
   transition:
     background-color var(--dur-state) var(--ease-out-expo),
-    transform var(--dur-quick) var(--ease-out-expo);
+    clip-path 0.5s var(--ease-out-expo);
+}
+
+.dock-launcher::after {
+  left: var(--trim);
+  pointer-events: none;
+  transition: left 0.5s var(--ease-out-expo);
+}
+
+.dock-launcher:focus-visible {
+  outline: none;
+}
+
+.dock-launcher:focus-visible::after {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.dock-launcher > * {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1418,7 +2001,7 @@
   }
 }
 
-.dock-launcher:hover {
+.dock-launcher:hover::before {
   background: color-mix(in srgb, var(--ink) 86%, var(--accent));
 }
 
@@ -1436,6 +2019,10 @@
   border-radius: 9999px;
   background: var(--paper-raised);
   color: var(--ink);
+  transform: translateX(var(--trim));
+  transition:
+    transform 0.5s var(--ease-out-expo),
+    color var(--dur-state) var(--ease-out-expo);
 }
 
 .dock-launcher-glyph {
@@ -1462,9 +2049,12 @@
   transform: none;
 }
 
+.dock-launcher[data-close-control]:hover [data-glyph="close"] {
+  transform: rotate(90deg);
+}
+
 .dock-launcher-label {
   display: none;
-  justify-items: start;
   overflow: hidden;
   padding-right: 0.75rem;
 }
@@ -1477,9 +2067,15 @@
 
 .dock-launcher-label > span {
   grid-area: 1 / 1;
+  justify-self: start;
   transition:
     transform 0.45s var(--ease-out-expo),
     opacity 0.2s ease;
+}
+
+/* "Tutup" sits at the end of the cell, right after the shifted icon. */
+.dock-launcher-label [data-label="close"] {
+  justify-self: end;
 }
 
 .dock-launcher-label [data-label="close"],
@@ -1497,6 +2093,18 @@
   from {
     opacity: 0;
     transform: translateY(0.75rem) scale(0.9);
+  }
+}
+
+@keyframes arrow-loop {
+  45% {
+    opacity: 0;
+    transform: translateY(-160%);
+  }
+
+  46% {
+    opacity: 0;
+    transform: translateY(160%);
   }
 }
 
@@ -1896,4 +2504,427 @@
   border: 1px dashed var(--line-strong);
   border-radius: 9999px;
   transform: rotate(-33deg);
+}
+
+/* --------------------------------------------------------- case study */
+
+@layer components {
+  /* Fact sheet under the case study title: four facts on one hairline. */
+  .case-facts {
+    display: grid;
+    gap: 1.5rem 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  @media (min-width: 640px) {
+    .case-facts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .case-facts-wide {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .case-facts {
+      grid-template-columns: repeat(3, minmax(0, 0.7fr)) minmax(0, 2fr);
+    }
+
+    .case-facts-wide {
+      grid-column: auto;
+    }
+  }
+
+  .case-facts dt {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+  }
+
+  .case-facts dd {
+    margin-top: 0.5rem;
+    font-weight: 600;
+  }
+
+  /* Chapter rail: sticky on wide screens, the current chapter marked by a
+     short capsule on the logo's axis. */
+  .case-rail {
+    position: sticky;
+    top: calc(var(--header-h) + 2.5rem);
+    display: grid;
+    gap: 0.125rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--line);
+  }
+
+  .case-rail-link {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.45rem 0;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition:
+      color var(--dur-state) var(--ease-out-expo),
+      transform var(--dur-state) var(--ease-out-expo);
+  }
+
+  .case-rail-link::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(-1rem - 4px);
+    width: 7px;
+    height: 1.4rem;
+    margin-top: -0.7rem;
+    border-radius: 9999px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transition: transform 0.45s var(--ease-out-expo);
+  }
+
+  .case-rail-index {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-faint);
+    transition: color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .case-rail-link:hover {
+    color: var(--ink);
+    transform: translateX(3px);
+  }
+
+  .case-rail-link[aria-current] {
+    color: var(--ink);
+  }
+
+  .case-rail-link[aria-current]::before {
+    transform: scaleY(1);
+  }
+
+  .case-rail-link[aria-current] .case-rail-index {
+    color: var(--accent-text);
+  }
+
+  [data-chapter]:focus {
+    outline: none;
+  }
+
+  .case-chapter-head {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .case-chapter-index {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--accent-text);
+  }
+
+  /* A short capsule on the 33deg axis precedes every chapter number. */
+  .case-chapter-index::before {
+    content: "";
+    width: 1.1rem;
+    height: 0.32rem;
+    border-radius: 9999px;
+    background: currentColor;
+    transform: rotate(-33deg);
+  }
+
+  /* Context and problem: two cards. The problem's outline is dashed, the
+     signifier for something still open. */
+  .case-card {
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1.75rem, 3vw, 2.5rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--paper-raised);
+  }
+
+  .case-card .text-title {
+    font-size: var(--text-heading);
+    line-height: var(--text-heading--line-height);
+  }
+
+  .case-card-open {
+    border: 1px dashed var(--line-strong);
+    background: transparent;
+  }
+
+  /* The solution lands on the cobalt field. */
+  .case-solution {
+    padding: clamp(2rem, 5vw, 4rem);
+    border-radius: var(--radius-panel);
+    background: var(--field);
+    color: var(--field-ink);
+  }
+
+  .case-solution .case-chapter-index {
+    color: var(--field-ink-muted);
+  }
+
+  .case-panel {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border-radius: var(--radius-panel);
+    background: var(--paper-sunken);
+  }
+
+  .case-feature {
+    position: relative;
+    padding: 1.75rem 1.75rem 1.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--paper-raised);
+    transition: border-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .case-feature:hover {
+    border-color: var(--line-strong);
+  }
+
+  .case-feature-index {
+    display: block;
+    margin-bottom: 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--accent-text);
+  }
+
+  .case-metric {
+    display: flex;
+    flex-direction: column;
+    min-height: 11rem;
+    padding: 1.5rem;
+    border-top: 2px solid var(--ink);
+    background: var(--paper-raised);
+    border-radius: 0 0 var(--radius-field) var(--radius-field);
+  }
+
+  .case-metric-slot {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 1.1rem;
+    border: 1px dashed var(--line-strong);
+    border-radius: 9999px;
+    transform: rotate(-33deg);
+  }
+
+  /* Previous and next: a cover thumbnail beside the title. */
+  .case-adjacent {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    color: var(--ink);
+    text-decoration: none;
+    transition:
+      border-color var(--dur-state) var(--ease-out-expo),
+      background-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  @media (min-width: 640px) {
+    .case-adjacent {
+      grid-template-columns: 10rem minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+  }
+
+  .case-adjacent:hover {
+    border-color: var(--ink);
+    background: var(--paper-raised);
+  }
+
+  .case-adjacent-cover {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: var(--radius-field);
+  }
+
+  .case-adjacent-cover > * {
+    transition: transform 0.9s var(--ease-out-expo);
+  }
+
+  .case-adjacent:hover .case-adjacent-cover > * {
+    transform: scale(1.06);
+  }
+
+  /* Technology: badges are information, not controls (default cursor). */
+  .tech-stack {
+    display: grid;
+    border-top: 1px solid var(--line);
+  }
+
+  .tech-layer {
+    display: grid;
+    gap: 1rem;
+    padding-block: 1.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  @media (min-width: 768px) {
+    .tech-layer {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: center;
+      gap: 2rem;
+    }
+  }
+
+  .tech-layer-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.875rem;
+    row-gap: 0.15rem;
+  }
+
+  .tech-layer-head > :not(.tech-layer-index) {
+    grid-column: 2;
+  }
+
+  .tech-layer-index {
+    grid-row: span 2;
+    padding-top: 0.15rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--accent-text);
+  }
+
+  .tech-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: 3.125rem;
+    padding: 0.3rem 1rem 0.3rem 0.3rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    background: var(--paper-raised);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+    transition: border-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .tech-badge-well {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--paper-sunken);
+    color: var(--ink);
+    transition:
+      color var(--dur-state) var(--ease-out-expo),
+      background-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .tech-badge-icon {
+    width: 1.375rem;
+    height: 1.375rem;
+    transition: transform 0.45s var(--ease-out-expo);
+  }
+
+  .tech-badge:hover {
+    border-color: var(--ink-muted);
+  }
+
+  .tech-badge:hover .tech-badge-well {
+    background: color-mix(in srgb, var(--paper-sunken) 70%, var(--accent) 12%);
+  }
+
+  .tech-badge:hover .tech-badge-icon {
+    transform: scale(1.12);
+  }
+
+  .tech-badge-small {
+    min-height: 2.5rem;
+    padding-right: 0.85rem;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .tech-badge-small .tech-badge-well {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .tech-badge-small .tech-badge-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+}
+
+/* ----------------------------------------------------- close controls */
+
+/*
+ * Every "close" (assistant panel, open launcher, phone menu) answers hover,
+ * focus, and press with a restrained red from the danger token: a tint and
+ * a coloured glyph, never a solid alarm fill, because closing is not a
+ * destructive action. Unlayered and last, so it wins over each component's
+ * neutral hover.
+ */
+[data-close-control] {
+  transition:
+    color var(--dur-state) var(--ease-out-expo),
+    background-color var(--dur-state) var(--ease-out-expo),
+    border-color var(--dur-state) var(--ease-out-expo),
+    transform var(--dur-quick) var(--ease-out-expo);
+}
+
+[data-close-control]:hover,
+[data-close-control]:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background-color: var(--danger-soft);
+  color: var(--danger);
+}
+
+[data-close-control]:focus-visible {
+  outline-color: var(--danger);
+}
+
+[data-close-control]:active {
+  background-color: color-mix(in srgb, var(--danger) 18%, transparent);
+  transform: scale(0.92);
+  transition-duration: var(--dur-instant);
+}
+
+/* The open launcher keeps its navy capsule; only a hint of red enters it,
+   and the glyph in the porcelain well turns red. */
+.dock-launcher[data-close-control]:hover,
+.dock-launcher[data-close-control]:focus-visible {
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--paper);
+}
+
+.dock-launcher[data-close-control]:hover::before {
+  background: color-mix(in srgb, var(--ink) 80%, var(--danger));
+}
+
+.dock-launcher[data-close-control]:focus-visible::after {
+  outline-color: var(--danger);
+}
+
+.dock-launcher[data-close-control]:hover .dock-launcher-icon,
+.dock-launcher[data-close-control]:focus-visible .dock-launcher-icon {
+  color: var(--danger);
+}
+
+.dock-launcher[data-close-control]:active {
+  background-color: transparent;
+  transform: scale(0.95);
 }

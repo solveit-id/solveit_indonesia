@@ -48,6 +48,7 @@ export function SystemMap({ system }: { system: Project["system"] }) {
               <>
                 <span
                   aria-hidden
+                  data-system-link
                   className="absolute top-7 left-full hidden h-px w-[4.77rem] origin-left -rotate-[33deg] bg-accent lg:block"
                 />
                 <span className="mt-3 block pl-5 text-sm text-ink-muted">

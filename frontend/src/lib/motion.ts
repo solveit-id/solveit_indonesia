@@ -26,6 +26,26 @@ export const loadGsap = (): Promise<GsapApi> =>
 /** The GSAP API if it has finished loading, for synchronous event handlers. */
 export const getGsap = (): GsapApi | null => api;
 
+/*
+ * When GSAP first arrives, every mounted component sets up its motion at
+ * once. Run back to back, those setups (ScrollTriggers measure layout) form
+ * one long task that blocks input; queued one per task, the browser can
+ * respond between them. Order is kept, so pins are still created top down.
+ */
+const queue: (() => void)[] = [];
+let draining = false;
+const drain = () => {
+  queue.shift()?.();
+  if (queue.length > 0) setTimeout(drain, 0);
+  else draining = false;
+};
+const enqueue = (job: () => void) => {
+  queue.push(job);
+  if (draining) return;
+  draining = true;
+  setTimeout(drain, 0);
+};
+
 interface MotionOptions {
   scope?: RefObject<Element | null>;
   dependencies?: DependencyList;
@@ -45,10 +65,14 @@ export function useMotion(
   useLayoutEffect(() => {
     let cancelled = false;
     let context: ReturnType<GsapApi["gsap"]["context"]> | undefined;
-    void loadGsap().then((loaded) => {
+    const run = (loaded: GsapApi) => {
       if (cancelled) return;
       context = loaded.gsap.context(() => setup(loaded), scope?.current ?? undefined);
-    });
+    };
+    // Already loaded (client navigation): set up before the next paint, so
+    // an entrance never flashes its end state first. First load: queue.
+    if (api) run(api);
+    else void loadGsap().then((loaded) => enqueue(() => run(loaded)));
     return () => {
       cancelled = true;
       context?.revert();

@@ -143,6 +143,7 @@ test.describe("back to top", () => {
 test.describe("adaptive header", () => {
   test("condenses past a threshold and expands only near the top (hysteresis)", async ({
     page,
+    viewport,
   }) => {
     await page.goto("/");
     const header = page.locator("header.site-header");
@@ -156,8 +157,10 @@ test.describe("adaptive header", () => {
     await scrollTo(page, 0);
     await expect(header).toHaveAttribute("data-compact", "false");
     await expect(header).toHaveAttribute("data-scrolled", "false");
-    // The header box never changes height, so nothing below it moves.
-    expect((await header.boundingBox())!.height).toBeCloseTo(72, 0);
+    // The header box never changes height, so nothing below it moves: 88px
+    // from 1024px, 76px below.
+    const expected = (viewport?.width ?? 0) >= 1024 ? 88 : 76;
+    expect((await header.boundingBox())!.height).toBeCloseTo(expected, 0);
   });
 });
 
@@ -195,7 +198,7 @@ test.describe("Solveit Assistant", () => {
     await expect(wa).toHaveAttribute("href", /blockchain/);
     await expect(wa).toHaveAttribute("target", "_blank");
 
-    // Back-to-top steps aside while the panel is open.
+    // At the top of the page there is nothing to go back to.
     await expect(page.getByRole("button", { name: "Kembali ke atas" })).toBeHidden();
     if (isMobile) await expect(page.locator("#main")).toHaveAttribute("inert", "");
 
