@@ -2,7 +2,7 @@ import { useI18n } from "~/i18n";
 import { cn } from "~/lib/cn";
 
 /** Marks illustrative concepts so they are never read as client work. */
-export function DemoLabel({ className }: { className?: string }) {
+export function DemoLabel({ className, label }: { className?: string; label?: string }) {
   const { t } = useI18n();
   return (
     <p
@@ -11,7 +11,7 @@ export function DemoLabel({ className }: { className?: string }) {
         className,
       )}
     >
-      {t.common.demoLabel}
+      {label ?? t.common.demoLabel}
     </p>
   );
 }

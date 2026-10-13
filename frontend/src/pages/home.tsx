@@ -4,6 +4,7 @@ import { Principles } from "~/components/sections/home/principles";
 import { ProcessRail } from "~/components/sections/home/process-rail";
 import { ServiceIndex } from "~/components/sections/home/service-index";
 import { WorkShowcase } from "~/components/sections/home/work-showcase";
+import { TestimonialSection } from "~/components/sections/testimonials";
 import { getMessages, localeFromPath, pathFor } from "~/i18n";
 import { buildMeta, organizationSchema, websiteSchema } from "~/lib/seo";
 import type { Route } from "./+types/home";
@@ -28,6 +29,7 @@ export default function Home() {
       <Manifesto />
       <ServiceIndex />
       <WorkShowcase />
+      <TestimonialSection />
       <Principles />
       <ProcessRail />
     </>

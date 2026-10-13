@@ -2,6 +2,88 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Putaran 3 (2026-10-13): motion, interaksi premium, asisten, testimoni
+
+Cakupan: tombol tema dan pemilih bahasa, header adaptif dengan urutan menu baru, tombol kembali ke atas, umpan balik pemuatan, Asisten Solveit (panduan otomatis), seksi cerita klien, kosakata motion, dan evaluasi Lenis. Baseline: `main` pada `d2b9956`.
+
+### Pemeriksaan otomatis
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run format:check`, `npm run lint`, `npm run typecheck` | Lulus, 0 masalah |
+| `npm test` (Vitest) | 50/50 lulus. Baru: mesin asisten (jawaban topik di kedua bahasa dengan tautan ke route nyata, hanya kontak terkonfirmasi, pencocokan FAQ, fallback jujur dengan eskalasi, tanpa harga, durasi, atau hasil karangan) dan integritas testimoni (hanya entri non-demo dengan izin bertanggal yang boleh tampil; daftar kosong sesuai PRODUCT.md; placeholder menyebut dirinya placeholder). Larangan em dash kini juga memeriksa kosakata asisten dan placeholder |
+| `npm run build` | Lulus; 22 halaman terindeks, plus `/pratinjau/testimoni` (`noindex`, tidak masuk sitemap) dan 2 halaman 404 |
+| `npm run test:e2e` (Chromium desktop 1440, tablet 820, Pixel 7) | 263 lulus, 0 gagal, 31 dilewati sesuai desain |
+| `PW_ALL_BROWSERS=1` (Chromium x3, Firefox, WebKit desktop, WebKit iPhone 14), 4 worker | 523 lulus, 6 gagal pada run penuh. Diperiksa satu per satu: (1) WebKit tidak memfokuskan tautan saat diklik mouse, jadi asersi fokus pada pemilih bahasa diganti dengan kontrak sebenarnya (fokus tidak ditarik ke `<main>`); (2) lima tes yang mengunjungi setiap halaman melewati batas 30 detik di bawah beban paralel. Waktu hydration WebKit diukur sama dengan `main` (rata-rata 1,22 s vs 1,28 s per halaman), jadi batas kedua tes itu dinaikkan ke 90 detik seperti tes axe. Semua lulus saat dijalankan ulang |
+| axe-core WCAG 2.0/2.1/2.2 A dan AA | 0 pelanggaran di 14 halaman x 2 tema, ditambah panel asisten yang terbuka |
+| Detektor Impeccable | 0 temuan pada file UI yang berubah |
+
+Cakupan e2e baru (`tests/e2e/interactions.spec.ts`): tombol tema ditekan lima kali beruntun, ukuran tetap, keadaan akhir dan ikon benar; pemilih bahasa menuju halaman setara, menjaga posisi scroll dan tidak menarik fokus, history back; toggle bahasa ponsel; umpan balik pemuatan (muatan pertama tanpa status, chunk ditahan 2,5 s menampilkan runner, chip, dan `role="status"`, navigasi yang chunk-nya sudah ada tidak menampilkan apa pun); tombol kembali ke atas (tersembunyi di atas, muncul, kembali ke 0, fokus ke `<main>`); Back memulihkan posisi scroll; header adaptif dengan histeresis dan tinggi tetap 72 px; asisten (topik, FAQ, fallback dengan tautan WhatsApp yang membawa pertanyaan, Escape, fokus kembali ke peluncur, halaman inert di ponsel, **tidak ada satu pun request ke luar origin**); scroll roda di panel tidak menggulir halaman; seksi cerita klien tanpa `blockquote` dan tanpa Review/AggregateRating; halaman pratinjau `noindex` dan bisa dinavigasi dengan keyboard; tanpa JavaScript konten dan navigasi bekerja dan tidak ada kontrol mengambang yang mati. Urutan menu diuji di kedua bahasa.
+
+### Temuan yang diperbaiki selama QA
+
+| Temuan | Sumber | Perbaikan |
+|---|---|---|
+| **Back tidak memulihkan posisi scroll** (selalu kembali ke 0). Sudah ada di `main` | Evaluasi Lenis, lalu jejak `scrollY` setelah Back | `html:focus-within { scroll-behavior: smooth }` membuat pemulihan scroll router menjadi scroll halus yang terputus. Aturan global dihapus; scroll halus diminta per aksi. Setelahnya Back kembali tepat ke 1800 px |
+| Beranda: TBT naik dan Performance turun 3 poin setelah fitur baru | Lighthouse, 5 run berselang-seling | `styleLayout` naik dari 765 ke 1331 ms: loader kapsul di chip status selalu ada di DOM (opacity 0) dengan animasi tak berujung pada path SVG, yang tidak dikomposit. Animasi kini hanya berjalan saat chip sibuk. Beranda menjadi lebih cepat dari baseline (median 93 vs 86 pada run berselang-seling) |
+| Kapsul header ringkas terlalu sempit di ponsel (kontrol 44 px menempel tepi kapsul) | Screenshot 390 px | Kapsul mengambang hanya mulai 768 px; di bawahnya permukaan penuh dan logo mengecil |
+| Halaman pratinjau memakai label "Konsep demonstrasi, bukan proyek klien" | Screenshot | Label sendiri: "Placeholder tata letak, bukan testimoni" |
+| Nama aksesibel peluncur tidak memuat teks yang terlihat (WCAG 2.5.3) | Review kode | Nama berasal dari label yang terlihat ("Tanya Solveit" / "Tutup"); kedua label berbagi satu sel grid agar lebar kapsul tetap |
+| Dua landmark `region` dengan nama sama di seksi testimoni | e2e | Carousel menjadi `role="group"` dengan `aria-roledescription` |
+| Pertanyaan "berapa biaya bikin website" dijawab dengan topik Layanan | Unit test | Kata kunci FAQ berbobot 2,5 kali kata kunci topik |
+
+### Keputusan: overlay pemuatan layar penuh
+
+Ditolak. Setiap halaman di-prerender dan terlukis sebelum JavaScript dimuat (bootstrap setelah FCP), LCP adalah judul halaman, dan sebagian besar navigasi klien selesai di bawah 150 ms. Overlay penuh hanya akan menutupi konten yang sudah siap atau menambah jeda buatan. Penggantinya diskalakan ke lama tunggu sebenarnya: tidak ada apa pun di bawah 150 ms, runner tak-tentu setelah 150 ms, chip bermerek "empat kapsul merakit diri" dengan pengumuman screen reader setelah 900 ms, dan chip "Memuat asisten" untuk chunk asisten. Tidak ada persentase.
+
+### Keputusan: Lenis
+
+Prototipe Lenis 1.3.11 (`autoRaf`, CSS resmi) disuntikkan ke build produksi yang sama dan dibandingkan dengan scroll native di Chromium desktop 1440 px, dua run per mode, setelah perbaikan pemulihan scroll di atas.
+
+| Ukuran | Native | Lenis |
+|---|---|---|
+| Waktu main thread selama 24 langkah roda | 857 sampai 922 ms | 1008 sampai 1081 ms (sekitar +18 persen) |
+| Frame di atas 25 ms dalam rentang yang sama | 65 | 119 sampai 123 |
+| Scroll yang masih bergerak 150 ms setelah input berhenti | 0 px | 57 sampai 94 px |
+| Main thread saat diam (3 s) | 211 sampai 222 ms | 217 sampai 226 ms |
+| Pan portofolio ter-pin, tombol End, pemulihan saat Back | Bekerja | Bekerja |
+| Roda di atas log asisten | Log bergulir 400 px, halaman diam | Log diam, **halaman bergulir 400 px** (butuh `data-lenis-prevent` di setiap area gulir) |
+
+Keputusan: tetap native. Lenis menambah biaya main thread dan inersia tanpa manfaat bagi pengguna sentuh (mayoritas audiens di ponsel; Lenis tidak menghaluskan sentuhan secara default), membajak scroll bersarang, dan menimpa pengaturan scroll sistem pengunjung. Instalasi hanya dilakukan di folder sementara, bukan di proyek.
+
+### Lighthouse
+
+Metode sama dengan putaran 2: Lighthouse 13.5, mobile default (Moto G Power teremulasi, slow 4G, CPU 4x) dan `--preset=desktop`, **median 3 run per halaman**, build produksi tanpa `VITE_SITE_URL` di kedua sisi, server `scripts/serve.mjs` yang sama, mesin yang sama. "Sebelum" diukur ulang hari ini dari `main` (`d2b9956`); angkanya lebih rendah dari laporan putaran 2 karena TBT di mesin ini lebih tinggi hari ini, jadi pembanding yang adil adalah kolom "sebelum" di bawah, bukan putaran 2.
+
+| Halaman | Mobile Perf sebelum | Mobile Perf sesudah | LCP sebelum / sesudah | TBT sebelum / sesudah | Desktop Perf sesudah | CLS |
+|---|---|---|---|---|---|---|
+| `/` | 89 | **95** | 1,62 / 1,45 s | 367 / 222 ms | 100 | 0 |
+| `/portofolio` | 99 | 98 | 1,63 / 1,59 s | 87 / 139 ms | 100 | 0 |
+| `/portofolio/sistem-antrean-klinik` | 99 | 98 | 1,62 / 1,58 s | 84 / 160 ms | 100 | 0 |
+| `/kontak` | 100 | 99 | 1,47 / 1,45 s | 48 / 69 ms | 100 | 0 |
+| `/en` | 86 | 90 | 1,64 / 1,60 s | 408 / 359 ms | 100 | 0 |
+
+Accessibility, Best Practices, dan SEO 100 di semua halaman, kedua preset. Beranda juga diukur dengan 5 run berselang-seling sebelum/sesudah: median 86 vs 93, TBT 419 vs 271 ms. Selisih 1 poin pada Portofolio, studi kasus, dan Kontak berada di dalam sebaran run (misalnya studi kasus 98/98/94 sesudah, 99/89/99 sebelum). `/en` (90) tetap di bawah target 95 dengan sebaran besar (84 sampai 95); TBT-nya berasal dari hydration yang sudah ada di baseline, bukan dari fitur baru.
+
+### Ukuran bundle
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| Seluruh JS (gzip, termasuk chunk lazy) | 226,8 KB | 241,6 KB |
+| Di antaranya chunk asisten (lazy, hanya saat ada niat) | - | 6,6 KB |
+| CSS (gzip) | 10,9 KB | 13,8 KB |
+
+### Review visual
+
+Satu putaran screenshot berbatch (desktop 1440 dan Pixel 7, terang dan gelap): hero, header ringkas, seksi cerita klien, asisten terbuka, jawaban FAQ, fallback, hover kontrol header, halaman pratinjau, bottom sheet ponsel, menu ponsel, dock yang menyingkir dari tombol kirim Kontak, dan chip pemuatan dengan chunk yang ditahan. Temuan di tabel di atas diperbaiki, lalu dikonfirmasi dengan satu putaran ulang.
+
+### Keterbatasan
+
+- Belum ada testimoni klien yang diizinkan; beranda menampilkan janji tertulis. Komponen kutipan hanya terlihat di `/pratinjau/testimoni` dengan placeholder.
+- Asisten adalah panduan berbasis aturan dengan kosakata terbatas; pertanyaan di luar kosakata dialihkan ke tim. Integrasi AI menunggu backend Laravel.
+- Lighthouse dan evaluasi Lenis adalah emulasi di mesin pengembang; angka lapangan (CrUX, INP) baru tersedia setelah domain aktif. Firefox dan WebKit diuji lewat build Playwright, bukan Safari iOS fisik; pembaca layar nyata belum diuji manual.
+- View Transition tema membutuhkan dukungan browser (Chromium, Safari 18, Firefox 144 ke atas); browser lain berganti tema secara instan.
+
 ## Putaran 2 (2026-10-13): tema, dua bahasa, navigasi, kontak, parallax, performa
 
 ### Pemeriksaan otomatis

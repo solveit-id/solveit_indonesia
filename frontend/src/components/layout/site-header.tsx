@@ -13,8 +13,28 @@ import { ThemeToggle } from "./theme-toggle";
 // Inline padding of a desktop nav link; the indicator spans the text only.
 const LINK_PAD = 14;
 
+/*
+ * Adaptive header thresholds, in px of scroll. The surface appears as soon as
+ * content passes under the header; the bar condenses into a floating capsule
+ * further down and only expands again near the top. The gap between the two
+ * compact thresholds (hysteresis) keeps small scroll jitters from toggling it.
+ */
+const SURFACE_AT = 8;
+const COMPACT_AT = 96;
+const EXPAND_AT = 40;
+
+type MenuState = "closed" | "open" | "closing";
+
 export function SiteHeader() {
-  const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState<MenuState>("closed");
+  const open = menu === "open";
+  const setOpen = useCallback((next: boolean | ((value: boolean) => boolean)) => {
+    setMenu((state) => {
+      const value = typeof next === "function" ? next(state === "open") : next;
+      if (value) return "open";
+      return state === "open" ? "closing" : state;
+    });
+  }, []);
   const { pathname } = useLocation();
   const { t, path } = useI18n();
   const headerRef = useRef<HTMLElement>(null);
@@ -23,12 +43,20 @@ export function SiteHeader() {
   const listRef = useRef<HTMLUListElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
 
-  // Close the menu whenever the route changes.
+  // Close the menu whenever the route changes: instantly, the new page is the feedback.
   const [lastPath, setLastPath] = useState(pathname);
   if (lastPath !== pathname) {
     setLastPath(pathname);
-    setOpen(false);
+    setMenu("closed");
   }
+
+  // The closing panel plays a short exit, then leaves the layout. A timer
+  // backs up animationend for engines or settings that skip the animation.
+  useEffect(() => {
+    if (menu !== "closing") return;
+    const timer = window.setTimeout(() => setMenu("closed"), 320);
+    return () => window.clearTimeout(timer);
+  }, [menu]);
 
   /*
    * Active indicator: one cobalt capsule that slides to the current page and
@@ -70,24 +98,31 @@ export function SiteHeader() {
     };
   }, [place]);
 
-  // Header gains a surface once the page scrolls; hides while reading down.
+  // Adaptive header: open over the hero, a surface once content passes
+  // under it, a floating capsule further down. Attributes are written only
+  // when a state flips, so scrolling never restyles the header per frame.
   useMotion(
     ({ ScrollTrigger }) => {
       const header = headerRef.current;
       if (!header) return;
+      const update = (y: number) => {
+        const scrolled = y > SURFACE_AT ? "true" : "false";
+        const wasCompact = header.dataset.compact === "true";
+        const compact = (wasCompact ? y > EXPAND_AT : y > COMPACT_AT) ? "true" : "false";
+        if (header.dataset.scrolled !== scrolled) header.dataset.scrolled = scrolled;
+        if (header.dataset.compact !== compact) header.dataset.compact = compact;
+      };
+      update(window.scrollY);
       ScrollTrigger.create({
-        start: 8,
+        start: 0,
         end: "max",
-        onUpdate: (self) => {
-          header.dataset.scrolled = self.scroll() > 8 ? "true" : "false";
-          const hide = self.direction === 1 && self.scroll() > 480;
-          header.dataset.hidden = hide ? "true" : "false";
-        },
-        onLeaveBack: () => {
-          header.dataset.scrolled = "false";
-          header.dataset.hidden = "false";
-        },
+        onUpdate: (self) => update(self.scroll()),
+        onRefresh: (self) => update(self.scroll()),
       });
+      return () => {
+        header.dataset.scrolled = "false";
+        header.dataset.compact = "false";
+      };
     },
     { scope: headerRef },
   );
@@ -114,7 +149,7 @@ export function SiteHeader() {
       footer?.removeAttribute("inert");
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   useMotion(
     ({ gsap }) => {
@@ -137,16 +172,20 @@ export function SiteHeader() {
     <header
       ref={headerRef}
       data-scrolled="false"
-      data-hidden="false"
-      className={cn(
-        "group/header fixed inset-x-0 top-0 z-[var(--z-header)] transition-[transform,background-color,border-color] duration-500 ease-[var(--ease-out-expo)]",
-        "border-b border-transparent data-[scrolled=true]:border-line data-[scrolled=true]:bg-paper/85 data-[scrolled=true]:backdrop-blur-md",
-        "has-[[data-wa-menu][open]]:translate-y-0 data-[hidden=true]:-translate-y-full",
-        open && "!translate-y-0 border-line bg-paper",
-      )}
+      data-compact="false"
+      data-menu={menu}
+      className="site-header fixed inset-x-0 top-0 z-[var(--z-header)]"
     >
-      <div className="shell flex h-[4.5rem] items-center justify-between gap-4 lg:gap-6">
-        <Link to={path("home")} className="shrink-0 rounded-md" aria-label={t.common.homeLink}>
+      {/* The surface behind the bar: full-bleed once scrolled, then clipped
+          into a floating capsule (clip-path and opacity only, no layout). */}
+      <div aria-hidden className="header-plate" />
+      <div aria-hidden className="header-edge" />
+      <div className="relative shell flex h-[4.5rem] items-center justify-between gap-4 lg:gap-6">
+        <Link
+          to={path("home")}
+          className="header-logo shrink-0 rounded-md"
+          aria-label={t.common.homeLink}
+        >
           <Logo className="w-[6.75rem] sm:w-[7.5rem]" title="Solveit Indonesia" />
         </Link>
 
@@ -218,8 +257,12 @@ export function SiteHeader() {
       <div
         ref={panelRef}
         id="mobile-menu"
-        hidden={!open}
-        className="h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-line bg-paper lg:hidden"
+        hidden={menu === "closed"}
+        data-state={menu}
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget && menu === "closing") setMenu("closed");
+        }}
+        className="mobile-menu relative h-[calc(100dvh-4.5rem)] overflow-y-auto overscroll-contain border-t border-line bg-paper lg:hidden"
       >
         <nav
           aria-label={t.nav.mobile}
