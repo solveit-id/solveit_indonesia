@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr/ArrowUpRight";
-import { categoryLabel } from "~/data/projects";
+import { useI18n } from "~/i18n";
 import { cn } from "~/lib/cn";
+import { categoryLabel } from "~/services/content";
 import type { Project } from "~/types/content";
 import { DemoLabel } from "./demo-label";
 import { ProjectCover } from "./project-cover";
@@ -14,6 +15,8 @@ interface ProjectCardProps {
   headingLevel?: "h2" | "h3";
   /** Full-width lead entry: a wider, shorter cover. */
   lead?: boolean;
+  /** Let the cover drift inside its frame on scroll (needs `useParallax` on a parent). */
+  parallax?: boolean;
 }
 
 export function ProjectCard({
@@ -22,7 +25,9 @@ export function ProjectCard({
   size = "default",
   headingLevel: Heading = "h3",
   lead = false,
+  parallax = false,
 }: ProjectCardProps) {
+  const { locale, path } = useI18n();
   return (
     <article className={cn("group relative flex flex-col", className)} data-project-card>
       <div
@@ -32,10 +37,15 @@ export function ProjectCard({
           lead && "md:aspect-[16/7]",
         )}
       >
-        <ProjectCover
-          cover={project.cover}
-          className="transition-transform duration-[1.2s] ease-[var(--ease-out-expo)] group-hover:scale-[1.04] [&_.cover-drift]:transition-transform [&_.cover-drift]:duration-[1.2s] [&_.cover-drift]:ease-[var(--ease-out-expo)] group-hover:[&_.cover-drift]:translate-x-[18px] group-hover:[&_.cover-drift]:-translate-y-[12px]"
-        />
+        <div
+          data-parallax={parallax ? "6" : undefined}
+          className={parallax ? "absolute inset-x-0 -inset-y-[9%]" : "absolute inset-0"}
+        >
+          <ProjectCover
+            cover={project.cover}
+            className="transition-transform duration-[1.2s] ease-[var(--ease-out-expo)] group-hover:scale-[1.04] [&_.cover-drift]:transition-transform [&_.cover-drift]:duration-[1.2s] [&_.cover-drift]:ease-[var(--ease-out-expo)] group-hover:[&_.cover-drift]:translate-x-[18px] group-hover:[&_.cover-drift]:-translate-y-[12px]"
+          />
+        </div>
       </div>
       <div className="mt-5 flex items-start justify-between gap-6">
         <div>
@@ -46,14 +56,14 @@ export function ProjectCard({
             )}
           >
             <Link
-              to={`/portofolio/${project.slug}`}
+              to={`${path("portfolio")}/${project.slug}`}
               className="no-underline after:absolute after:inset-0 after:rounded-[var(--radius-panel)] after:content-['']"
             >
               {project.title}
             </Link>
           </Heading>
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
-            <span>{categoryLabel(project.category)}</span>
+            <span>{categoryLabel(locale, project.category)}</span>
             <span aria-hidden className="h-3 w-px bg-line-strong" />
             <span>{project.sector}</span>
           </p>

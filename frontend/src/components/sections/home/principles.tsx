@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { ProjectCover } from "~/components/portfolio/project-cover";
+import { useI18n } from "~/i18n";
 import { motionQueries, useMotion } from "~/lib/motion";
 
 /**
@@ -7,6 +8,8 @@ import { motionQueries, useMotion } from "~/lib/motion";
  * by a wipe along the logo's 33deg diagonal.
  */
 export function Principles() {
+  const { t } = useI18n();
+  const copy = t.home.principles;
   const scope = useRef<HTMLElement>(null);
 
   useMotion(
@@ -41,7 +44,7 @@ export function Principles() {
       className="shell py-[var(--spacing-section)]"
     >
       <h2 id="principles-title" className="max-w-[16ch] text-title">
-        Cara kerja yang bisa Anda pegang.
+        {t.home.principlesTitle}
       </h2>
 
       <div className="mt-14 grid gap-4 md:grid-cols-2 lg:mt-20 lg:grid-cols-12 lg:grid-rows-[auto_auto]">
@@ -56,11 +59,8 @@ export function Principles() {
             <ProjectCover cover={{ pattern: "lattice", tone: "ink", seed: 7 }} />
           </div>
           <div className="relative max-w-[30ch]">
-            <h3 className="text-heading font-wide">Ruang lingkup tertulis sebelum kode pertama.</h3>
-            <p className="mt-4 text-[#c3d0e4]">
-              Fitur, prioritas, estimasi waktu, dan biaya disepakati di awal. Perubahan di tengah
-              jalan dibahas bersama dampaknya, bukan muncul sebagai kejutan di akhir.
-            </p>
+            <h3 className="text-heading font-wide">{copy.scope.title}</h3>
+            <p className="mt-4 text-[#c3d0e4]">{copy.scope.text}</p>
           </div>
         </article>
 
@@ -68,22 +68,16 @@ export function Principles() {
           data-tile
           className="flex flex-col justify-between gap-10 rounded-[var(--radius-panel)] bg-accent p-8 text-accent-ink lg:col-span-5 lg:p-10"
         >
-          <h3 className="text-heading font-wide">Progres yang bisa Anda lihat.</h3>
-          <p className="text-[#dfe7ff]">
-            Setiap tahap pengembangan punya versi pratinjau. Masukan Anda masuk saat masih murah
-            untuk diubah.
-          </p>
+          <h3 className="text-heading font-wide">{copy.progress.title}</h3>
+          <p className="text-[#dfe7ff]">{copy.progress.text}</p>
         </article>
 
         <article
           data-tile
           className="flex flex-col justify-between gap-10 rounded-[var(--radius-panel)] border border-line bg-paper-raised p-8 lg:col-span-5 lg:p-10"
         >
-          <h3 className="text-heading font-wide">Dibangun untuk dirawat.</h3>
-          <p className="text-ink-muted">
-            Kode yang terstruktur, dokumentasi serah terima, dan dukungan setelah rilis, sehingga
-            sistem tetap bisa dikembangkan bertahun-tahun ke depan.
-          </p>
+          <h3 className="text-heading font-wide">{copy.care.title}</h3>
+          <p className="text-ink-muted">{copy.care.text}</p>
         </article>
 
         <article
@@ -91,26 +85,14 @@ export function Principles() {
           className="grid gap-8 rounded-[var(--radius-panel)] border border-line-strong p-8 md:col-span-2 lg:col-span-12 lg:grid-cols-12 lg:items-center lg:p-12"
         >
           <div className="lg:col-span-5">
-            <h3 className="text-heading font-wide">Satu portal untuk seluruh perjalanan proyek.</h3>
-            <p className="mt-4 text-ink-muted">
-              Kami sedang menyiapkan Solveit OpsHub: pemesanan, proposal, kontrak, invoice, progres,
-              dan revisi dalam satu tempat. Website ini adalah fondasi pertamanya.
-            </p>
+            <h3 className="text-heading font-wide">{copy.portal.title}</h3>
+            <p className="mt-4 text-ink-muted">{copy.portal.text}</p>
           </div>
           <ol
-            aria-label="Rencana alur Solveit OpsHub"
+            aria-label={t.home.opsHubFlowLabel}
             className="flex flex-wrap gap-2 lg:col-span-7 lg:justify-end"
           >
-            {[
-              "Konsultasi",
-              "Pemesanan",
-              "Proposal",
-              "Kontrak",
-              "Invoice",
-              "Progres",
-              "Revisi",
-              "Pemeliharaan",
-            ].map((stage) => (
+            {t.home.opsHubFlow.map((stage) => (
               <li
                 key={stage}
                 className="rounded-full bg-paper-sunken px-4 py-2 text-sm font-semibold text-ink"

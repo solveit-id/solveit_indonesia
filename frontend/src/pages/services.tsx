@@ -4,40 +4,43 @@ import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import { Check } from "@phosphor-icons/react/dist/ssr/Check";
 import { FaqList } from "~/components/ui/faq-list";
 import { PageIntro } from "~/components/ui/page-intro";
-import { contactNav } from "~/data/navigation";
-import { services, serviceFaq } from "~/data/services";
 import { useReveal } from "~/hooks/use-reveal";
+import { getMessages, localeFromPath, pathFor, serviceParam, useI18n } from "~/i18n";
 import { buildMeta, faqSchema, serviceSchemas } from "~/lib/seo";
+import { getServiceFaq, getServices } from "~/services/content";
 import type { Route } from "./+types/services";
 
-export const meta: Route.MetaFunction = () =>
-  buildMeta({
-    title: "Layanan Pembuatan Website, Aplikasi Web, dan Custom Software",
-    description:
-      "Jasa pembuatan website, aplikasi web, sistem informasi, custom software, serta dukungan teknis dan pemeliharaan dari Solveit Indonesia.",
-    path: "/layanan",
-    breadcrumbs: [{ name: "Layanan", path: "/layanan" }],
-    jsonLd: [...serviceSchemas(services), faqSchema(serviceFaq)],
+export const meta: Route.MetaFunction = ({ location }) => {
+  const locale = localeFromPath(location.pathname);
+  const t = getMessages(locale);
+  return buildMeta({
+    locale,
+    title: t.meta.servicesTitle,
+    description: t.meta.servicesDescription,
+    path: pathFor("services", locale),
+    breadcrumbs: [{ name: t.nav.labels.services, path: pathFor("services", locale) }],
+    jsonLd: [
+      ...serviceSchemas(getServices(locale), locale),
+      faqSchema(getServiceFaq(locale), locale),
+    ],
   });
+};
 
 export default function Services() {
+  const { t, locale, path } = useI18n();
+  const copy = t.services;
+  const services = getServices(locale);
   const scope = useRef<HTMLDivElement>(null);
   useReveal(scope);
 
   return (
     <div ref={scope}>
       <PageIntro
-        breadcrumbs={[{ name: "Layanan" }]}
-        title="Layanan pengembangan software untuk bisnis Indonesia."
-        lede={
-          <p>
-            Solveit Indonesia menyediakan lima layanan: pengembangan website, aplikasi web, sistem
-            informasi, custom software, serta dukungan teknis dan pemeliharaan. Semuanya dikerjakan
-            oleh tim yang sama, dari konsultasi sampai sistem dipakai.
-          </p>
-        }
+        breadcrumbs={[{ name: t.nav.labels.services }]}
+        title={copy.title}
+        lede={<p>{copy.lede}</p>}
       >
-        <nav aria-label="Daftar layanan" className="enter mt-10 [--enter-index:3]">
+        <nav aria-label={copy.listLabel} className="enter mt-10 [--enter-index:3]">
           <ul className="flex flex-wrap gap-2">
             {services.map((service) => (
               <li key={service.id}>
@@ -78,11 +81,11 @@ export default function Services() {
               </div>
               <div className="grid gap-10 lg:col-span-6 lg:col-start-7 lg:pt-3">
                 <div data-reveal>
-                  <h3 className="text-lg font-semibold">Cocok untuk</h3>
+                  <h3 className="text-lg font-semibold">{copy.forWhom}</h3>
                   <p className="mt-3 text-ink-muted">{service.forWhom}</p>
                 </div>
                 <div data-reveal>
-                  <h3 className="text-lg font-semibold">Yang Anda terima</h3>
+                  <h3 className="text-lg font-semibold">{copy.deliverables}</h3>
                   <ul className="mt-4 grid gap-3">
                     {service.deliverables.map((item) => (
                       <li key={item} className="flex gap-3">
@@ -97,7 +100,7 @@ export default function Services() {
                   </ul>
                 </div>
                 <div data-reveal>
-                  <h3 className="text-lg font-semibold">Contoh pekerjaan</h3>
+                  <h3 className="text-lg font-semibold">{copy.examples}</h3>
                   <ul className="mt-4 flex flex-wrap gap-2">
                     {service.examples.map((example) => (
                       <li
@@ -111,11 +114,15 @@ export default function Services() {
                 </div>
                 <div data-reveal>
                   <Link
-                    to={`${contactNav.to}?layanan=${service.id}`}
-                    className="inline-flex items-center gap-2 link-sweep font-semibold text-accent-text"
+                    to={`${path("contact")}?${serviceParam[locale]}=${service.id}`}
+                    className="group/cta inline-flex items-center gap-2 link-sweep font-semibold text-accent-text"
                   >
-                    Konsultasikan {service.shortName.toLowerCase()}
-                    <ArrowRight aria-hidden className="size-4" weight="bold" />
+                    {copy.consult(service)}
+                    <ArrowRight
+                      aria-hidden
+                      className="size-4 transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover/cta:translate-x-1"
+                      weight="bold"
+                    />
                   </Link>
                 </div>
               </div>
@@ -129,10 +136,10 @@ export default function Services() {
         className="shell grid gap-10 py-[var(--spacing-section)] lg:grid-cols-12"
       >
         <h2 id="services-faq" data-reveal className="max-w-[12ch] text-title lg:col-span-4">
-          Pertanyaan yang sering muncul.
+          {copy.faqTitle}
         </h2>
         <div data-reveal className="lg:col-span-7 lg:col-start-6">
-          <FaqList items={serviceFaq} />
+          <FaqList items={getServiceFaq(locale)} />
         </div>
       </section>
     </div>

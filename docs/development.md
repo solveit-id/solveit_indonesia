@@ -19,7 +19,8 @@ Jalankan dari `frontend/`:
 | `npm run lint` | ESLint (TypeScript, React Hooks, jsx-a11y) |
 | `npm run typecheck` | Typegen React Router + `tsc` |
 | `npm test` | Unit dan component test (Vitest) |
-| `npm run test:e2e` | Playwright di 3 viewport (desktop 1440, tablet 820, Pixel 7), termasuk axe |
+| `npm run test:e2e` | Playwright di 3 viewport (desktop 1440, tablet 820, Pixel 7), termasuk axe di kedua tema dan kedua bahasa |
+| `PW_ALL_BROWSERS=1 npm run test:e2e` | Menambahkan Firefox dan WebKit desktop (butuh `npx playwright install firefox webkit`) |
 | `npm run format` / `format:check` | Prettier (dengan pengurutan kelas Tailwind) |
 | `npm run check` | lint + typecheck + test + build |
 
@@ -43,16 +44,20 @@ Jangan commit file `.env*` selain `.env.example`.
 
 ## Mengganti konten
 
-- Layanan, proses, FAQ: `src/data/services.ts`, `src/data/process.ts`.
-- Kontak: `src/data/company.ts` (hanya data yang sudah dikonfirmasi).
-- Portofolio: `src/data/projects.ts`. Proyek nyata diberi `isDemo: false`; label demo hilang otomatis dan JSON-LD `CreativeWork` mulai dipublikasikan. `results` hanya boleh berisi hasil yang terverifikasi. Route dan prerender mengikuti data secara otomatis.
+Setiap teks ada dalam dua bahasa. TypeScript menolak build bila satu bahasa kehilangan kunci, dan `src/data/content.test.ts` memeriksa kelengkapan, panjang daftar, serta larangan em dash di kedua bahasa.
+
+- Teks antarmuka (judul seksi, tombol, label formulir, pesan validasi, metadata SEO): `src/i18n/messages/id.ts` (mendefinisikan bentuk) dan `src/i18n/messages/en.ts`.
+- Layanan, proses, FAQ: urutan di `src/data/services.ts` dan `src/data/process.ts`; teks di `src/data/locales/{id,en}/services.ts` dan `process.ts`.
+- Kontak: `src/data/company.ts` (hanya data yang sudah dikonfirmasi: email, tiga WhatsApp, Instagram).
+- Portofolio: fakta dasar (kunci, slug per bahasa, kategori, teknologi, sampul) di `src/data/projects.ts`; narasi di `src/data/locales/{id,en}/projects.ts`. Proyek nyata diberi `isDemo: false`; label demo hilang otomatis dan JSON-LD `CreativeWork` mulai dipublikasikan. `results` hanya boleh berisi hasil yang terverifikasi. Route, prerender, dan pasangan hreflang mengikuti data secara otomatis.
+- Halaman atau bahasa baru: tambahkan path ke `pagePaths` di `src/i18n/config.ts` dan file halaman di `src/routes.ts`; untuk bahasa baru tambahkan juga ke `locales`, `localeMeta`, `messages`, dan `src/data/locales/`.
 
 ## Deployment
 
 Hasil build adalah situs statis di `frontend/build/client`. Hosting harus:
 
 1. Menyajikan `/path` dari `/path/index.html` (clean URL).
-2. Menyajikan `404.html` dengan status 404 untuk path yang tidak ada (jangan fallback ke `index.html`).
+2. Menyajikan 404 dengan status 404 untuk path yang tidak ada (jangan fallback ke `index.html`): `en/404.html` untuk path di bawah `/en/`, `404.html` untuk yang lain. Cloudflare Pages melakukannya otomatis (404.html terdekat); di Netlify tambahkan aturan `/en/*  /en/404.html  404` di `_redirects`; di Nginx gunakan `error_page 404` per `location /en/`.
 3. Mengaktifkan kompresi brotli/gzip dan cache panjang untuk `/assets/*` (nama file ber-hash).
 
 Netlify, Cloudflare Pages, Vercel (output statis), atau Nginx memenuhi ini dengan konfigurasi standar.

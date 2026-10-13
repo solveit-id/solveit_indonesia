@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router";
 import { company } from "~/data/company";
+import { useI18n } from "~/i18n";
 import { motionQueries, useMotion } from "~/lib/motion";
 
 /**
@@ -8,6 +9,7 @@ import { motionQueries, useMotion } from "~/lib/motion";
  * reveal to the reader's own pace instead of a timer.
  */
 export function Manifesto() {
+  const { t, path } = useI18n();
   const scope = useRef<HTMLElement>(null);
   const words = company.tagline.split(" ");
 
@@ -50,7 +52,7 @@ export function Manifesto() {
       className="shell py-[var(--spacing-section)]"
     >
       <h2 id="manifesto-title" className="sr-only">
-        Prinsip Solveit Indonesia
+        {t.home.manifestoTitle}
       </h2>
       <p
         data-tagline
@@ -66,11 +68,9 @@ export function Manifesto() {
       </p>
       <div className="mt-12 grid gap-8 md:mt-16 md:grid-cols-12">
         <p className="measure text-lede text-ink-muted md:col-span-7 md:col-start-6">
-          Solveit Indonesia adalah software house yang menemani bisnis dari konsultasi sampai
-          pemeliharaan. Kami menulis ruang lingkup sebelum menulis kode, membangun secara bertahap,
-          dan tetap merawat sistem setelah rilis.{" "}
-          <Link to="/tentang" className="font-semibold text-ink underline">
-            Kenali kami
+          {t.home.manifestoBody}{" "}
+          <Link to={path("about")} className="font-semibold text-ink underline">
+            {t.home.manifestoLink}
           </Link>
         </p>
       </div>

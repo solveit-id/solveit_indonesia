@@ -4,8 +4,8 @@ export type ServiceId =
 /** Services that can be the subject of a portfolio project. */
 export type ProjectCategory = Exclude<ServiceId, "dukungan-teknis">;
 
-export interface Service {
-  id: ServiceId;
+/** Localized copy for one service. */
+export interface ServiceCopy {
   name: string;
   /** Short name for chips and compact navigation. */
   shortName: string;
@@ -17,14 +17,25 @@ export interface Service {
   deliverables: string[];
 }
 
-export interface ProcessStep {
-  id: string;
+export interface Service extends ServiceCopy {
+  /** Stable id: query strings, anchors, and inquiry payloads use it in both languages. */
+  id: ServiceId;
+}
+
+export type ProcessStepId =
+  "konsultasi" | "analisis" | "desain" | "pengembangan" | "pengujian" | "implementasi" | "dukungan";
+
+export interface ProcessStepCopy {
   name: string;
   description: string;
   /** What the client holds at the end of this step. */
   output: string;
   /** What we need from the client during this step. */
   clientRole: string;
+}
+
+export interface ProcessStep extends ProcessStepCopy {
+  id: ProcessStepId;
 }
 
 export type CoverPattern = "lattice" | "stack" | "stair" | "orbit" | "weave";
@@ -37,18 +48,28 @@ export interface ProjectCover {
   seed: number;
 }
 
-export interface Project {
-  slug: string;
-  title: string;
+/** Language-independent facts about a case study. */
+export interface ProjectBase {
+  /** Stable key (the original Indonesian slug). */
+  key: string;
+  /** URL slug per language. */
+  slugs: { id: string; en: string };
   category: ProjectCategory;
   /**
    * Demonstration concepts are illustrative only. They are labelled in the UI,
    * excluded from structured data, and must be replaced by real, approved work.
    */
   isDemo: boolean;
+  year?: number;
+  technologies: readonly string[];
+  cover: ProjectCover;
+}
+
+/** Localized narrative for a case study. */
+export interface ProjectCopy {
+  title: string;
   /** Sector the concept is written for, never a client name. */
   sector: string;
-  year?: number;
   summary: string;
   context: string;
   problem: string;
@@ -61,14 +82,18 @@ export interface Project {
    */
   system: { actors: string[]; handoffs: string[] };
   features: { name: string; description: string }[];
-  technologies: string[];
   /**
    * Real, verified outcomes only. Demo projects describe what would be measured
    * instead and must leave `results` empty.
    */
   results: string[];
   metricsToTrack: string[];
-  cover: ProjectCover;
+}
+
+/** A case study as a page renders it: base facts plus copy in one language. */
+export interface Project extends ProjectBase, ProjectCopy {
+  /** Slug in the language being rendered. */
+  slug: string;
 }
 
 export interface FaqItem {

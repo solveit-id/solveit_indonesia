@@ -1,5 +1,6 @@
 // Minimal static server for build/client that mirrors production hosting:
-// clean URLs (/path -> /path/index.html), 404.html with a real 404 status,
+// clean URLs (/path -> /path/index.html), the nearest 404.html (en/404.html
+// for /en/...) with a real 404 status,
 // long-lived caching for hashed assets, and brotli/gzip for text like any CDN.
 // Used by `npm run preview`, e2e, and Lighthouse runs.
 import { readFile, stat } from "node:fs/promises";
@@ -45,7 +46,7 @@ async function resolve(urlPath) {
 createServer(async (req, res) => {
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
   const file = await resolve(pathname);
-  const target = file ?? join(root, "404.html");
+  const target = file ?? join(root, /^\/en(\/|$)/.test(pathname) ? "en/404.html" : "404.html");
   const type = types[extname(target)] ?? "application/octet-stream";
   let body = await readFile(target);
   const headers = {

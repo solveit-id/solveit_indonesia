@@ -1,9 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { SITE_URL } from "../../playwright.config";
 import { pages } from "./routes";
 
 test.describe("every public page", () => {
-  for (const { path, h1 } of pages) {
+  for (const { path, h1, lang, twin } of pages) {
     test(`${path} renders with unique metadata and no console errors`, async ({ page }) => {
       const problems: string[] = [];
       page.on("console", (message) => {
@@ -21,7 +21,19 @@ test.describe("every public page", () => {
         "href",
         `${SITE_URL}${path}`,
       );
-      await expect(page.locator("html")).toHaveAttribute("lang", "id");
+      await expect(page.locator("html")).toHaveAttribute("lang", lang);
+      // Reciprocal hreflang: this page and its translation, plus x-default.
+      const alternate = (hreflang: string) =>
+        page.locator(`link[rel="alternate"][hreflang="${hreflang}"]`);
+      await expect(alternate(lang)).toHaveAttribute("href", `${SITE_URL}${path}`);
+      await expect(alternate(lang === "id" ? "en" : "id")).toHaveAttribute(
+        "href",
+        `${SITE_URL}${twin}`,
+      );
+      await expect(alternate("x-default")).toHaveAttribute(
+        "href",
+        `${SITE_URL}${lang === "id" ? path : twin}`,
+      );
 
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - window.innerWidth,
@@ -50,6 +62,22 @@ test.describe("every public page", () => {
     }
     await context.close();
   });
+});
+
+test("unknown English URLs get the English 404 page", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const response = await page.goto("/en/no-such-page");
+  expect(response?.status()).toBe(404);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("h1")).toHaveText("This page could not be found.");
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page
+    .getByRole("navigation", { name: "Main pages" })
+    .getByRole("link", { name: "Portfolio" })
+    .click();
+  await expect(page).toHaveURL(/\/en\/portfolio$/);
+  expect(errors).toEqual([]);
 });
 
 test("unknown URLs return a real 404 page that is not indexed", async ({ page }) => {

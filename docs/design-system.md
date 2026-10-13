@@ -15,7 +15,7 @@ Bentuk logo tidak pernah diubah. Satu-satunya variasi adalah versi monokrom di a
 
 - **Tesis:** situs dirakit dari geometri logonya sendiri. Empat kapsul yang mengunci menjadi solusi adalah cerita mereknya: hero menampilkan mark yang merakit diri, seksi lain memakai kapsul dan sudut yang sama.
 - **Yang ditolak:** template SaaS (headline tengah di atas gradasi ungu, tiga kartu fitur identik, carousel testimoni), glow dekoratif, ikon dekoratif acak. Satu-satunya bayangan adalah angkatan tipis berwarna cobalt pada tombol utama.
-- **Skena fisik:** pemilik bisnis menilai vendor di ponsel atau laptop kantor pada siang hari, sehingga dasar terang. Mode gelap mengikuti `prefers-color-scheme`.
+- **Skena fisik:** pemilik bisnis menilai vendor di ponsel atau laptop kantor pada siang hari, sehingga tema terang menjadi default untuk semua pengunjung (preferensi OS tidak diikuti). Tema gelap tersedia lewat tombol tema di header, disimpan, dan dipulihkan sebelum paint.
 - **Dial:** variance 7, motion 6, density 4.
 
 ## Token
@@ -36,6 +36,9 @@ Spesifikasi lengkap yang diturunkan dari kode ada di [`DESIGN.md`](../DESIGN.md)
 | `--field-ink` / `--field-ink-muted` / `--field-line` | `#F4F7FF` / `#C9D6FB` / putih 22% | sama | Teks dan garis di atas bidang cobalt |
 | `--line` / `--line-strong` | navy 13% / 28% | terang 12% / 26% | Garis rambut dan border kontrol |
 | `--focus` / `--selection` | `#1452ED` / cobalt 18% | `#6AA6FF` / 30% | Cincin fokus, seleksi teks |
+| `--danger` | `#B42318` | `#FF9C8F` | Pesan dan border kesalahan formulir |
+
+Kolom "Gelap" berlaku pada `:root[data-theme="dark"]`, bukan pada `prefers-color-scheme`.
 
 Tile bento dan panel proses memakai `--accent` serta satu tile navy literal (`#082A56`, teks `#E9EFFA` / `#C3D0E4`) yang sengaja tetap navy di kedua mode.
 
@@ -49,7 +52,7 @@ Tile bento dan panel proses memakai `--accent` serta satu tile navy literal (`#0
 
 | Seksi | Pola layout | Motion dan tujuannya |
 |---|---|---|
-| Hero | Split asimetris 7/5 dengan form pemilih layanan yang berfungsi tanpa JS | Mark merakit dari empat kapsul (cerita: bagian menjadi solusi); kedalaman pointer; kapsul merenggang saat hero ditinggalkan |
+| Hero | Split asimetris 7/5 dengan form pemilih layanan yang berfungsi tanpa JS | Mark merakit dari empat kapsul (cerita: bagian menjadi solusi); kedalaman pointer; parallax berlapis saat hero ditinggalkan (lattice paling dalam, mark di tengah, teks paling dekat; mulai 768px); kapsul merenggang |
 | Tagline | Tipografi kinetik full-width | Kata menyala mengikuti scroll (ritme baca pengunjung) |
 | Layanan | Indeks tipografis + panel pratinjau sticky | Pratinjau berganti saat baris disorot atau difokus |
 | Portofolio | Baris horizontal; pan ter-pin di desktop | Scroll vertikal menggeser studi kasus; native swipe di layar kecil |
@@ -60,7 +63,10 @@ Tile bento dan panel proses memakai `--accent` serta satu tile navy literal (`#0
 ## Aturan motion
 
 - Animasi GSAP hanya memakai `transform`, `opacity`, `color`, dan `clip-path`. Transisi CSS state (hover, fokus) juga mengubah `background-color`, `border-color`, `box-shadow`, dan `background-size` (garis bawah link). Tanpa scroll listener manual; semua lewat ScrollTrigger.
-- Header menjadi permukaan porselen semi-transparan dengan `backdrop-blur` setelah halaman di-scroll, dan bersembunyi saat membaca ke bawah.
+- Header menjadi permukaan porselen semi-transparan dengan `backdrop-blur` setelah halaman di-scroll, dan bersembunyi saat membaca ke bawah. Indikator aktif navigasi adalah satu kapsul cobalt yang bergeser (transform saja).
+- Parallax scroll nyata hanya di tiga tempat: lapisan hero, sampul di Portofolio dan studi kasus (`useParallax`, separuh jarak di bawah 768px), dan mark di Tentang yang terakit tepat di tengah layar. Tidak ada pin baru, tidak ada scroll hijacking, tidak ada library smooth scroll.
+- Proses: panel yang tertumpuk mengecil dan meredup lewat lapisan bayangan ber-opacity (komposit), bukan `filter: brightness` yang memaksa repaint tiap frame.
+- Pergantian tema: satu View Transition yang menyapu di sepanjang sumbu 33 derajat (620 ms), instan di bawah reduced motion.
 - Konten terlihat secara default. Reveal memakai opacity (bukan `visibility`) agar konten tetap ada di accessibility tree.
 - `prefers-reduced-motion: reduce` mematikan seluruh animasi; perangkat terbatas melewati pin dan parallax pointer.
 
@@ -69,3 +75,5 @@ Tile bento dan panel proses memakai `--accent` serta satu tile navy literal (`#0
 - Satu label per niat: "Mulai konsultasi" (kontak), "Lihat portofolio" (portofolio).
 - Tanpa em dash, tanpa eyebrow, tanpa angka atau klaim yang tidak bisa dibuktikan. Diuji otomatis di `src/data/content.test.ts`.
 - Studi kasus demo selalu berlabel "Konsep demonstrasi, bukan proyek klien" dan tidak menerbitkan JSON-LD `CreativeWork`.
+- Dua bahasa dengan struktur yang sama. Teks Inggris ditulis ulang untuk pembaca bisnis, bukan diterjemahkan kata per kata. Nama merek, tagline resmi, kontak, URL eksternal, dan fakta proyek identik di kedua bahasa.
+- Tiga nomor WhatsApp tampil sebagai pilihan setara di satu menu atau satu daftar; tidak ada nama PIC, divisi, atau jam layanan karena belum dikonfirmasi.

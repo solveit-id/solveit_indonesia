@@ -1,14 +1,17 @@
 import { useRef } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
-import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr/ArrowUpRight";
 import { BrandMark } from "~/components/brand/brand-mark";
 import { Logo } from "~/components/brand/logo";
+import { InstagramLink } from "~/components/contact/instagram-link";
+import { WhatsAppMenu } from "~/components/contact/whatsapp-contacts";
+import { rememberLocale } from "~/components/layout/language-switch";
 import { company } from "~/data/company";
-import { contactNav, primaryNav } from "~/data/navigation";
-import { services } from "~/data/services";
+import { sitemapNav } from "~/data/navigation";
+import { localeMeta, locales, useI18n } from "~/i18n";
+import { alternatePath } from "~/i18n/paths";
 import { motionQueries, useMotion } from "~/lib/motion";
-import { whatsappUrl } from "~/services/inquiry";
+import { getServices } from "~/services/content";
 
 interface SiteFooterProps {
   /** The closing call to action is skipped on the contact page itself. */
@@ -17,6 +20,8 @@ interface SiteFooterProps {
 
 export function SiteFooter({ showCta }: SiteFooterProps) {
   const ref = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  const { t, locale, path } = useI18n();
 
   // The field rises over the page as it arrives: one clip-path wipe at the
   // logo's 33deg angle marks the hand-off from content to conversation.
@@ -38,6 +43,8 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
             },
           },
         );
+        // The closing band (and its mark) is absent on the contact page.
+        if (!showCta) return;
         gsap.from("[data-footer-mark] [data-capsule]", {
           x: (index: number) => [-60, -30, 40, 70][index] ?? 0,
           y: (index: number) => [-50, 40, -30, 60][index] ?? 0,
@@ -48,31 +55,29 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
         });
       });
     },
-    { scope: ref },
+    { scope: ref, dependencies: [showCta] },
   );
 
   return (
-    <footer ref={ref} id="site-footer" className="relative">
+    <footer ref={ref} id="site-footer" className="relative overflow-x-clip">
       <div data-footer-field className="bg-field text-field-ink">
         {showCta && (
           <section
             aria-labelledby="footer-cta"
-            className="relative shell overflow-hidden pt-[var(--spacing-section)] pb-20"
+            className="relative shell pt-[var(--spacing-section)] pb-20"
           >
             <div className="grid items-end gap-12 lg:grid-cols-12">
               <div className="lg:col-span-8">
                 <h2 id="footer-cta" className="max-w-[16ch] text-title">
-                  Punya proses yang ingin dirapikan? Ceritakan ke kami.
+                  {t.footer.ctaTitle}
                 </h2>
-                <p className="mt-6 measure text-lede text-field-ink-muted">
-                  Konsultasi awal membantu memetakan kebutuhan, prioritas, dan langkah pertama yang
-                  paling masuk akal untuk bisnis Anda.
-                </p>
+                <p className="mt-6 measure text-lede text-field-ink-muted">{t.footer.ctaLede}</p>
                 <div className="mt-10 flex flex-wrap gap-3">
-                  <Link to={contactNav.to} className="btn btn-on-field">
-                    {contactNav.label}
+                  <Link to={path("contact")} className="btn btn-on-field">
+                    {t.common.consult}
                     <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
                   </Link>
+                  <WhatsAppMenu tone="field" placement="top" />
                 </div>
               </div>
               <div data-footer-mark className="hidden justify-end lg:col-span-4 lg:flex">
@@ -86,22 +91,20 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
           <div className="grid gap-12 border-t border-field-line py-14 md:grid-cols-2 lg:grid-cols-12">
             <div className="flex flex-col gap-5 lg:col-span-4">
               <Logo variant="mono" className="w-40 text-field-ink" />
-              <p className="max-w-[34ch] text-[0.95rem] text-field-ink-muted">{company.tagline}</p>
+              <p lang="en" className="max-w-[34ch] text-[0.95rem] text-field-ink-muted">
+                {company.tagline}
+              </p>
             </div>
 
-            <nav aria-label="Navigasi kaki halaman" className="lg:col-span-2">
+            <nav aria-label={t.nav.footer} className="lg:col-span-2">
               <h2 className="text-sm font-semibold tracking-normal text-field-ink-muted">
-                Jelajahi
+                {t.footer.explore}
               </h2>
               <ul className="mt-4 flex flex-col gap-2.5">
-                {[
-                  { label: "Beranda", to: "/" },
-                  ...primaryNav,
-                  { label: "Kontak", to: "/kontak" },
-                ].map((item) => (
-                  <li key={item.to}>
-                    <Link to={item.to} className="link-sweep">
-                      {item.label}
+                {sitemapNav.map((key) => (
+                  <li key={key}>
+                    <Link to={path(key)} className="link-sweep">
+                      {t.nav.labels[key]}
                     </Link>
                   </li>
                 ))}
@@ -110,12 +113,12 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
 
             <div className="lg:col-span-3">
               <h2 className="text-sm font-semibold tracking-normal text-field-ink-muted">
-                Layanan
+                {t.footer.services}
               </h2>
               <ul className="mt-4 flex flex-col gap-2.5">
-                {services.map((service) => (
+                {getServices(locale).map((service) => (
                   <li key={service.id}>
-                    <Link to={`/layanan#${service.id}`} className="link-sweep">
+                    <Link to={`${path("services")}#${service.id}`} className="link-sweep">
                       {service.name}
                     </Link>
                   </li>
@@ -124,35 +127,47 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
             </div>
 
             <div className="lg:col-span-3">
-              <h2 className="text-sm font-semibold tracking-normal text-field-ink-muted">Kontak</h2>
-              <ul className="mt-4 flex flex-col gap-2.5">
+              <h2 className="text-sm font-semibold tracking-normal text-field-ink-muted">
+                {t.footer.contact}
+              </h2>
+              <ul className="mt-4 flex flex-col items-start gap-2.5">
                 <li>
                   <a href={`mailto:${company.email}`} className="link-sweep break-all">
                     {company.email}
                   </a>
                 </li>
-                {company.whatsapp.map((number) => (
-                  <li key={number.e164}>
-                    <a
-                      href={whatsappUrl(number.e164)}
-                      className="inline-flex items-center gap-1.5 link-sweep"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      WhatsApp {number.display}
-                      <ArrowUpRight aria-hidden className="size-3.5" />
-                      <span className="sr-only">(membuka tab baru)</span>
-                    </a>
-                  </li>
-                ))}
+                <li>
+                  <WhatsAppMenu tone="link" placement="top" />
+                </li>
+                <li>
+                  <InstagramLink />
+                </li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-field-line py-6 text-sm text-field-ink-muted">
+          <div className="flex flex-col gap-4 border-t border-field-line py-6 text-sm text-field-ink-muted sm:flex-row sm:items-center sm:justify-between">
             <p>
               © {new Date().getFullYear()} {company.name}
             </p>
+            <nav aria-label={t.footer.languages}>
+              <ul className="flex items-center gap-4">
+                {locales.map((option) => (
+                  <li key={option}>
+                    <Link
+                      to={alternatePath(pathname, option)}
+                      hrefLang={localeMeta[option].htmlLang}
+                      lang={localeMeta[option].htmlLang}
+                      aria-current={option === locale ? "true" : undefined}
+                      onClick={() => rememberLocale(option)}
+                      className="link-sweep aria-[current=true]:text-field-ink"
+                    >
+                      {localeMeta[option].name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
         </div>
       </div>
