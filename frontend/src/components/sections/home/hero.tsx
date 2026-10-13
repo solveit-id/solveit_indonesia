@@ -2,19 +2,19 @@ import { useRef } from "react";
 import { Form, Link } from "react-router";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import { BrandMark } from "~/components/brand/brand-mark";
-import { contactNav } from "~/data/navigation";
-import { services } from "~/data/services";
+import { serviceParam, useI18n } from "~/i18n";
 import { isLiteDevice } from "~/lib/device";
 import { motionQueries, useMotion } from "~/lib/motion";
+import { getServices } from "~/services/content";
 
 // Unit vector along the logo's capsule axis (33deg, rising to the right).
 const AXIS = { x: Math.cos((33 * Math.PI) / 180), y: -Math.sin((33 * Math.PI) / 180) };
 // Each capsule slides in along its own axis, alternating sides.
 const ASSEMBLY = [190, -230, 240, -200];
 
-const pickable = services.filter((service) => service.id !== "dukungan-teknis");
-
 export function Hero() {
+  const { t, locale, path } = useI18n();
+  const pickable = getServices(locale).filter((service) => service.id !== "dukungan-teknis");
   const scope = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
 
@@ -22,9 +22,13 @@ export function Hero() {
     ({ gsap }) => {
       const mm = gsap.matchMedia();
       mm.add(
-        { motion: motionQueries.motion, finePointer: motionQueries.finePointer },
+        {
+          motion: motionQueries.motion,
+          finePointer: motionQueries.finePointer,
+          tablet: motionQueries.tablet,
+        },
         (context) => {
-          const { motion, finePointer } = context.conditions as Record<string, boolean>;
+          const { motion, finePointer, tablet } = context.conditions as Record<string, boolean>;
           if (!motion) return;
           const capsules = gsap.utils.toArray<SVGPathElement>("[data-capsule]");
           gsap.set("[data-hero-stage]", { opacity: 1 });
@@ -61,6 +65,24 @@ export function Hero() {
             },
           });
 
+          // Layered depth as the hero scrolls away: the lattice is the deepest
+          // plane, the mark sits in the middle, the copy is nearest and leaves
+          // first. Tablet and up; phones keep only the capsule drift above.
+          if (tablet) {
+            const leave = {
+              ease: "none",
+              scrollTrigger: {
+                trigger: scope.current,
+                start: "top top",
+                end: "bottom top",
+                scrub: true,
+              },
+            };
+            gsap.to("[data-lattice] > svg", { y: 170, ...leave });
+            gsap.to("[data-hero-stage]", { y: 90, ...leave });
+            gsap.to("[data-hero-copy]", { y: -50, ...leave });
+          }
+
           if (!finePointer || isLiteDevice() || !stage.current) return;
           const layers = gsap.utils.toArray<HTMLElement>("[data-depth]");
           const movers = layers.map((layer) => ({
@@ -91,33 +113,31 @@ export function Hero() {
       className="relative overflow-hidden pt-[4.5rem]"
     >
       <div className="shell grid min-h-[calc(100dvh-4.5rem)] items-center gap-y-10 py-10 lg:grid-cols-12 lg:gap-x-10 lg:py-16">
-        <div className="relative z-10 lg:col-span-7">
+        <div data-hero-copy className="relative z-10 lg:col-span-7">
           <h1
             id="hero-title"
-            className="enter max-w-[15ch] text-display font-wide [--enter-index:0]"
+            className="enter enter-solid max-w-[15ch] text-display font-wide [--enter-index:0]"
           >
-            Solusi digital yang dibangun untuk <span className="text-accent-text">bertahan.</span>
+            {t.home.heroTitle.lead}{" "}
+            <span className="text-accent-text">{t.home.heroTitle.emphasis}</span>
           </h1>
           <p className="enter mt-6 measure text-lede text-ink-muted [--enter-index:1] md:mt-8">
-            Solveit Indonesia merancang website, aplikasi web, sistem informasi, dan custom software
-            untuk bisnis yang ingin tumbuh dengan rapi.
+            {t.home.heroLede}
           </p>
 
           <Form
             method="get"
-            action={contactNav.to}
+            action={path("contact")}
             className="enter mt-9 [--enter-index:2] md:mt-11"
           >
             <fieldset>
-              <legend className="text-[0.95rem] font-semibold text-ink">
-                Apa yang ingin Anda bangun?
-              </legend>
+              <legend className="text-[0.95rem] font-semibold text-ink">{t.home.heroLegend}</legend>
               <div className="mt-3 flex flex-wrap gap-2">
                 {pickable.map((service, index) => (
                   <label key={service.id} className="choice">
                     <input
                       type="radio"
-                      name="layanan"
+                      name={serviceParam[locale]}
                       value={service.id}
                       defaultChecked={index === 0}
                     />
@@ -128,11 +148,11 @@ export function Hero() {
             </fieldset>
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-4">
               <button type="submit" className="btn btn-primary">
-                {contactNav.label}
+                {t.common.consult}
                 <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
               </button>
-              <Link to="/portofolio" className="link-sweep font-semibold text-ink">
-                Lihat portofolio
+              <Link to={path("portfolio")} className="link-sweep font-semibold text-ink">
+                {t.common.viewPortfolio}
               </Link>
             </div>
           </Form>
@@ -147,13 +167,10 @@ export function Hero() {
             <Lattice />
           </div>
           <div data-depth="26" className="relative">
-            <BrandMark
-              className="w-full"
-              title="Ikon Solveit: empat kapsul yang membentuk huruf S"
-            />
+            <BrandMark className="w-full" title={t.home.heroMark} />
           </div>
           <p data-stage-caption className="mt-6 hidden text-center text-sm text-ink-muted lg:block">
-            Empat bagian, satu solusi.
+            {t.home.heroCaption}
           </p>
         </div>
       </div>

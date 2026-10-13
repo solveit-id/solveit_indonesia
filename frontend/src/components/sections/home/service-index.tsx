@@ -1,16 +1,19 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr/ArrowUpRight";
-import { services } from "~/data/services";
 import { useReveal } from "~/hooks/use-reveal";
 import { cn } from "~/lib/cn";
+import { useI18n } from "~/i18n";
 import { motionQueries, useMotion } from "~/lib/motion";
+import { getServices } from "~/services/content";
 
 /**
  * Index and preview: a typographic list of services; pointing at (or focusing)
  * a row brings its detail into the sticky preview on large screens.
  */
 export function ServiceIndex() {
+  const { t, locale, path } = useI18n();
+  const services = getServices(locale);
   const scope = useRef<HTMLElement>(null);
   const preview = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -36,7 +39,7 @@ export function ServiceIndex() {
     >
       <div className="shell">
         <h2 id="services-title" data-reveal className="max-w-[18ch] text-title">
-          Satu tim untuk website sampai sistem yang kompleks.
+          {t.home.servicesTitle}
         </h2>
 
         <div className="mt-14 grid gap-12 lg:mt-20 lg:grid-cols-12">
@@ -44,7 +47,7 @@ export function ServiceIndex() {
             {services.map((service, index) => (
               <li key={service.id} data-reveal className="border-t border-line last:border-b">
                 <Link
-                  to={`/layanan#${service.id}`}
+                  to={`${path("services")}#${service.id}`}
                   onPointerEnter={() => setActive(index)}
                   onFocus={() => setActive(index)}
                   className="group grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-2 py-6 no-underline md:py-7"
@@ -89,7 +92,11 @@ export function ServiceIndex() {
               <p data-preview-item className="mt-6 text-[0.98rem] text-ink-muted">
                 {current.forWhom}
               </p>
-              <ul data-preview-item className="mt-8 flex flex-wrap gap-2" aria-label="Contoh">
+              <ul
+                data-preview-item
+                className="mt-8 flex flex-wrap gap-2"
+                aria-label={t.home.servicesExamples}
+              >
                 {current.examples.map((example) => (
                   <li
                     key={example}

@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./fixtures";
 
 type OpenLog = { __opened: string[] };
 
@@ -48,4 +48,30 @@ test("a complete form opens WhatsApp with the composed message", async ({ page }
   await expect(page.getByRole("status")).toContainText(
     "Pesan baru terkirim setelah Anda menekan tombol kirim",
   );
+});
+
+test("text typed before the app takes over is kept and sent", async ({ page }) => {
+  // Hold back the app bundle so the visitor types into the prerendered form.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/assets\/entry\.client-[^/]+\.js$/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto("/kontak?layanan=website", { waitUntil: "commit" });
+  await page.getByLabel(/^Nama/).fill("Rina Wulandari");
+  await page.getByLabel(/^Email atau nomor WhatsApp/).fill("rina@example.com");
+  await page
+    .getByLabel(/^Ceritakan kebutuhan Anda/)
+    .fill("Kami butuh website profil dengan katalog produk.");
+  // Sending is not possible until the app is ready, so nothing leaks into the URL.
+  await expect(page.getByRole("button", { name: "Kirim lewat WhatsApp" })).toBeDisabled();
+  release();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await expect(page.getByLabel(/^Nama/)).toHaveValue("Rina Wulandari");
+  await page.getByRole("button", { name: "Kirim lewat WhatsApp" }).click();
+  const urls = await opened(page);
+  expect(urls).toHaveLength(1);
+  expect(decodeURIComponent(urls[0]!)).toContain("Nama: Rina Wulandari");
+  expect(page.url()).not.toContain("Rina");
 });

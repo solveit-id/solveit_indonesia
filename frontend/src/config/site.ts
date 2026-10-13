@@ -10,7 +10,6 @@ export const siteConfig = {
   apiBaseUrl: rawApiUrl ? trimSlash(rawApiUrl) : null,
   googleSiteVerification: (import.meta.env.VITE_GOOGLE_SITE_VERIFICATION ?? "").trim() || null,
   defaultOgImage: "/og/solveit-og.png",
-  locale: "id_ID",
 } as const;
 
 export const absoluteUrl = (path: string): string | null =>

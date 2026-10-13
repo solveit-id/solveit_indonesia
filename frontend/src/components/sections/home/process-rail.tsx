@@ -1,14 +1,17 @@
 import { useRef } from "react";
 import { Link } from "react-router";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
-import { processSteps } from "~/data/process";
+import { useI18n } from "~/i18n";
 import { motionQueries, useMotion } from "~/lib/motion";
+import { getProcessSteps } from "~/services/content";
 
 /**
  * The engagement as a rail: the line fills with the reader's scroll and each
  * step's marker lights as it reaches the reading line.
  */
 export function ProcessRail() {
+  const { t, locale, path } = useI18n();
+  const processSteps = getProcessSteps(locale);
   const scope = useRef<HTMLElement>(null);
 
   useMotion(
@@ -59,14 +62,11 @@ export function ProcessRail() {
         <div className="lg:col-span-4">
           <div className="lg:sticky lg:top-28">
             <h2 id="process-title" className="max-w-[12ch] text-title">
-              Tujuh langkah, tanpa tebak-tebakan.
+              {t.home.processTitle}
             </h2>
-            <p className="mt-6 max-w-[36ch] text-ink-muted">
-              Anda tahu apa yang sedang dikerjakan, apa yang berikutnya, dan apa yang Anda terima di
-              setiap langkah.
-            </p>
-            <Link to="/proses" className="btn btn-secondary mt-8">
-              Pelajari prosesnya
+            <p className="mt-6 max-w-[36ch] text-ink-muted">{t.home.processLede}</p>
+            <Link to={path("process")} className="btn btn-secondary mt-8">
+              {t.home.processCta}
               <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
             </Link>
           </div>
@@ -98,7 +98,7 @@ export function ProcessRail() {
                 <h3 className="text-heading font-wide">{step.name}</h3>
                 <p className="mt-3 max-w-[52ch] text-ink-muted">{step.description}</p>
                 <p className="mt-4 text-[0.95rem]">
-                  <span className="font-semibold text-ink">Anda menerima: </span>
+                  <span className="font-semibold text-ink">{t.home.youReceive}</span>
                   <span className="text-ink-muted">{step.output}</span>
                 </p>
               </div>
