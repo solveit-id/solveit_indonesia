@@ -45,9 +45,12 @@ test("a complete form opens WhatsApp with the composed message", async ({ page }
   expect(urls).toHaveLength(1);
   expect(urls[0]).toContain("https://wa.me/6287759641358?text=");
   expect(decodeURIComponent(urls[0]!)).toContain("Layanan: Aplikasi Web");
-  await expect(page.getByRole("status")).toContainText(
-    "Pesan baru terkirim setelah Anda menekan tombol kirim",
-  );
+  // The page also keeps an (empty) route-loading announcer, so match by text.
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Pesan baru terkirim setelah Anda menekan tombol kirim" }),
+  ).toBeVisible();
 });
 
 test("text typed before the app takes over is kept and sent", async ({ page }) => {

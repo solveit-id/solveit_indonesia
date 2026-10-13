@@ -53,6 +53,15 @@
   --shadow-tint: 8 42 86;
   --logo-word: #082a56;
   --logo-sub: #5c7392;
+
+  /* Motion vocabulary (docs/design-system.md): feedback, state, overlay, and
+     authored moments. Exits run faster than entrances. */
+  --dur-instant: 100ms;
+  --dur-quick: 180ms;
+  --dur-state: 280ms;
+  --dur-overlay: 420ms;
+  --dur-exit: 220ms;
+  --dur-focal: 700ms;
 }
 
 /*
@@ -116,6 +125,7 @@
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-in-quart: cubic-bezier(0.5, 0, 0.75, 0);
 
   --spacing-gutter: clamp(1rem, 4vw, 3rem);
   --spacing-section: clamp(5rem, 11vw, 9.5rem);
@@ -129,7 +139,9 @@
   --text-lede: clamp(1.125rem, 1.5vw, 1.375rem);
   --text-lede--line-height: 1.5;
 
+  --z-dock: 35;
   --z-header: 40;
+  --z-assistant: 45;
   --z-menu: 50;
   --z-progress: 60;
   --z-skip: 70;
@@ -144,11 +156,10 @@
     scrollbar-color: var(--line-strong) var(--paper);
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    html:focus-within {
-      scroll-behavior: smooth;
-    }
-  }
+  /* No global scroll-behavior: smooth. It also applies to the router's
+     scroll restoration, and a smooth restore on Back was cancelled before it
+     arrived, leaving visitors at the top. Smooth scrolling is requested per
+     action instead (back-to-top). */
 
   body {
     /* Pinned sections round their spacer to whole pixels; at fractional
@@ -573,26 +584,48 @@
 }
 
 @layer components {
+  /*
+   * Preference controls share one state vocabulary: hover tints the capsule
+   * with sunken porcelain and firms the outline; press compresses it (100ms);
+   * keyboard focus draws the global ring. Nothing changes size.
+   */
   .theme-toggle {
+    position: relative;
     display: inline-grid;
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
     flex-shrink: 0;
+    overflow: hidden;
     border: 1px solid var(--line-strong);
     border-radius: 9999px;
     color: var(--ink);
     transition:
-      border-color 0.25s var(--ease-out-expo),
-      transform 0.25s var(--ease-out-expo);
+      border-color var(--dur-state) var(--ease-out-expo),
+      background-color var(--dur-state) var(--ease-out-expo),
+      transform var(--dur-quick) var(--ease-out-expo);
   }
 
   .theme-toggle:hover {
-    border-color: var(--ink);
+    border-color: var(--ink-muted);
+    background-color: var(--paper-sunken);
   }
 
   .theme-toggle:active {
-    transform: scale(0.94);
+    transform: scale(0.92);
+    transition-duration: var(--dur-instant);
+  }
+
+  /* Sun and moon ride one dial whose pivot sits below the button: half a
+     turn sets the sun and raises the moon; the reverse plays the path back. */
+  .theme-dial {
+    grid-area: 1 / 1;
+    display: grid;
+    width: 1.15rem;
+    height: 1.15rem;
+    /* Pivot 1.84rem below the icon centre; the moon waits at its mirror image. */
+    transform-origin: 50% calc(50% + 1.84rem);
+    transition: transform 0.62s var(--ease-out-expo);
   }
 
   .theme-icon {
@@ -600,34 +633,39 @@
     width: 1.15rem;
     height: 1.15rem;
     transition:
-      transform 0.7s var(--ease-out-expo),
-      opacity 0.3s ease;
+      opacity 0.24s ease,
+      transform 0.45s var(--ease-out-expo);
   }
 
   .theme-icon-moon {
     opacity: 0;
-    transform: rotate(-70deg) scale(0.4);
+    transform: translateY(3.68rem) rotate(180deg);
   }
 
-  :root:not([data-theme="dark"]) .theme-toggle:hover .theme-icon-sun {
-    transform: rotate(33deg);
+  [data-theme="dark"] .theme-dial {
+    transform: rotate(180deg);
   }
 
   [data-theme="dark"] .theme-icon-sun {
     opacity: 0;
-    transform: rotate(70deg) scale(0.4);
   }
 
   [data-theme="dark"] .theme-icon-moon {
     opacity: 1;
-    transform: none;
+    transition-delay: 0.08s, 0s;
+  }
+
+  /* Hover answers with a small turn on the logo's axis. */
+  :root:not([data-theme="dark"]) .theme-toggle:hover .theme-icon-sun {
+    transform: rotate(33deg);
   }
 
   [data-theme="dark"] .theme-toggle:hover .theme-icon-moon {
-    transform: rotate(-20deg);
+    transform: translateY(3.68rem) rotate(160deg);
   }
 
-  /* ID / EN segmented capsule; the ink thumb slides to the active language. */
+  /* ID / EN segmented capsule; the ink thumb slides to the target language
+     the moment it is chosen, and stretches along its axis while it travels. */
   .lang-switch {
     position: relative;
     display: inline-flex;
@@ -636,6 +674,11 @@
     padding: 3px;
     border: 1px solid var(--line-strong);
     border-radius: 9999px;
+    transition: border-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .lang-switch:hover {
+    border-color: var(--ink-muted);
   }
 
   .lang-thumb {
@@ -643,13 +686,33 @@
     inset-block: 3px;
     left: 3px;
     width: calc(50% - 3px);
+    transition: transform 0.5s var(--ease-out-expo);
+  }
+
+  .lang-thumb-fill {
+    display: block;
+    height: 100%;
     border-radius: 9999px;
     background: var(--ink);
-    transition: transform 0.55s var(--ease-out-expo);
+    transition: opacity var(--dur-state) ease;
   }
 
   .lang-switch[data-active="en"] .lang-thumb {
     transform: translateX(100%);
+  }
+
+  .lang-switch[data-moved][data-active="en"] .lang-thumb-fill {
+    animation: thumb-stretch-en 0.5s var(--ease-out-expo);
+  }
+
+  .lang-switch[data-moved][data-active="id"] .lang-thumb-fill {
+    animation: thumb-stretch-id 0.5s var(--ease-out-expo);
+  }
+
+  /* While the other language loads the thumb breathes, so a slow network
+     still reads as "working", not "ignored". */
+  .lang-switch[aria-busy="true"] .lang-thumb-fill {
+    animation: thumb-busy 0.9s ease-in-out infinite alternate;
   }
 
   .lang-option {
@@ -665,35 +728,78 @@
     line-height: 1;
     color: var(--ink-muted);
     text-decoration: none;
-    transition: color 0.3s var(--ease-out-expo);
+    transition:
+      color var(--dur-state) var(--ease-out-expo),
+      transform var(--dur-quick) var(--ease-out-expo);
   }
 
   .lang-option:hover {
     color: var(--ink);
   }
 
-  .lang-option[aria-current="true"] {
+  .lang-option:active {
+    transform: scale(0.94);
+    transition-duration: var(--dur-instant);
+  }
+
+  .lang-option[data-target] {
     color: var(--paper);
   }
 
-  /* Phone header: one capsule that names the other language. */
+  /* Phone header: one capsule that names the other language. Both labels
+     share one cell; the visible one rolls up and out as the next rolls in. */
   .lang-toggle {
+    position: relative;
     display: inline-grid;
     flex-shrink: 0;
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
+    overflow: hidden;
     border: 1px solid var(--line-strong);
     border-radius: 9999px;
     font-size: 0.875rem;
     font-weight: 650;
     color: var(--ink);
     text-decoration: none;
-    transition: border-color 0.25s var(--ease-out-expo);
+    transition:
+      border-color var(--dur-state) var(--ease-out-expo),
+      background-color var(--dur-state) var(--ease-out-expo),
+      transform var(--dur-quick) var(--ease-out-expo);
   }
 
   .lang-toggle:hover {
-    border-color: var(--ink);
+    border-color: var(--ink-muted);
+    background-color: var(--paper-sunken);
+  }
+
+  .lang-toggle:active {
+    transform: scale(0.92);
+    transition-duration: var(--dur-instant);
+  }
+
+  .lang-toggle-label {
+    grid-area: 1 / 1;
+    transition:
+      transform 0.45s var(--ease-out-expo),
+      opacity 0.2s ease;
+  }
+
+  .lang-toggle[data-shows="en"] [data-label="id"],
+  .lang-toggle[data-shows="id"] [data-label="en"] {
+    opacity: 0;
+    transform: translateY(-140%);
+  }
+
+  /* Before hydration the attribute is already set by the prerender, so the
+     right label shows from the first frame. */
+  .lang-toggle[data-shows="id"] [data-label="id"],
+  .lang-toggle[data-shows="en"] [data-label="en"] {
+    transition-delay: 0.06s;
+  }
+
+  .lang-toggle[aria-busy="true"] {
+    border-color: var(--accent);
   }
 
   .lang-switch-full {
@@ -706,6 +812,88 @@
   }
 
   /* -------------------------------------------------------- navigation */
+
+  /*
+   * Adaptive header. The bar keeps one fixed 72px box at every state, so
+   * nothing below it ever moves. What changes is the plate behind it:
+   * transparent over the hero, a full-bleed porcelain surface once content
+   * passes beneath, and a floating capsule (clip-path inset) once the reader
+   * is properly into the page. A hairline capsule fades in to edge it.
+   */
+  .site-header {
+    --plate-x: max(0.375rem, calc((100% - 88rem) / 2 + var(--spacing-gutter) - 0.875rem));
+    --plate-y: 0.4375rem;
+  }
+
+  .header-plate,
+  .header-edge {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 4.5rem;
+    pointer-events: none;
+  }
+
+  .header-plate {
+    background: color-mix(in srgb, var(--paper) 86%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
+    box-shadow: inset 0 -1px 0 var(--line);
+    opacity: 0;
+    clip-path: inset(0 0 0 0 round 0);
+    transition:
+      opacity var(--dur-state) ease,
+      clip-path 0.55s var(--ease-out-expo),
+      box-shadow var(--dur-state) ease;
+  }
+
+  .site-header[data-scrolled="true"] .header-plate,
+  .site-header[data-menu="open"] .header-plate,
+  .site-header[data-menu="closing"] .header-plate {
+    opacity: 1;
+  }
+
+  .header-edge {
+    inset: var(--plate-y) var(--plate-x) auto;
+    height: calc(4.5rem - var(--plate-y) * 2);
+    border: 1px solid var(--line);
+    border-radius: 9999px;
+    box-shadow: 0 18px 40px -30px rgb(var(--shadow-tint) / 0.55);
+    opacity: 0;
+    transition: opacity var(--dur-exit) ease;
+  }
+
+  /* The floating capsule needs horizontal room around the controls; phones
+     keep the full-bleed surface and only the logo condenses. */
+  @media (min-width: 768px) {
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-plate {
+      clip-path: inset(var(--plate-y) var(--plate-x) round 9999px);
+      box-shadow: none;
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-edge {
+      opacity: 1;
+      transition: opacity var(--dur-overlay) ease 0.12s;
+    }
+  }
+
+  .site-header[data-menu="open"] .header-plate {
+    background: var(--paper);
+    backdrop-filter: none;
+  }
+
+  .header-logo {
+    transform-origin: 0% 50%;
+    transition: transform 0.55s var(--ease-out-expo);
+  }
+
+  .site-header[data-compact="true"]:not([data-menu="open"]) .header-logo {
+    transform: scale(0.9);
+  }
+
+  /* The menu panel leaves faster than it arrives. */
+  .mobile-menu[data-state="closing"] {
+    animation: menu-out var(--dur-exit) var(--ease-in-quart) forwards;
+  }
 
   .nav-link {
     position: relative;
@@ -900,6 +1088,64 @@
   }
 }
 
+/* The language thumb stretches along its own axis while it travels. */
+@keyframes thumb-stretch-en {
+  35% {
+    transform: scaleX(1.18);
+    transform-origin: 0% 50%;
+  }
+}
+
+@keyframes thumb-stretch-id {
+  35% {
+    transform: scaleX(1.18);
+    transform-origin: 100% 50%;
+  }
+}
+
+@keyframes thumb-busy {
+  to {
+    opacity: 0.55;
+  }
+}
+
+/* Reduced motion keeps the meaning of a state change (which theme, which
+   language) as a short crossfade, without spatial movement. */
+@media (prefers-reduced-motion: reduce) {
+  .theme-dial {
+    transform: none !important;
+  }
+
+  .theme-dial,
+  .lang-thumb {
+    transition: none !important;
+  }
+
+  .theme-icon,
+  .lang-toggle-label {
+    transform: none !important;
+    transition: opacity 160ms linear !important;
+  }
+
+  .lang-thumb-fill {
+    animation: none !important;
+  }
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
 @keyframes pop-in {
   from {
     opacity: 0;
@@ -911,4 +1157,743 @@
   .wa-menu[open] > .wa-panel {
     animation: pop-in 0.38s var(--ease-out-expo) both;
   }
+
+  .wa-menu[data-closing] > .wa-panel {
+    animation: pop-out 0.17s var(--ease-in-quart) forwards;
+  }
+}
+
+/* ------------------------------------------------------------ loading */
+
+/* Four capsules assembling into one solution: each piece leaves along the
+   logo's axis (offsets in viewBox units) and locks back into place. */
+.capsule-loader [data-loader-capsule] {
+  transform-box: view-box;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .capsule-loader [data-loader-capsule] {
+    animation: capsule-assemble 1.6s var(--ease-in-out-quart) infinite;
+  }
+
+  /* SVG path transforms are not composited: an idle loader kept in the DOM
+     (the route chip, faded out) must not tick, or it restyles every frame. */
+  .route-chip:not([data-state="busy"]) .capsule-loader [data-loader-capsule] {
+    animation: none;
+  }
+
+  .capsule-loader [data-loader-capsule="0"] {
+    --dx: 46px;
+    --dy: -30px;
+  }
+
+  .capsule-loader [data-loader-capsule="1"] {
+    --dx: -46px;
+    --dy: 30px;
+    animation-delay: 0.08s;
+  }
+
+  .capsule-loader [data-loader-capsule="2"] {
+    --dx: 46px;
+    --dy: -30px;
+    animation-delay: 0.16s;
+  }
+
+  .capsule-loader [data-loader-capsule="3"] {
+    --dx: -46px;
+    --dy: 30px;
+    animation-delay: 0.24s;
+  }
+}
+
+@keyframes capsule-assemble {
+  0%,
+  100% {
+    transform: translate(var(--dx, 0), var(--dy, 0));
+    opacity: 0.35;
+  }
+
+  42%,
+  72% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Route loading: an indeterminate runner, then a status chip for slow waits. */
+.route-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: var(--z-progress);
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-exit) ease;
+}
+
+.route-bar[data-state="busy"] {
+  opacity: 1;
+  transition: opacity var(--dur-quick) ease 150ms;
+}
+
+.route-bar-runner {
+  display: block;
+  width: 34%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--accent);
+  transform: translateX(-100%);
+}
+
+.route-bar[data-state="busy"] .route-bar-runner {
+  animation: route-run 1.15s var(--ease-in-out-quart) infinite;
+}
+
+@keyframes route-run {
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.route-chip {
+  position: fixed;
+  top: 5.25rem;
+  left: 50%;
+  z-index: var(--z-progress);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.5rem;
+  padding: 0 1rem 0 0.875rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 24px 48px -28px rgb(var(--shadow-tint) / 0.6);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -0.5rem);
+  transition:
+    opacity var(--dur-exit) ease,
+    transform var(--dur-exit) var(--ease-in-quart);
+}
+
+.route-chip[data-state="busy"] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity var(--dur-state) ease,
+    transform var(--dur-overlay) var(--ease-out-expo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-bar[data-state="busy"] .route-bar-runner {
+    width: 100%;
+    transform: none;
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------ floating dock */
+
+/*
+ * Bottom-right stack: back-to-top above the assistant launcher. Offsets
+ * respect phone safe areas. The dock sits under the header (so the mobile
+ * menu covers it) and steps aside near [data-floating-avoid].
+ */
+.floating-dock {
+  --dock-right: max(1rem, calc(env(safe-area-inset-right) + 0.75rem));
+  --dock-bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+  position: fixed;
+  right: var(--dock-right);
+  bottom: var(--dock-bottom);
+  z-index: var(--z-dock);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.625rem;
+  pointer-events: none;
+  transition: transform var(--dur-overlay) var(--ease-out-expo);
+}
+
+@media (min-width: 1024px) {
+  .floating-dock {
+    --dock-right: 1.5rem;
+    --dock-bottom: 1.5rem;
+  }
+}
+
+.floating-dock > button {
+  pointer-events: auto;
+}
+
+.floating-dock[data-avoid="true"][data-assistant="closed"]:not(:focus-within) {
+  transform: translateX(calc(100% + var(--dock-right) + 0.5rem));
+  transition-timing-function: var(--ease-in-quart);
+  transition-duration: var(--dur-exit);
+}
+
+.dock-top {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: 0 16px 32px -22px rgb(var(--shadow-tint) / 0.6);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.625rem) scale(0.86);
+  transition:
+    opacity var(--dur-exit) ease,
+    transform var(--dur-exit) var(--ease-in-quart),
+    visibility 0s linear var(--dur-exit),
+    border-color var(--dur-state) var(--ease-out-expo),
+    background-color var(--dur-state) var(--ease-out-expo);
+}
+
+.dock-top[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity var(--dur-state) ease,
+    transform var(--dur-overlay) var(--ease-out-expo),
+    visibility 0s,
+    border-color var(--dur-state) var(--ease-out-expo),
+    background-color var(--dur-state) var(--ease-out-expo);
+}
+
+/* The assistant panel occupies the space above the launcher. */
+.floating-dock:not([data-assistant="closed"]) .dock-top {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.625rem) scale(0.86);
+}
+
+.dock-top svg {
+  transition: transform var(--dur-state) var(--ease-out-expo);
+}
+
+.dock-top:hover {
+  border-color: var(--ink-muted);
+  background-color: var(--paper-sunken);
+}
+
+.dock-top:hover svg {
+  transform: translateY(-2px);
+}
+
+.dock-top[data-visible="true"]:active {
+  transform: scale(0.92);
+  transition-duration: var(--dur-instant);
+}
+
+/* Launcher: a navy capsule with the gradient mark in a porcelain well. */
+.dock-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  height: 3.25rem;
+  padding: 0.375rem;
+  border-radius: 9999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  box-shadow: 0 18px 36px -20px rgb(var(--shadow-tint) / 0.75);
+  transition:
+    background-color var(--dur-state) var(--ease-out-expo),
+    transform var(--dur-quick) var(--ease-out-expo);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dock-launcher {
+    animation: dock-in 0.6s var(--ease-out-expo) 0.2s both;
+  }
+}
+
+.dock-launcher:hover {
+  background: color-mix(in srgb, var(--ink) 86%, var(--accent));
+}
+
+.dock-launcher:active {
+  transform: scale(0.95);
+  transition-duration: var(--dur-instant);
+}
+
+.dock-launcher-icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.dock-launcher-glyph {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.45s var(--ease-out-expo),
+    opacity 0.2s ease;
+}
+
+.dock-launcher:hover [data-glyph="mark"] {
+  transform: rotate(-33deg);
+}
+
+[data-glyph="close"],
+.floating-dock:not([data-assistant="closed"]) [data-glyph="mark"] {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.6);
+}
+
+.floating-dock:not([data-assistant="closed"]) [data-glyph="close"] {
+  opacity: 1;
+  transform: none;
+}
+
+.dock-launcher-label {
+  display: none;
+  justify-items: start;
+  overflow: hidden;
+  padding-right: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .dock-launcher-label {
+    display: grid;
+  }
+}
+
+.dock-launcher-label > span {
+  grid-area: 1 / 1;
+  transition:
+    transform 0.45s var(--ease-out-expo),
+    opacity 0.2s ease;
+}
+
+.dock-launcher-label [data-label="close"],
+.floating-dock:not([data-assistant="closed"]) .dock-launcher-label [data-label="open"] {
+  opacity: 0;
+  transform: translateY(-120%);
+}
+
+.floating-dock:not([data-assistant="closed"]) .dock-launcher-label [data-label="close"] {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes dock-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.9);
+  }
+}
+
+/* ---------------------------------------------------------- assistant */
+
+.assistant-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-assistant);
+  pointer-events: none;
+}
+
+.assistant-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--shadow-tint) / 0.42);
+  pointer-events: auto;
+  animation: fade-in var(--dur-state) ease both;
+}
+
+.assistant-layer[data-state="closing"] .assistant-scrim {
+  animation: fade-out var(--dur-exit) ease forwards;
+}
+
+.assistant-panel {
+  position: absolute;
+  right: max(1rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: calc(max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem)) + 4rem);
+  display: flex;
+  flex-direction: column;
+  width: min(24rem, calc(100vw - 2rem));
+  height: min(40rem, calc(100dvh - 11rem));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-panel);
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: 0 32px 64px -32px rgb(var(--shadow-tint) / 0.6);
+  transform-origin: 100% 100%;
+  pointer-events: auto;
+  outline: none;
+  animation: assistant-in var(--dur-overlay) var(--ease-out-expo) both;
+}
+
+@media (min-width: 1024px) {
+  .assistant-panel {
+    right: 1.5rem;
+    bottom: 5.5rem;
+  }
+}
+
+.assistant-layer[data-state="closing"] .assistant-panel {
+  animation: assistant-out var(--dur-exit) var(--ease-in-quart) forwards;
+}
+
+/* Phones: a bottom sheet over a scrim. */
+@media (max-width: 639px) {
+  .assistant-panel {
+    inset: auto 0 0;
+    width: 100%;
+    height: min(88dvh, 46rem);
+    border-width: 1px 0 0;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    transform-origin: 50% 100%;
+  }
+}
+
+.assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 0.75rem 0.875rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.assistant-mark {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  background: var(--paper);
+}
+
+.assistant-icon-button {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  color: var(--ink-muted);
+  transition:
+    background-color var(--dur-state) var(--ease-out-expo),
+    color var(--dur-state) var(--ease-out-expo),
+    transform var(--dur-quick) var(--ease-out-expo);
+}
+
+.assistant-icon-button:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.assistant-icon-button:active {
+  transform: scale(0.92);
+  transition-duration: var(--dur-instant);
+}
+
+.assistant-log {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-height: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.assistant-entry {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 100%;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.assistant-entry[data-role="user"] {
+  align-self: flex-end;
+  max-width: 85%;
+}
+
+.assistant-bubble {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem 1.25rem 1.25rem 0.375rem;
+  background: var(--paper);
+  overflow-wrap: anywhere;
+}
+
+.assistant-entry[data-role="user"] .assistant-bubble {
+  padding: 0.6rem 0.95rem;
+  border-color: var(--ink);
+  border-radius: 1.25rem 1.25rem 0.375rem 1.25rem;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .assistant-entry {
+    animation: entry-in 0.42s var(--ease-out-expo) both;
+  }
+
+  .assistant-entry[data-role="user"] {
+    --entry-x: 0.5rem;
+    --entry-y: 0;
+  }
+}
+
+.assistant-bullets {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+}
+
+.assistant-bullets li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+/* A short capsule on the logo axis marks each point. */
+.assistant-bullets li::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.22rem;
+  border-radius: 9999px;
+  background: var(--accent);
+  transform: translateY(-0.2em) rotate(-33deg);
+}
+
+.assistant-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color var(--dur-state) var(--ease-out-expo),
+    background-color var(--dur-state) var(--ease-out-expo);
+}
+
+.assistant-link:hover {
+  border-color: var(--ink);
+  background: var(--paper-sunken);
+}
+
+.assistant-escalate {
+  padding: 0.875rem 1rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 1.25rem;
+}
+
+.assistant-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.assistant-chip {
+  min-height: 2.25rem;
+  padding: 0 0.95rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  transition:
+    background-color var(--dur-state) var(--ease-out-expo),
+    border-color var(--dur-state) var(--ease-out-expo),
+    color var(--dur-state) var(--ease-out-expo),
+    transform var(--dur-quick) var(--ease-out-expo);
+}
+
+.assistant-chip:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.assistant-chip:active {
+  transform: scale(0.95);
+  transition-duration: var(--dur-instant);
+}
+
+.assistant-foot {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.assistant-send {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  transition:
+    background-color var(--dur-state) var(--ease-out-expo),
+    opacity var(--dur-state) ease,
+    transform var(--dur-quick) var(--ease-out-expo);
+}
+
+.assistant-send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.assistant-send:active:not(:disabled) {
+  transform: scale(0.92);
+  transition-duration: var(--dur-instant);
+}
+
+.assistant-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Shown only if the panel code takes longer than a moment to arrive. */
+.assistant-loading {
+  position: fixed;
+  right: max(1rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: calc(max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem)) + 4rem);
+  z-index: var(--z-assistant);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 24px 48px -28px rgb(var(--shadow-tint) / 0.6);
+  animation: fade-in var(--dur-state) ease 150ms both;
+}
+
+@keyframes assistant-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.96);
+  }
+}
+
+@keyframes assistant-out {
+  to {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+  }
+}
+
+@keyframes entry-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--entry-x, 0), var(--entry-y, 0.5rem));
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------- testimonials */
+
+.testimonial-quote {
+  max-width: 34ch;
+  font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+  font-weight: 560;
+  font-stretch: 106%;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* A new quote is uncovered along the 33 degree diagonal; the outgoing one
+   lifts away quickly in the direction of travel. */
+@media (prefers-reduced-motion: no-preference) {
+  .testimonial-slide {
+    animation: quote-in 0.7s var(--ease-out-expo) both;
+  }
+
+  .testimonial-slide[data-direction="-1"] {
+    --quote-from-x: -0.75rem;
+  }
+
+  .testimonial-slide[data-leaving] {
+    animation: quote-out 0.2s var(--ease-in-quart) forwards;
+  }
+
+  .testimonial-slide[data-leaving][data-direction="-1"] {
+    --quote-to-x: 0.75rem;
+  }
+}
+
+@keyframes quote-in {
+  from {
+    opacity: 0;
+    clip-path: polygon(0% 0%, 0% 0%, -65% 100%, -65% 100%);
+    transform: translateX(var(--quote-from-x, 0.75rem));
+  }
+
+  to {
+    opacity: 1;
+    clip-path: polygon(0% 0%, 165% 0%, 100% 100%, -65% 100%);
+    transform: none;
+  }
+}
+
+@keyframes quote-out {
+  to {
+    opacity: 0;
+    transform: translateX(var(--quote-to-x, -0.75rem));
+  }
+}
+
+/* Empty slot for a fact a future story will carry: a dashed capsule, the
+   same signifier as the demo label. */
+.testimonial-slot {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.25rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 9999px;
+  transform: rotate(-33deg);
 }

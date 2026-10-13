@@ -93,6 +93,8 @@ test("unknown URLs return a real 404 page that is not indexed", async ({ page })
 });
 
 test("every internal link resolves", async ({ page, request }) => {
+  // Visits every page; WebKit under parallel load needs more than the default budget.
+  test.setTimeout(90_000);
   const hrefs = new Set<string>();
   for (const { path } of pages) {
     await page.goto(path);

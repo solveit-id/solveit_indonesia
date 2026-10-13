@@ -397,7 +397,9 @@ export function InquiryForm() {
 
         {/* Disabled until hydrated: before that a click would make the browser
             submit natively and put the visitor's details in the URL. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        {/* Floating controls step aside while these buttons are near the
+            bottom of the screen (see FloatingDock). */}
+        <div data-floating-avoid className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             type="submit"
             name="channel"

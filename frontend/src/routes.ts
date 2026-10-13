@@ -38,6 +38,8 @@ export default [
   layout("layouts/site-layout.tsx", [
     ...pages,
     ...caseStudies,
+    // Internal, noindex review page for the testimonial component (placeholders only).
+    route("pratinjau/testimoni", "pages/testimonial-preview.tsx", { id: "testimonial-preview" }),
     route("en/*", "pages/not-found.tsx", { id: "not-found-en" }),
     route("*", "pages/not-found.tsx", { id: "not-found-id" }),
   ]),

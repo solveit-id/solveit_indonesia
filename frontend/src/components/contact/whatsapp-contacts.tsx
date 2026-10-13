@@ -73,10 +73,27 @@ export function WhatsAppMenu({
   useEffect(() => {
     const details = ref.current;
     if (!details) return;
+    const summary = details.querySelector("summary");
+    let timer: number | undefined;
+    // The panel leaves with a short exit before <details> actually closes;
+    // under reduced motion it closes at once.
     const close = (restoreFocus: boolean) => {
+      if (!details.open || details.dataset.closing) return;
+      if (restoreFocus) summary?.focus();
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        details.open = false;
+        return;
+      }
+      details.dataset.closing = "true";
+      timer = window.setTimeout(() => {
+        details.open = false;
+        delete details.dataset.closing;
+      }, 170);
+    };
+    const onSummaryClick = (event: MouseEvent) => {
       if (!details.open) return;
-      details.open = false;
-      if (restoreFocus) details.querySelector("summary")?.focus();
+      event.preventDefault();
+      close(false);
     };
     const onPointerDown = (event: PointerEvent) => {
       if (!details.contains(event.target as Node)) close(false);
@@ -91,10 +108,13 @@ export function WhatsAppMenu({
       if (event.relatedTarget && !details.contains(event.relatedTarget as Node)) close(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
+    summary?.addEventListener("click", onSummaryClick);
     details.addEventListener("keydown", onKeyDown);
     details.addEventListener("focusout", onFocusOut);
     return () => {
+      window.clearTimeout(timer);
       document.removeEventListener("pointerdown", onPointerDown);
+      summary?.removeEventListener("click", onSummaryClick);
       details.removeEventListener("keydown", onKeyDown);
       details.removeEventListener("focusout", onFocusOut);
     };

@@ -4,6 +4,9 @@ import { locales } from "~/i18n/config";
 import { getProcessSteps, getServices } from "~/services/content";
 import { getProjects } from "~/services/projects";
 import { company } from "./company";
+import { assistant as enAssistant } from "./locales/en/assistant";
+import { assistant as idAssistant } from "./locales/id/assistant";
+import { testimonialPlaceholders } from "./testimonials";
 import { content } from "./locales";
 import { processStepIds } from "./process";
 import { projectCategories, projects } from "./projects";
@@ -91,7 +94,14 @@ describe("content integrity", () => {
   });
 
   it("contains no em or en dashes in visible copy", () => {
-    const strings = visibleStrings([company, content, messages]);
+    const strings = visibleStrings([
+      company,
+      content,
+      messages,
+      idAssistant,
+      enAssistant,
+      testimonialPlaceholders,
+    ]);
     expect(strings.length).toBeGreaterThan(300);
     for (const text of strings) expect(text).not.toMatch(/[–—]/);
   });

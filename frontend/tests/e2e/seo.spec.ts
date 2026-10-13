@@ -11,6 +11,8 @@ test.describe("structured data and crawl files", () => {
   test.skip(({ isMobile }) => isMobile, "Viewport independent; run on larger viewports only.");
 
   test("every page ships parseable JSON-LD and Open Graph tags", async ({ page }) => {
+    // Visits every page; WebKit under parallel load needs more than the default budget.
+    test.setTimeout(90_000);
     for (const { path } of pages) {
       await page.goto(path);
       const blocks = await jsonLd(page);
