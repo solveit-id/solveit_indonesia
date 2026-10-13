@@ -211,7 +211,7 @@ All headings share letter-spacing -0.03em and balanced wrapping; paragraphs use 
 
 ## Layout
 
-A 88rem container with a fluid gutter (clamp(1rem, 4vw, 3rem)) and a 12-column grid from the `lg` breakpoint. Compositions are asymmetric splits: the hero is 7 over 5, the service index is a 7-column list beside a 5-column sticky preview, the process rail is 4 sticky over 7. Sections breathe on a single fluid rhythm (clamp(5rem, 11vw, 9.5rem)) and are separated by hairline top borders or a tonal step, not cards. The header is a fixed 72px bar that gains a translucent porcelain surface and hairline after scrolling and slides away while reading down. Below `lg` everything stacks to one column; the work showcase becomes a native horizontal snap scroller, and pinned or parallax effects are skipped. Anchored targets keep a 6rem scroll margin to clear the header.
+A 88rem container with a fluid gutter (clamp(1rem, 4vw, 3rem)) and a 12-column grid from the `lg` breakpoint. Compositions are asymmetric splits: the hero is 7 over 5, the service index is a 7-column list beside a 5-column sticky preview, the process rail is 4 sticky over 7. Sections breathe on a single fluid rhythm (clamp(5rem, 11vw, 9.5rem)) and are separated by hairline top borders or a tonal step, not cards. The header is a fixed 72px bar: open over the hero, a translucent porcelain surface once content passes beneath, and from 768px a floating capsule further down the page (see Navigation). It never changes height and never hides. Below `lg` everything stacks to one column; the work showcase becomes a native horizontal snap scroller, and pinned or parallax effects are skipped. Anchored targets keep a 6rem scroll margin to clear the header.
 
 ## Elevation & Depth
 
@@ -219,7 +219,7 @@ Flat by default. Depth comes from tonal steps (paper, raised, sunken), hairlines
 
 ### Shadow Vocabulary
 - **Cobalt lift** (`box-shadow: 0 10px 24px -14px rgb(17 54 214 / 0.75)`; hover `0 14px 30px -14px rgb(17 54 214 / 0.85)`): primary button only; removed when disabled.
-- **Overlay** (`0 24px 48px -28px rgb(var(--shadow-tint) / 0.6)`): floating panels only (the WhatsApp number menu), to read as above the page. Cards and panels in the flow still carry none.
+- **Overlay** (`0 24px 48px -28px rgb(var(--shadow-tint) / 0.6)`): floating layers only (the WhatsApp number menu, the assistant panel, the route status chip, and, slightly tighter, the floating dock controls and the compact header capsule), to read as above the page. Cards and panels in the flow still carry none.
 
 ### Named Rules
 **The Tone Not Shadow Rule.** Containers separate by tone and hairline. Cards and panels carry no shadow.
@@ -256,10 +256,11 @@ Confident capsules with an arrow that nudges forward on hover.
 - **Error:** border and message switch to a red (#b42318 light, #ff9c8f dark); hints sit below in muted ink at 0.875rem.
 
 ### Navigation
-- **Order:** Beranda, Layanan, Portofolio, Proses Kerja, Tentang Kami, then the contact page as the primary capsule ("Mulai konsultasi"), so the header never shows two links to one page. "Beranda" joins the desktop row from 1280px; the logo is always the home link.
+- **Order:** Beranda, Tentang Kami, Layanan, Portofolio, Proses Kerja (Home, About Us, Services, Portfolio, Process), then the contact page as the primary capsule ("Mulai konsultasi"), so the header never shows two links to one page. "Beranda" joins the desktop row from 1280px; the logo is always the home link.
+- **Adaptive bar:** one 72px box in three states. Transparent over the hero; a translucent porcelain plate with a bottom hairline after 8px of scroll; past 96px the plate is clipped (`clip-path: inset(... round 9999px)`) into a floating capsule edged by a fading hairline capsule, and the logo condenses to 90%. It expands again only below 40px (hysteresis). Below 768px the plate stays full-bleed, because a capsule leaves the 44px controls no room.
 - **Desktop:** text links at about 0.97rem, 500 weight, muted ink; the current section (nested case studies included) goes full ink and sits over one 3px cobalt capsule indicator that slides between links on hover and keyboard focus and settles back (transform only, 0.55s expo-out). Before hydration a static underline holds the same spot. On the contact page the capsule button reads as pressed (Logo Deep Cobalt with an inner hairline, in both themes).
-- **Preferences:** an ID / EN segmented capsule (an ink thumb slides to the active language) and a 44px capsule theme switch (sun and moon swap with a turn) sit between the links and the contact capsule. Below 640px a single 44px capsule naming the other language (EN or ID) stays in the header, and the menu panel shows the full segmented switch with language names.
-- **Mobile:** a secondary capsule toggle with a two-bar 33 degree icon and a text label opens a full-height panel of large wide-face links divided by hairlines; the current page turns accent-text cobalt with a short capsule marker on the 33 degree axis. The panel foot holds the contact capsule and the WhatsApp menu.
+- **Preferences:** an ID / EN segmented capsule and a 44px capsule theme switch sit between the links and the contact capsule. The language thumb slides to the target the moment it is chosen (from the pending navigation), stretching along its axis as it travels, and breathes while a slow switch loads. The theme switch carries sun and moon on one dial pivoting below the button: half a turn sets the sun and raises the moon, and the reverse plays the same path back. Both share one state set: hover tints the capsule with sunken porcelain, press compresses it (100ms), focus draws the ring. Below 640px a single 44px capsule naming the other language (EN or ID) stays in the header, and the menu panel shows the full segmented switch with language names.
+- **Mobile:** a secondary capsule toggle with a two-bar 33 degree icon and a text label opens a full-height panel of large wide-face links divided by hairlines; the current page turns accent-text cobalt with a short capsule marker on the 33 degree axis. The panel foot holds the contact capsule and the WhatsApp menu. It leaves with a 220ms lift before hiding; a route change closes it at once.
 - **Inline links:** the link sweep, a 1px underline that sweeps in from the left over 0.45s.
 
 ### Contact channels
@@ -272,6 +273,23 @@ Confident capsules with an arrow that nudges forward on hover.
 - The inquiry form is three groups (about you, about the project, send), each opened by a hairline and a heading with a 2rem outlined index capsule, like the process rail markers.
 - Rhythm: 1.75rem between a group heading and its fields, 1.5rem between fields, 0.5rem between label, hint, control, and error. Required fields carry a cobalt asterisk; optional ones say so in muted ink.
 - Paired single-line fields share a two-column row from 768px; selects use the same capsule as inputs with a slate chevron. The WhatsApp recipient is a row of choice capsules; switching it never touches the composed message.
+
+### Floating dock
+- Bottom right, inside the safe area: a 44px porcelain back-to-top capsule above the assistant launcher. Back-to-top appears after 1.2 screen heights, steps aside while the assistant is open, and returns focus to the page after scrolling up (smooth unless reduced motion).
+- Both step off-screen to the right while a `[data-floating-avoid]` element (the contact form's send buttons) sits in the bottom 28% of the screen. The footer's last row carries extra bottom space so nothing ends under the dock.
+- Rendered only after hydration, so neither ever shows as a dead button.
+
+### Solveit Assistant
+- **Launcher:** a navy (ink) capsule holding the gradient mark in a porcelain well, labelled "Tanya Solveit"; icon-only below 640px and on the contact page. Open, the mark turns into a close glyph and the label rolls to "Tutup".
+- **Panel:** raised porcelain, panel radius, overlay shadow, 24rem wide above the launcher; a bottom sheet over a scrim below 640px (modal: the page goes inert). Header: mark well, title, the honest subtitle "Panduan otomatis, bukan AI atau staf", restart and close. Guide bubbles in paper with a hairline; the visitor's bubbles in ink. Points use short cobalt capsules on the 33 degree axis. Topic chips are choice capsules that invert to ink on hover. The hand-off block is dashed, like every other "not yet" signifier.
+- **Motion:** opens in 420ms from the launcher corner, closes in 220ms; each new message enters from its own side.
+
+### Loading feedback
+- No full-screen loader: every page is prerendered HTML and paints at once. Client navigations show a thin indeterminate cobalt runner along the top edge after 150ms, and after 900ms a porcelain status chip whose mark is the four capsules drifting apart on the 33 degree axis and locking back together. No percentages.
+
+### Client stories
+- Until a client approves a testimonial, the home page shows a pledge: a quotation mark built from two gradient capsules on the 33 degree axis, the promise, and dashed capsule slots for what every story will carry (name and role, project context, approval date).
+- With approved testimonials, the same slot shows one large quote at a time (Archivo 560 at 106% width, about 34ch), a hairline-led caption, and capsule previous/next buttons. Quotes are uncovered along the diagonal and leave in 200ms; there is no autoplay. No Review or AggregateRating markup is ever emitted.
 
 ### Brand mark assembly (signature)
 The logo mark sits over a faint lattice of outlined capsules on the 33 degree axis and assembles from its four capsules on load, with pointer depth on fine pointers. A monochrome version of the mark repeats inside the cobalt closing band.
@@ -297,4 +315,6 @@ A vertical hairline with a cobalt fill that grows as the reader scrolls; capsule
 - **Don't** introduce uppercase tracked eyebrows or kickers above headings.
 - **Don't** use arbitrary decorative icons; icons are functional Phosphor arrows and carets.
 - **Don't** alter the logo's shapes; only its monochrome version on cobalt and the dark-mode wordmark color are allowed variations.
+- **Don't** set a global `scroll-behavior: smooth` or add a smooth-scroll library; both break Back-button scroll restoration or nested scrolling here.
+- **Don't** show a full-screen loader or fake progress; loading feedback scales with the real wait.
 - **Don't** use Faint Slate Ink for small text.

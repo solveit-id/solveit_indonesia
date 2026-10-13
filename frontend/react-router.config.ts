@@ -8,6 +8,8 @@ export default {
   ssr: false,
   prerender: () => [
     ...localizedRoutes(),
+    // Noindex review page; skipped by the sitemap (scripts/postbuild.mjs).
+    "/pratinjau/testimoni",
     // Rendered by the splat routes; moved to 404.html and en/404.html by
     // scripts/postbuild.mjs.
     "/404",

@@ -56,6 +56,7 @@ Tile bento dan panel proses memakai `--accent` serta satu tile navy literal (`#0
 | Tagline | Tipografi kinetik full-width | Kata menyala mengikuti scroll (ritme baca pengunjung) |
 | Layanan | Indeks tipografis + panel pratinjau sticky | Pratinjau berganti saat baris disorot atau difokus |
 | Portofolio | Baris horizontal; pan ter-pin di desktop | Scroll vertikal menggeser studi kasus; native swipe di layar kecil |
+| Cerita klien | Split 4/7: tanda kutip dua kapsul sticky, judul dan janji | Kapsul tanda kutip menyatu di sepanjang sumbu 33 derajat; baris slot masuk dari kiri |
 | Cara kerja | Bento 4 sel dengan latar berbeda | Wipe diagonal 33 derajat per sel |
 | Proses | Rail sticky | Garis terisi dan penanda menyala saat dilewati |
 | Penutup | Bidang cobalt penuh | Bidang naik dengan clip diagonal; mark monokrom merakit |
@@ -63,12 +64,41 @@ Tile bento dan panel proses memakai `--accent` serta satu tile navy literal (`#0
 ## Aturan motion
 
 - Animasi GSAP hanya memakai `transform`, `opacity`, `color`, dan `clip-path`. Transisi CSS state (hover, fokus) juga mengubah `background-color`, `border-color`, `box-shadow`, dan `background-size` (garis bawah link). Tanpa scroll listener manual; semua lewat ScrollTrigger.
-- Header menjadi permukaan porselen semi-transparan dengan `backdrop-blur` setelah halaman di-scroll, dan bersembunyi saat membaca ke bawah. Indikator aktif navigasi adalah satu kapsul cobalt yang bergeser (transform saja).
-- Parallax scroll nyata hanya di tiga tempat: lapisan hero, sampul di Portofolio dan studi kasus (`useParallax`, separuh jarak di bawah 768px), dan mark di Tentang yang terakit tepat di tengah layar. Tidak ada pin baru, tidak ada scroll hijacking, tidak ada library smooth scroll.
+- Header adaptif (lihat di bawah). Indikator aktif navigasi adalah satu kapsul cobalt yang bergeser (transform saja).
+- Parallax scroll nyata hanya di tiga tempat: lapisan hero, sampul di Portofolio dan studi kasus (`useParallax`, separuh jarak di bawah 768px), dan mark di Tentang yang terakit tepat di tengah layar. Tidak ada pin baru, tidak ada scroll hijacking, tidak ada library smooth scroll (Lenis dievaluasi dan ditolak, lihat `docs/qa-report.md`).
+- Tidak ada `scroll-behavior: smooth` global: aturan itu ikut menghaluskan pemulihan scroll router dan membuat tombol Back kembali ke atas halaman. Scroll halus diminta per aksi (tombol kembali ke atas).
 - Proses: panel yang tertumpuk mengecil dan meredup lewat lapisan bayangan ber-opacity (komposit), bukan `filter: brightness` yang memaksa repaint tiap frame.
-- Pergantian tema: satu View Transition yang menyapu di sepanjang sumbu 33 derajat (620 ms), instan di bawah reduced motion.
-- Konten terlihat secara default. Reveal memakai opacity (bukan `visibility`) agar konten tetap ada di accessibility tree.
-- `prefers-reduced-motion: reduce` mematikan seluruh animasi; perangkat terbatas melewati pin dan parallax pointer.
+- Pergantian tema: satu View Transition yang menyapu di sepanjang sumbu 33 derajat (600 ms). Malam datang dari kiri atas, siang kembali dari kanan bawah. Menekan lagi di tengah sapuan menyelesaikan sapuan berjalan lalu memulai yang baru, sehingga tidak pernah menumpuk. Instan di bawah reduced motion dan tanpa dukungan View Transitions.
+- Konten terlihat secara default. Reveal memakai opacity (bukan `visibility`) agar konten tetap ada di accessibility tree. Konten utama tidak pernah hilang saat pengunjung scroll bolak-balik; hanya penanda proses yang berbalik saat dilewati ke atas.
+- `prefers-reduced-motion: reduce` mematikan gerak spasial; pergantian state yang bermakna (ikon tema, label bahasa) tetap tampil sebagai crossfade 160 ms. Perangkat terbatas melewati pin dan parallax pointer.
+
+### Kosakata motion
+
+Token durasi di `:root` (`src/styles/app.css`). Keluar selalu lebih cepat dari masuk.
+
+| Peran | Token | Nilai | Kurva | Contoh |
+|---|---|---|---|---|
+| Tekan | `--dur-instant` | 100 ms | expo-out | Kapsul mengecil 0,92 sampai 0,95 |
+| Umpan balik cepat | `--dur-quick` | 180 ms | expo-out | Transform hover kecil |
+| Perubahan state | `--dur-state` | 280 ms | expo-out | Warna, border, latar hover |
+| Keluar | `--dur-exit` | 220 ms | `--ease-in-quart` | Menu seluler, panel asisten, kartu WhatsApp (170 ms), tombol ke atas |
+| Overlay masuk | `--dur-overlay` | 420 ms | expo-out | Panel asisten, chip status, dock |
+| Momen utama | `--dur-focal` | 700 ms | expo-out | Wipe kutipan testimoni, dial tema (620 ms) |
+
+Arah: elemen bergerak di sepanjang sumbu 33 derajat logo bila arahnya bermakna (kapsul loader, kutipan, mark Tentang); selain itu naik pendek (0,5 sampai 0,75 rem).
+
+## Komponen interaksi
+
+| Komponen | Perilaku | Catatan |
+|---|---|---|
+| Tombol tema | Matahari dan bulan berada di satu dial yang berputar setengah putaran di sekitar poros di bawah tombol: matahari terbenam, bulan terbit; arah sebaliknya memutar balik jalur yang sama. Hover: latar porselen tenggelam dan putaran kecil 33 derajat; tekan: 0,92 | Ukuran 44 px tetap, ikon dipotong oleh kapsul sehingga tidak ada pergeseran |
+| Pemilih bahasa | Thumb tinta bergeser ke bahasa tujuan saat diklik (dari `navigation.location`, bukan setelah route selesai dimuat), meregang 1,18 sepanjang sumbunya selama bergerak, dan "bernapas" (opacity) bila pemuatan lambat. Di ponsel, satu kapsul yang menggulung label EN/ID | Fokus tetap di pemilih; konten tidak di-fade penuh, hanya opacity 0,55 ke 1 dalam 350 ms |
+| Header adaptif | Tiga keadaan pada satu kotak 72 px: terbuka di atas hero, permukaan penuh setelah 8 px, kapsul mengambang setelah 96 px (kembali hanya di bawah 40 px: histeresis). Kapsul dibentuk dengan `clip-path: inset(... round 9999px)` pada pelat latar, garis rambut kapsul memudar masuk, logo mengecil 0,9. Di bawah 768 px tetap permukaan penuh karena kapsul terlalu sempit untuk kontrol | Tidak ada perubahan tinggi atau layout; atribut hanya ditulis saat keadaan berganti |
+| Menu seluler | Masuk dengan stagger (GSAP), keluar 220 ms ke atas sebelum `hidden`. Navigasi ke halaman lain menutup instan | |
+| Umpan balik pemuatan | Tidak ada overlay layar penuh. Runner cobalt tipis tak-tentu di tepi atas setelah 150 ms; chip "Memuat halaman" dengan kapsul logo yang merakit diri, plus pengumuman `role="status"`, hanya setelah 900 ms. Muatan pertama tidak pernah menampilkan apa pun | Tidak ada persentase palsu |
+| Dock mengambang | Kanan bawah, menghormati safe area. Tombol kembali ke atas (44 px) muncul setelah 1,2 tinggi layar, di atas peluncur asisten. Disembunyikan saat panel asisten terbuka. Keduanya menyingkir saat `[data-floating-avoid]` (tombol kirim formulir Kontak) berada di 28 persen bawah layar. Baris akhir footer diberi ruang bawah | Dirender setelah hydration, jadi tidak pernah tampil sebagai tombol mati |
+| Asisten Solveit | Peluncur kapsul navy dengan mark bergradasi; label "Tanya Solveit" berganti "Tutup". Panel mengambang 24 rem di desktop, bottom sheet modal dengan scrim di bawah 640 px. Topik, FAQ, tautan halaman, eskalasi WhatsApp/email | Lihat `docs/architecture.md` |
+| Cerita klien | Tanpa testimoni yang diizinkan: janji tertulis dengan slot kapsul putus-putus. Dengan testimoni: kutipan besar di samping tanda kutip dua kapsul, tombol, panah kiri/kanan, geser; tanpa autoplay | Tidak pernah menerbitkan Review atau AggregateRating |
 
 ## Aturan konten
 

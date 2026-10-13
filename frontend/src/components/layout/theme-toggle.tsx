@@ -5,9 +5,12 @@ import { cn } from "~/lib/cn";
 import { setTheme, useTheme } from "~/lib/theme";
 
 /**
- * Light/dark switch: a capsule toggle button. Which icon shows is decided by
- * CSS from <html data-theme>, so the prerendered button is already right
- * before hydration; `aria-pressed` follows once React takes over.
+ * Light/dark switch: a capsule toggle button. Sun and moon sit on one dial
+ * that turns half a revolution around a pivot below the button, so the sun
+ * sets as the moon rises and the reverse switch plays the same path back.
+ * The dial's position is decided by CSS from <html data-theme>, so the
+ * prerendered button is already right before hydration; `aria-pressed`
+ * follows once React takes over. The button never changes size.
  */
 export function ThemeToggle({ className }: { className?: string }) {
   const { t } = useI18n();
@@ -21,8 +24,10 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={() => setTheme(dark ? "light" : "dark")}
       className={cn("theme-toggle", className)}
     >
-      <Sun aria-hidden weight="bold" className="theme-icon theme-icon-sun" />
-      <Moon aria-hidden weight="bold" className="theme-icon theme-icon-moon" />
+      <span aria-hidden className="theme-dial">
+        <Sun weight="bold" className="theme-icon theme-icon-sun" />
+        <Moon weight="bold" className="theme-icon theme-icon-moon" />
+      </span>
     </button>
   );
 }

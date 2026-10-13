@@ -146,7 +146,8 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 border-t border-field-line py-6 text-sm text-field-ink-muted sm:flex-row sm:items-center sm:justify-between">
+          {/* Bottom padding keeps the last line clear of the floating controls. */}
+          <div className="flex flex-col gap-4 border-t border-field-line pt-6 pb-24 text-sm text-field-ink-muted sm:flex-row sm:items-center sm:justify-between">
             <p>
               © {new Date().getFullYear()} {company.name}
             </p>

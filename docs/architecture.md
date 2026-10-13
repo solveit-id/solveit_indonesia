@@ -19,13 +19,13 @@ Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau e
 |---|---|---|
 | Route modules (halaman) | `src/pages/` | Satu file per halaman (dipakai untuk kedua bahasa), masing-masing mengekspor `meta` dan komponen default |
 | i18n | `src/i18n/` | `config.ts` (bahasa, peta path per halaman), `paths.ts` (resolusi URL, pasangan halaman lintas bahasa, daftar route), `messages/{id,en}.ts` (teks antarmuka bertipe), `index.ts` (`useI18n`) |
-| Layout | `src/layouts/site-layout.tsx` | Header, footer, progress navigasi, fokus dan transisi antarhalaman |
-| Komponen | `src/components/{brand,layout,ui,portfolio,contact,sections/home}` | Komponen presentasi; `brand/logo-paths.ts` berisi path logo asli |
-| Hooks | `src/hooks/` | `use-reveal`, `use-tilt`, `use-parallax`, `use-hydrated` |
+| Layout | `src/layouts/site-layout.tsx` | Header, footer, umpan balik navigasi, dock mengambang, fokus dan transisi antarhalaman |
+| Komponen | `src/components/{brand,layout,ui,portfolio,contact,feedback,assistant,sections}` | Komponen presentasi; `brand/logo-paths.ts` berisi path logo asli; `assistant/assistant-panel.tsx` dimuat lazily |
+| Hooks | `src/hooks/` | `use-reveal`, `use-tilt`, `use-parallax`, `use-hydrated`, `use-delayed-flag` |
 | Lib | `src/lib/` | `motion.ts` (pemuatan GSAP + `useMotion`), `theme.ts` (tema terang/gelap), `seo.ts` (meta, hreflang, JSON-LD), `device.ts`, `cn.ts` |
-| Services | `src/services/` | Akses konten per bahasa (`content.ts`, `projects.ts`) dan pengiriman inquiry (`inquiry.ts`); titik tukar ke API |
+| Services | `src/services/` | Akses konten per bahasa (`content.ts`, `projects.ts`), pengiriman inquiry (`inquiry.ts`), mesin panduan asisten (`assistant.ts`), dan testimoni yang boleh tampil (`testimonials.ts`); titik tukar ke API |
 | Data | `src/data/` | Fakta yang tidak bergantung bahasa (perusahaan, urutan layanan dan proses, dasar proyek, navigasi) dan teks per bahasa di `src/data/locales/{id,en}/` |
-| Types | `src/types/` | Kontrak tipe konten dan inquiry |
+| Types | `src/types/` | Kontrak tipe konten, inquiry, asisten (`AssistantEngine`), dan testimoni |
 | Config | `src/config/site.ts` | Variabel lingkungan (`VITE_SITE_URL`, `VITE_API_BASE_URL`, verifikasi Search Console) |
 | Styles | `src/styles/app.css` | Design tokens (CSS variables + Tailwind v4 `@theme`), komponen dasar, motion CSS |
 
@@ -41,7 +41,7 @@ Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau e
 
 - Terang adalah default bagi semua pengunjung; preferensi OS tidak diikuti. Gelap hanya aktif bila dipilih lewat tombol tema.
 - Token warna ada di `src/styles/app.css` (`:root` dan `:root[data-theme="dark"]`); varian `dark:` Tailwind mengikuti atribut yang sama.
-- Pergantian tema memakai satu View Transition dengan sapuan di sepanjang sumbu 33 derajat (`src/lib/theme.ts`), bukan transisi warna per elemen. Tanpa dukungan View Transitions atau dengan reduced motion, pergantian instan.
+- Pergantian tema memakai satu View Transition dengan sapuan di sepanjang sumbu 33 derajat (`src/lib/theme.ts`), bukan transisi warna per elemen. Gelap menyapu dari kiri atas, terang dari kanan bawah; pergantian beruntun melewati (`skipTransition`) sapuan yang sedang berjalan. Tanpa dukungan View Transitions atau dengan reduced motion, pergantian instan.
 
 ### Performa
 
@@ -56,6 +56,27 @@ Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau e
 - Semua efek dibungkus `gsap.matchMedia()` dengan kondisi `prefers-reduced-motion: no-preference`; efek berat (pin, parallax pointer) dilewati di perangkat terbatas (`isLiteDevice`).
 - Parallax scroll di tiga area: lapisan hero (lattice, mark, dan teks pada kedalaman berbeda, mulai 768px), sampul portofolio dan studi kasus (`useParallax`, separuh jarak di ponsel), dan mark di halaman Tentang yang terakit tepat saat seksinya berada di tengah layar.
 - Konten terlihat secara default (tanpa JS, reduced motion). Teks di atas lipatan masuk dengan animasi CSS agar tidak menunggu JS.
+- Navigasi klien: halaman baru naik pendek (opacity dan 14 px, 500 ms); pergantian bahasa pada halaman yang sama hanya meredup ke 0,55 lalu pulih (350 ms) dan fokus tetap di pemilih bahasa. Halaman lama tidak ditahan untuk animasi keluar, karena itu sama dengan menunda navigasi.
+- Header adaptif dan tombol kembali ke atas membaca posisi scroll dari listener ScrollTrigger yang sama dan hanya menulis atribut saat keadaannya berganti.
+- Scroll native. Tidak ada `scroll-behavior: smooth` global karena menggagalkan pemulihan scroll saat Back (lihat QA putaran 3).
+
+### Umpan balik pemuatan
+
+- Muatan pertama: tidak ada overlay. Setiap halaman sudah HTML lengkap dan LCP adalah judul halaman; overlay penuh hanya akan menunda atau menutupi konten yang sudah siap.
+- Navigasi klien: `RouteProgress` membaca `useNavigation()`. Runner tak-tentu tampil setelah 150 ms (via `transition-delay` CSS), chip status dengan `CapsuleLoader` dan pengumuman `role="status"` setelah 900 ms (`useDelayedFlag`). Navigasi yang chunk-nya sudah dimuat tidak menampilkan apa pun.
+- Asinkron: panel asisten dimuat lazily; prefetch saat peluncur di-hover atau difokus, dan bila masih memuat saat dibuka, chip "Memuat asisten" muncul setelah 150 ms.
+
+### Asisten Solveit
+
+- `FloatingDock` (layout) merender peluncur dan tombol kembali ke atas setelah hydration. Panel (`components/assistant/assistant-panel.tsx`) dan kosakata panduan (`data/locales/{id,en}/assistant.ts`) berada di chunk terpisah (sekitar 7 KB gzip) yang dimuat saat ada niat.
+- `services/assistant.ts` mendefinisikan `AssistantEngine.reply(input): Promise<AssistantReply>`. Implementasi saat ini, `createGuideEngine`, menjawab topik dari data yang sama dengan halaman (layanan, proses, proyek demo, kontak resmi) dan mencocokkan pertanyaan dengan FAQ yang sudah terbit (kata kunci per bahasa; FAQ berbobot 2,5 kali topik). Tidak ada jaringan, penyimpanan, atau teks yang dihasilkan. Pertanyaan yang tidak cocok mendapat jawaban jujur dan tautan WhatsApp/email yang membawa pertanyaan itu (baru terkirim bila pengunjung menekan kirim di aplikasinya).
+- Fase berikutnya dapat mengganti mesin dengan panggilan ke endpoint Laravel yang meneruskan ke layanan AI di server. Kunci API tidak pernah berada di frontend, dan antarmuka harus tetap menyebut sumber jawabannya.
+- Percakapan hanya ada di memori komponen selama kunjungan; berganti bahasa memulai percakapan baru.
+
+### Testimoni
+
+- `data/testimonials.ts` kosong sampai ada izin tertulis. `getPublishedTestimonials()` hanya meloloskan entri non-demo dengan `permission.granted` dan tanggal izin; unit test mengunci keduanya. Beranda menampilkan janji tertulis selama daftar kosong, lalu otomatis beralih ke kutipan.
+- Placeholder tata letak hanya tampil di `/pratinjau/testimoni` (`noindex`, di-prerender, tidak masuk sitemap) dan teksnya menyebut dirinya placeholder.
 
 ## Keputusan teknis
 
@@ -68,7 +89,9 @@ Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau e
 | GSAP dimuat lazily | Mengurangi JS sebelum first paint; skor Lighthouse mobile naik signifikan |
 | Font Archivo di-subset sendiri | 90 KB menjadi 29 KB; sumbu lebar dan berat dibatasi ke yang dipakai |
 | Tanpa WebGL/Three.js | Identitas visual cukup dibawa SVG + transform; biaya performa tidak sebanding |
-| Tanpa custom smooth scroll | Native scroll lebih stabil dan aksesibel |
+| Tanpa custom smooth scroll (Lenis dievaluasi, ditolak) | Prototipe Lenis 1.3 pada build produksi: waktu main thread saat scroll naik sekitar 18 persen, frame di atas 25 ms hampir dua kali lipat, scroll roda di panel asisten dibajak ke halaman, dan scroll masih bergerak sekitar 75 px setelah input berhenti; pengguna sentuh (mayoritas audiens) tidak mendapat manfaat karena Lenis tidak menghaluskan sentuhan secara default. Data di `qa-report.md` |
+| Tanpa overlay pemuatan layar penuh | HTML statis sudah terlukis sebelum JS; overlay hanya menunda konten. Umpan balik diskalakan ke lama tunggu sebenarnya |
+| Asisten berbasis panduan, bukan AI | Belum ada backend; jawaban hanya dari konten terverifikasi, identitas jujur, antarmuka mesin siap ditukar |
 | Formulir via WhatsApp/email | Kanal resmi yang sudah dikonfirmasi; tidak ada klaim "terkirim" tanpa backend |
 | i18n tanpa library | Dua bahasa, teks statis, tanpa pluralisasi kompleks: kamus bertipe (TypeScript memaksa kunci yang sama di kedua bahasa) lebih kecil dan lebih sederhana daripada i18next/react-intl |
 | Bahasa dari URL, bukan dari browser | Prerender dan hydration deterministik; crawler melihat satu bahasa per URL; hreflang dua arah |

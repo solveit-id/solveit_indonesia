@@ -89,11 +89,15 @@ test("header order follows the visitor journey, with contact as the closing caps
   const nav = page.getByRole("navigation", { name: "Main navigation" });
   await expect(nav.getByRole("link")).toHaveText([
     "Home",
+    "About Us",
     "Services",
     "Portfolio",
     "Process",
-    "About Us",
   ]);
+  await page.goto("/");
+  await expect(
+    page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link"),
+  ).toHaveText(["Beranda", "Tentang Kami", "Layanan", "Portofolio", "Proses Kerja"]);
   await page.goto("/kontak");
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Mulai konsultasi" }),
