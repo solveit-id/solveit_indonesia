@@ -13,7 +13,7 @@ Status: **usulan**. Belum ada endpoint yang dibangun. Dokumen ini menjadi kontra
 
 - Laravel 13, PHP 8.5 (minimum 8.5.7, target 8.5.11 atau patch stabil terbaru seri 8.5), REST JSON di bawah `/api/v1`.
 - Dikembangkan di branch `backend`, folder `backend/`.
-- Autentikasi: hanya untuk admin website (mis. Laravel Sanctum). Autentikasi klien dan portal klien milik OpsHub, bukan backend ini.
+- Autentikasi: hanya untuk admin website (mis. Laravel Sanctum). Autentikasi klien dan portal klien milik sistem ekosistem yang terpisah, bukan backend ini.
 
 ## Titik tukar di frontend
 
@@ -49,17 +49,17 @@ Bentuk data mengikuti tipe `Project` di `frontend/src/types/content.ts` (termasu
 
 Bentuk data mengikuti tipe `Service`.
 
-## Peta jalan integrasi dengan OpsHub
+## Peta jalan integrasi dengan ekosistem
 
-OpsHub (pemesanan, proposal, kontrak, invoice, progres dan revisi, pemeliharaan, portal klien) dibangun di repository-nya sendiri. Kolom kanan hanya mencatat apa yang berubah **di website ini** pada setiap tahap.
+Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dibangun di repository-nya sendiri. Nama bagian untuk klien (Connect, Scope, Accord, Ledger, Pulse, Care) dan nama payung Solveit Orbit masih usulan (`product-naming.md`); apakah tiap bagian menjadi aplikasi sendiri atau modul belum diputuskan, sehingga kolom tengah menyebut fungsinya. Kolom kanan hanya mencatat apa yang berubah **di website ini** pada setiap tahap.
 
-| Tahap | Fitur (di OpsHub) | Dampak ke website ini |
+| Tahap | Fitur (di sistem ekosistem, bukan website ini) | Dampak ke website ini |
 |---|---|---|
 | 1 | Inquiry via API website, panel admin website | Kanal `api` di form kontak (backend website ini); inquiry diteruskan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
-| 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain OpsHub; tidak ada route `/portal/*` di website ini |
-| 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di OpsHub |
-| 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di OpsHub |
-| 5 | Progres dan revisi | Opsional: studi kasus nyata dapat menampilkan data yang dipublikasikan OpsHub lewat API publik, setelah izin klien |
-| 6 | Pemeliharaan dan tiket | Tautan ke kanal dukungan OpsHub |
+| 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain sistem klien; tidak ada route `/portal/*` di website ini |
+| 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di sistem ekosistem |
+| 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di sistem ekosistem |
+| 5 | Progres dan revisi | Opsional: studi kasus nyata dapat menampilkan data yang dipublikasikan lewat API publik, setelah izin klien; pratinjau responsif studi kasus dapat memakai tangkapan layar nyata (`preview.kind: "screenshots"`) |
+| 6 | Pemeliharaan dan tiket | Tautan ke kanal dukungan |
 
-Halaman publik website tetap prerender statis. Autentikasi klien (mis. Sanctum atau OIDC) adalah tanggung jawab OpsHub; website tidak menyimpan sesi klien.
+Halaman publik website tetap prerender statis. Autentikasi klien (mis. Sanctum atau OIDC) adalah tanggung jawab sistem ekosistem; website tidak menyimpan sesi klien. Repository `solveit_opshub` dan identifier-nya tidak diganti nama.

@@ -215,7 +215,7 @@ A 88rem container with a fluid gutter (clamp(1rem, 4vw, 3rem)) and a 12-column g
 
 ## Elevation & Depth
 
-Flat by default. Depth comes from tonal steps (paper, raised, sunken), hairlines, and committed cobalt or navy fields. The single shadow belongs to the primary button: a tight, negatively spread cobalt shadow that reads as lift and deepens on hover. The translucent header uses a medium backdrop blur once scrolled. Pointer-driven parallax on the hero mark (fine pointers only) supplies the remaining sense of depth.
+Flat by default. Depth comes from tonal steps (paper, raised, sunken), hairlines, and committed cobalt or navy fields. The single shadow belongs to the primary button: a tight, negatively spread cobalt shadow that reads as lift and deepens on hover. The header is controlled glass: a translucent porcelain plate (86 percent, 88 percent raised porcelain as a capsule) over a backdrop blur (14px, 20px with 1.8 saturation as a capsule) with a faint top sheen, never below the fill that keeps muted nav text at 4.5:1 over the cobalt field; without backdrop-filter support the fill turns nearly opaque. Pointer-driven parallax on the hero mark (fine pointers only) supplies the remaining sense of depth.
 
 ### Shadow Vocabulary
 - **Cobalt lift** (`box-shadow: 0 10px 24px -14px rgb(17 54 214 / 0.75)`; hover `0 14px 30px -14px rgb(17 54 214 / 0.85)`): primary button only; removed when disabled.
@@ -237,7 +237,7 @@ Confident capsules with an arrow that nudges forward on hover.
 - **Secondary:** transparent with a strong hairline outline in ink; hover darkens the outline to full ink.
 - **On field:** field ink background with cobalt text, for use on the cobalt band; hover goes to pure white.
 - **States:** press shifts down 1px and scales to 0.985; the trailing arrow icon slides 3px right on hover; disabled drops to 55% opacity without shadow. Transitions use the expo-out curve over 0.25s.
-- **Slice (selected calls to action only):** the hero consultation submit, the closing band button, and the home "see the work" link. On fine-pointer hover and keyboard focus two planes cut across the capsule along the 33 degree axis, a bright sliver (azure, or cobalt on the secondary) leading the final fill (navy; brighter cobalt on dark; ink on the secondary), and withdraw in reverse, faster. Label, icon, and size never change. Never on form controls, switches, close, or utility buttons.
+- **Slice (selected calls to action only):** the header's "Mulai konsultasi" capsule (bar and phone menu), the hero consultation submit, the closing band button, the home "see the work" and "learn the process" links, and the inquiry form's two send buttons (never while disabled). On fine-pointer hover and keyboard focus two planes cut across the capsule along the 33 degree axis, a bright sliver (azure, or cobalt on the secondary) leading the final fill (navy; brighter cobalt on dark; ink on the secondary), and withdraw in reverse, faster. Label, icon, and size never change. Never on form controls, switches, close, or utility buttons.
 
 ### Chips (choice capsules)
 - **Style:** radio or checkbox rendered as a pill, raised porcelain with a strong hairline, 550 weight at 0.9375rem, min height 2.75rem.
@@ -245,21 +245,31 @@ Confident capsules with an arrow that nudges forward on hover.
 - **Static tags:** the same capsule outline at text-sm without fill.
 - **Demo label:** a status, never a control. Raised porcelain capsule with a dashed muted-ink outline, a hollow logo capsule on the 33 degree axis in accent text, the lead phrase at 650 weight in full ink and the qualifier after the comma at 500 in muted ink, 0.875rem. Default cursor, no hover; on narrow cards it breaks only at the comma.
 
+### Editorial link
+- A standalone "read more" (the home "Kenali kami"): label in the wide face at 650 weight, a 2.25rem capsule arrow well, and a hairline under both with a short cobalt segment resting at its start like a measuring mark. Hover and focus draw the segment the full length (transform only), turn the label cobalt, fill the well, and pass the arrow out to the right and back in from the left. A plain semantic link; never used inline in running text.
+
 ### Cards / Containers
 - **Corner Style:** panel radius (28px).
 - **Background:** raised porcelain with a hairline for neutral panels; cobalt or navy for committed tiles; generative cover art inside project cards.
 - **Shadow Strategy:** none (see Elevation & Depth).
 - **Internal Padding:** 2rem to 3rem, scaling up at `lg`.
+- **Problem card (case study):** dashed cobalt outline at 50 percent on a 6 percent cobalt tint (11 percent on dark), text in full ink, so the open problem reads apart from the solid context card above it.
+- **Value rows (About):** numbered editorial rows, not cards: index with a short capsule turning onto the 33 degree axis, title in the wide face, text at 60ch, an ink rule over each row that draws with the scroll. Statements, never controls.
+- **Ecosystem map (About):** intro, the "Solveit Orbit (proposed)" label and the honesty note in a sticky left column (5/12); on the right a spine joins three tiers (foundation, hub, client-facing parts). Status is always written in a chip and repeated as a capsule glyph: filled (in progress), half (in design), hollow and dashed (planned). Planned cards are dashed and transparent, the in-progress card has a cobalt outline on a tint.
 - **Project card:** 4:3 cover (16:7 for a lead entry), title in the wide face, metadata separated by a short vertical hairline, and a capsule arrow well that fills cobalt and rotates 45 degrees on hover while the cover slowly scales and drifts.
 
 ### Inputs / Fields
 - **Style:** raised porcelain, strong hairline, full capsule for single-line inputs (min height 3.25rem), field radius for textareas (min height 9rem, vertical resize). Caret is cobalt.
 - **Focus:** border turns cobalt with a 3px soft cobalt selection ring.
 - **Error:** border and message switch to a red (#b42318 light, #ff9c8f dark); hints sit below in muted ink at 0.875rem.
+- **Select:** the input capsule with a 2.25rem caret well inside its right end (sunken porcelain, cobalt on focus, turned over while open). Native `<select>` everywhere; where `appearance: base-select` is supported the option list is a raised porcelain panel with field radius, 2.75rem rows, a sunken hover, the chosen option in cobalt with a short 33 degree capsule as its check, opening with a short rise and closing faster. Elsewhere the browser's own popup.
+
+### FAQ
+- One native `<details>` list for every page. Rows separated by hairlines; the question in 600 weight at 1.125rem, cobalt on hover and while open; a 2.25rem capsule icon well whose plus folds into a minus and fills cobalt when open; a cobalt rule draws across the open row. The answer rises in; where `::details-content` can be animated the row also expands (0.5s expo out) and collapses (0.32s), elsewhere it opens instantly. Never closes on its own.
 
 ### Navigation
 - **Order:** Beranda, Tentang Kami, Layanan, Portofolio, Proses Kerja (Home, About Us, Services, Portfolio, Process), then the contact page as the primary capsule ("Mulai konsultasi"), so the header never shows two links to one page. "Beranda" joins the desktop row from 1280px; the logo is always the home link.
-- **Adaptive bar:** one 72px box in three states. Transparent over the hero; a translucent porcelain plate with a bottom hairline after 8px of scroll; past 96px the surface is clipped into a floating capsule (radius 1.875rem). Three layers share the clip: a rim in `--capsule-rim` (navy 20%, light 20% on dark) that morphs with the shape as the outline, the plate 1px inside it turning raised porcelain at 94%, and the overlay lift that arrives as the capsule lands. The wordmark folds into the mark. One duration and curve (0.7s, cubic-bezier(0.22, 1, 0.36, 1)) for every part, as reversible CSS transitions. It expands again only below 40px (hysteresis). Below 768px the plate stays full-bleed, because a capsule leaves the 44px controls no room.
+- **Adaptive bar:** one 72px box in three states. Transparent over the hero; a translucent porcelain plate with a bottom hairline after 8px of scroll; past 96px the surface is clipped into a floating capsule (radius 1.875rem). Three layers share the clip: a rim in `--capsule-rim` (navy 20%, light 20% on dark) that morphs with the shape as the outline, the plate 1px inside it turning raised porcelain glass at 88% over a 20px blur, and the overlay lift that arrives as the capsule lands. The mark (stacked above the words) travels into the capsule while the wordmark and INDONESIA fade whole and drift a little; no clip edge ever crosses a letter, and expanding brings the words back only once the mark has cleared them. A page reloaded mid-scroll starts in the right state without replaying the morph. One duration and curve (0.7s, cubic-bezier(0.22, 1, 0.36, 1)) for every part, as reversible CSS transitions. It expands again only below 40px (hysteresis). Below 768px the plate stays full-bleed, because a capsule leaves the 44px controls no room.
 - **Desktop:** text links at about 0.97rem, 500 weight, muted ink; the current section (nested case studies included) goes full ink and sits over one 3px cobalt capsule indicator that slides between links on hover and keyboard focus and settles back (transform only, 0.55s expo-out). Before hydration a static underline holds the same spot. On the contact page the capsule button reads as pressed (Logo Deep Cobalt with an inner hairline, in both themes).
 - **Preferences:** an ID / EN segmented capsule and a 44px capsule theme switch sit between the links and the contact capsule. The language thumb slides to the target the moment it is chosen (from the pending navigation), stretching along its axis as it travels, and breathes while a slow switch loads. The theme switch carries sun and moon on one dial pivoting below the button: half a turn sets the sun and raises the moon, and the reverse plays the same path back. Both share one state set: hover tints the capsule with sunken porcelain, press compresses it (100ms), focus draws the ring. Below 640px a single 44px capsule naming the other language (EN or ID) stays in the header, and the menu panel shows the full segmented switch with language names.
 - **Mobile:** a secondary capsule toggle with a two-bar 33 degree icon and a text label opens a full-height panel of large wide-face links divided by hairlines; the current page turns accent-text cobalt with a short capsule marker on the 33 degree axis. The panel foot holds the contact capsule and the WhatsApp menu. It leaves with a 220ms lift before hiding; a route change closes it at once.
@@ -274,7 +284,7 @@ Confident capsules with an arrow that nudges forward on hover.
 ### Forms
 - The inquiry form is three groups (about you, about the project, send), each opened by a hairline and a heading with a 2rem outlined index capsule, like the process rail markers.
 - Rhythm: 1.75rem between a group heading and its fields, 1.5rem between fields, 0.5rem between label, hint, control, and error. Required fields carry a cobalt asterisk; optional ones say so in muted ink.
-- Paired single-line fields share a two-column row from 768px; selects use the same capsule as inputs with a slate chevron. The WhatsApp recipient is a row of choice capsules; switching it never touches the composed message.
+- Paired single-line fields share a two-column row from 768px; selects use the same capsule as inputs with a caret well (see Inputs). The WhatsApp recipient is a row of choice capsules; switching it never touches the composed message.
 
 ### Floating dock
 - Bottom right, inside the safe area: a 44px porcelain back-to-top capsule above the assistant launcher. Back-to-top appears after 1.2 screen heights, steps aside while the assistant is open, and returns focus to the page after scrolling up (smooth unless reduced motion).
@@ -295,6 +305,9 @@ Confident capsules with an arrow that nudges forward on hover.
 
 ### Brand mark assembly (signature)
 The logo mark sits over a faint lattice of outlined capsules on the 33 degree axis and assembles from its four capsules on load, with pointer depth on fine pointers. A monochrome version of the mark repeats inside the cobalt closing band.
+
+### Responsive preview (case studies)
+A segmented Desktop / Tablet / Mobile switch (ink thumb), a width range (320 to 1440px), and a sunken stage in which the frame is laid out at the true device width (1280, 768, 390) and drawn smaller to fit, so container queries reflow the content and a phone never scrolls sideways. Switching device plays a FLIP on the frame (transform only, 480ms) and fades the screen in; the right edge carries an ink drag handle. For concepts the screen is a labelled wireframe built only from the case study's own text ("Ilustrasi konsep responsif"); real screenshots get a different label and no resizing.
 
 ### Process rail (signature)
 A vertical hairline with a cobalt fill that grows as the reader scrolls; capsule markers (2.75rem circles) light cobalt as each step is passed. Without JavaScript or under reduced motion every marker is lit.

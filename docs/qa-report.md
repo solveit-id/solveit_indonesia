@@ -2,6 +2,87 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Putaran 6 (2026-10-14/15): morph logo, navbar kaca, slice CTA, Tentang Kami, FAQ, pratinjau responsif, formulir, penamaan ekosistem, kerapian repository
+
+Cakupan: brief "Final experience refinement" fase 1 sampai 12. Baseline: `main` dan `frontend` pada `9338a2a`, `staging` `302542b`, `backend` `1c9ec51` (diverifikasi lokal dan remote sebelum mulai). Tanpa perubahan backend, tanpa dependensi baru, layar pemuatan tidak diubah, SEO/GEO final tetap ditunda ke fase deployment.
+
+### Akar masalah yang diperbaiki
+
+| Masalah | Penyebab (dibuktikan dengan frame yang dijeda lewat Web Animations API) | Perbaikan |
+|---|---|---|
+| Fragmen wordmark saat navbar meringkas/mengembang ("St", "eit", "NESIA", "IA", huruf "t" dan "o" terpotong) | (1) Lapisan wordmark dan INDONESIA berada **di atas** mark (urutan DOM), sehingga potongan huruf tergambar di atas kapsul. (2) Tepi `clip-path` wordmark mengikuti kotak pembatas mark, padahal siluet mark diagonal dan turun 15,4 persen, sehingga tepi clip memotong huruf di ruang kosong (240 sampai 360 ms). (3) INDONESIA memakai wipe clip sendiri (0,46 s) yang tidak terkait posisi mark. (4) Di ponsel tepi kanan clip menyapu ke kiri dengan fade tertunda 0,2 s | Mark ditumpuk di atas (`z-index`); wordmark dan INDONESIA tidak lagi di-clip, tetapi memudar utuh sambil bergeser sedikit (keluar 200/140 ms ease-out, kembali setelah mark lewat). Hanya transform dan opacity, jadi lebih ringan dari clip-path per frame. Filmstrip sebelum/sesudah di bukti visual |
+| Halaman yang dimuat ulang di tengah scroll memutar morph saat GSAP tiba | Keadaan header baru ditulis setelah GSAP dimuat (lazy) | `useLayoutEffect` saat hydration menulis keadaan dari `scrollY` dengan `data-instant` (tanpa transisi) selama dua frame; logika ambang dipusatkan di `syncHeader` |
+| Label pratinjau ikut terhitung sebagai label demo | Komponen baru memakai kelas `.demo-label` | Kelas sendiri `.preview-label` dengan tampilan yang sama; `.demo-label` tetap berarti "konsep demonstrasi" |
+| Segmen terpilih pratinjau tidak terbaca saat di-hover | Aturan hover lebih spesifik dari `:checked` (tinta di atas tinta) | Hover tidak berlaku untuk segmen terpilih |
+
+### Pemeriksaan otomatis
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run format:check`, `npm run lint`, `npm run typecheck` | Lulus (satu-satunya peringatan format: cache lokal `.impeccable/hook.cache.json`, tidak di-commit) |
+| `npm test` (Vitest) | 69/69 lulus. Baru: `device-preview.test.ts` (kelas perangkat mengikuti breakpoint situs, skala tidak pernah melebihi panggung atau 1) dan uji kejujuran ekosistem di `content.test.ts` (hanya website berstatus berjalan, tidak ada status "tersedia", Orbit bukan aplikasi, nama OpsHub tetap) |
+| `npm run build` | Lulus; 22 halaman terindeks + 404 per bahasa |
+| E2E Chromium desktop 1440, 1 worker | 178 lulus, 0 gagal, 5 dilewati (183) |
+| E2E Chromium tablet 820, 1 worker | 159 lulus, 0 gagal, 24 dilewati (183) |
+| E2E Chromium Pixel 7, 1 worker | 145 lulus, 0 gagal, 38 dilewati (183) |
+| E2E Firefox desktop, 1 worker | 177 lulus, 0 gagal, 6 dilewati (183). Firefox memakai jalur cadangan: FAQ membuka instan dan select memakai popup native |
+| E2E WebKit desktop dan iPhone 14 | Lewat workflow Cross-browser QA di GitHub Actions setelah push; hasil dicatat di PR |
+| axe-core WCAG 2.0/2.1/2.2 A dan AA | 0 pelanggaran, 14 halaman x 2 tema, di desktop, tablet, ponsel, dan Firefox |
+
+Run e2e penuh pertama dihentikan sistem karena memori mesin hampir habis (Chromium "Target crashed", lalu 141 kali "worker process exited unexpectedly"; bukan kegagalan asersi). Setelah memori dibebaskan, setiap project dijalankan ulang di latar depan dalam dua shard berurutan, 1 worker; angka di atas berasal dari run ulang itu. Tidak ada perlindungan memori atau tes yang dilonggarkan.
+
+Cakupan e2e baru (`tests/e2e/experience.spec.ts`): frame morph yang dijeda di delapan titik untuk tiga arah, tanpa clip pada kata dan dengan mark selalu di atas; pembalikan cepat berakhir di keadaan yang benar; muat ulang di tengah scroll langsung compact tanpa `data-instant` tersisa; navigasi dari keadaan compact; backdrop blur dan kilau kapsul; slice CTA header tanpa perubahan ukuran; "Kenali kami" sebagai tautan semantik dengan garis yang tergambar saat fokus; slice "Pelajari prosesnya" dengan rail tetap tujuh langkah; teks visi identik, empat `dt`/`dd` nilai, frasa visi berubah warna maju dan kembali tanpa opacity di bawah 1; peta ekosistem di dua bahasa (8 bagian: 1 berjalan, 1 dirancang, 6 direncanakan; tanpa kata "tersedia sekarang" atau "diluncurkan"), penanda berbalik saat scroll ke atas tanpa menyembunyikan kartu; FAQ di empat halaman (klik, Enter, Space, klik cepat berulang, fokus tetap, jawaban tetap terbuka setelah scroll), satu sistem FAQ per halaman; pratinjau di 5 studi kasus x 2 bahasa berlabel ilustrasi, ganti perangkat mengubah bingkai dan tata letak (sidebar menjadi tombol menu), lebar dari keyboard (Home, panah) dengan `aria-valuetext`, seret tepi bingkai, bingkai 1440 px tidak membuat halaman scroll ke samping; kartu Permasalahan berbeda dari Konteks di dua tema; select mempertahankan nilai dan sumur caret tidak menangkap klik; tombol kirim ber-slice tetap `submit` dan formulir tidak lengkap tidak pernah dinyatakan terkirim; reduced motion. Kontrak yang sengaja berubah diperbarui di `refinement.spec.ts` (lipatan logo kini opacity, bukan inset clip; urutan bab dengan "Pratinjau responsif") dan `polish.spec.ts` (isi kaca 88 persen dan blur; daftar CTA slice yang baru; bab baru di urutan scrollspy).
+
+### Lighthouse
+
+Lighthouse 13.5, mobile default (Moto G Power teremulasi, simulated slow 4G, CPU 4x), Chromium 156 dari Playwright. **Berselang-seling** sebelum/sesudah per halaman, 3 run masing-masing, median; build produksi tanpa `VITE_SITE_URL` di kedua sisi, layar pemuatan penuh, server `scripts/serve.mjs` yang sama, satu browser pada satu waktu. "Sebelum" adalah `9338a2a`.
+
+| Halaman | Performance sebelum / sesudah | LCP (s) | TBT (ms) | Speed Index (s) | CLS |
+|---|---|---|---|---|---|
+| `/` | 97 / **97** | 1,59 / 1,57 | 133 / 140 | 3,21 / 3,28 | 0 / 0 |
+| `/tentang` | 99 / **98** | 1,58 / 1,58 | 77 / 126 | 2,72 / 2,91 | 0 / 0 |
+| `/layanan` | 99 / **99** | 1,58 / 1,57 | 84 / 86 | 2,73 / 2,90 | 0 / 0 |
+| `/portofolio/sistem-antrean-klinik` | 97 / **96** | 1,58 / 1,57 | 175 / 181 | 2,94 / 2,87 | 0 / 0 |
+| `/kontak` | 99 / **99** | 1,59 / 1,56 | 96 / 90 | 2,60 / 2,62 | 0 / 0 |
+
+Accessibility, Best Practices, dan SEO 100 di semua run. Performance tetap 96 sampai 99, LCP di bawah 1,6 s, CLS 0. **Trade-off yang tercatat:** TBT `/tentang` naik dari 77 ke 126 ms (ketiga run sesudah 114 sampai 147 ms, jadi bukan noise). Itu biaya penyiapan timeline scroll baru di halaman itu (frasa visi, sumbu, delapan garis nilai, peta ekosistem); Performance turun satu poin. Studi kasus dan Layanan berubah dalam rentang noise run tunggal. Ukuran (brotli): CSS 15,2 ke 17,9 KB, total JS 224,5 ke 229,0 KB (chunk studi kasus 12,4 ke 15,3 KB, Tentang 1,7 ke 2,5 KB), HTML Beranda 17,4 ke 17,5 KB, Tentang 12,8 ke 13,3 KB, studi kasus 18,9 ke 19,9 KB.
+
+### Kerapian repository
+
+Inventaris berkas terlacak, root, struktur frontend, dokumentasi, konfigurasi agen, aset merek, artefak, export, selector CSS, dan rujukan (impor, skrip, tes, dokumentasi, CI):
+
+| Kandidat | Klasifikasi | Bukti | Tindakan |
+|---|---|---|---|
+| `README.md`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.gitattributes`, `.editorconfig`, `.github/`, `.claude/`, `.mcp.json`, `.nvmrc` | Wajib atau konvensional di root | Dibaca alat, CI, dan agen dari root | Tetap |
+| `PRODUCT.md`, `DESIGN.md`, `.impeccable/` | Wajib di root | Plugin impeccable membaca keduanya dari root proyek | Tetap |
+| `logo-solveit-icon.svg`, `logo-solveit-primary.svg` di root | Dapat dipindah | Identik byte dengan `frontend/public/brand/`; tidak dipakai build, hanya dirujuk dokumentasi | `git mv` ke `brand/`; README, PRODUCT, arsitektur, pengembangan, dan komentar `logo-paths.ts` diperbarui; geometri tidak berubah (`cmp` identik) |
+| `frontend/src/assets/brand/*.svg` | Terbukti tidak dipakai | Tidak ada impor (Vite hanya membundel aset yang diimpor), tidak dirujuk skrip, tes, atau CI; salinan identik | Dihapus (`git rm`) |
+| `getProjectBySlug` (`services/projects.ts`), `isLocale` (`i18n/config.ts`) | Terbukti tidak dipakai | Nol rujukan di kode, tes, skrip, dan dokumentasi; `getProjectBySlug` digantikan `getProjectByPath` di `47e6220` | Dihapus |
+| Export yang hanya dipakai di berkasnya sendiri (mis. `LogoGradient`, `matchQuestion`) | Dipakai | Dirujuk di berkas yang sama | Tetap |
+| Selector CSS | Semua dipakai | Pemindaian semua kelas di `app.css` terhadap `src/` | Tidak ada yang dihapus |
+| Berkas tanpa impor (`root.tsx`, `entry.client.tsx`, `pages/*`, `layouts/*`, `test/setup.ts`) | Dipakai lewat konvensi | Entry framework dan modul route di `routes.ts` | Tetap |
+| `.playwright-mcp/`, `.impeccable/review/`, `build/`, `test-results/` | Artefak lokal | Di-gitignore | Tidak disentuh |
+
+### Bukti visual
+
+Disimpan lokal di `.impeccable/review/round-6/` (di-gitignore seperti putaran sebelumnya):
+
+| Bukti | Isi |
+|---|---|
+| `navbar-morph-collapse-desktop.png`, `navbar-morph-expand-desktop.png`, `navbar-morph-mobile.png` | Frame 0 sampai 700 ms sebelum/sesudah, desktop dan 390 px, kedua arah |
+| `header-*-{light,dark}.png`, `nav-cta-hover-*.png` | Kapsul kaca di atas paper, tile navy, dan bidang cobalt footer di dua tema; slice CTA header |
+| `before/*.png`, `after/*.png` | Tagline dan "Kenali kami", Visi, Nilai, peta ekosistem, FAQ terbuka, kartu Permasalahan, formulir, pada posisi yang sama |
+| `preview-{desktop,tablet,mobile}-*.png`, `select-open-*.png`, `faq-*.png`, `about-*.png` | Pratinjau responsif per mode di desktop gelap/terang dan 390 px; popup select bergaya (Chromium); FAQ; Tentang |
+
+Tidak ada error konsol pada sesi screenshot.
+
+### Status
+
+- **Lulus terverifikasi**: format, lint, typecheck, unit 69/69, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse lima halaman sebelum/sesudah, bukti visual.
+- **Menunggu**: WebKit desktop dan iPhone 14 lewat workflow Cross-browser QA (dicatat di PR).
+- **Keputusan pemilik**: teks visi resmi masih menyebut "melalui Solveit OpsHub"; lihat `docs/product-naming.md`.
+- **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
+
 ## Putaran 5 (2026-10-14): navbar compact, label demo, bab studi kasus, motion bab, Principles, CTA slice
 
 Cakupan: sembilan masukan pengguna dari evaluasi langsung. Kapsul navbar compact yang lebih jelas dan morph yang menyatu, label demonstrasi, tata letak dan scrollspy bab studi kasus, motion Peta sistem / Alur utama / Yang akan diukur, komposisi "Cara kerja yang bisa Anda pegang.", dan hover slice pada tiga CTA. Juga keputusan batas sistem (website terpisah dari OpsHub) dan SEO/GEO final sebagai tugas fase deployment. Baseline: `main` pada `7443d4a`. Tanpa perubahan backend, tanpa dependensi baru, layar pemuatan tidak diubah.
