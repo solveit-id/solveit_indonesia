@@ -20,11 +20,6 @@ export const getProjects = (locale: Locale, category?: ProjectCategory): Project
     .filter((project) => !category || project.category === category)
     .map((project) => localize(project, locale));
 
-export const getProjectBySlug = (locale: Locale, slug: string | undefined): Project | undefined => {
-  const base = projects.find((project) => project.slugs[locale] === slug);
-  return base ? localize(base, locale) : undefined;
-};
-
 /** The case study a pathname points to, in that URL's language. */
 export const getProjectByPath = (pathname: string): Project | undefined => {
   const resolved = resolvePath(pathname);

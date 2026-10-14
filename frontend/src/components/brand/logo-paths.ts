@@ -1,5 +1,5 @@
 // Path data copied verbatim from the original logo SVGs (do not edit shapes).
-// Source: logo-solveit-icon.svg and logo-solveit-primary.svg at the repo root.
+// Source: brand/logo-solveit-icon.svg and brand/logo-solveit-primary.svg at the repo root.
 
 export interface LogoGradient {
   x1: number;
