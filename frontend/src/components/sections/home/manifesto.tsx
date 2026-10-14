@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { Link } from "react-router";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import { company } from "~/data/company";
 import { useI18n } from "~/i18n";
 import { motionQueries, useMotion } from "~/lib/motion";
@@ -67,12 +68,15 @@ export function Manifesto() {
         ))}
       </p>
       <div className="mt-12 grid gap-8 md:mt-16 md:grid-cols-12">
-        <p className="measure text-lede text-ink-muted md:col-span-7 md:col-start-6">
-          {t.home.manifestoBody}{" "}
-          <Link to={path("about")} className="font-semibold text-ink underline">
-            {t.home.manifestoLink}
+        <div className="md:col-span-7 md:col-start-6">
+          <p className="measure text-lede text-ink-muted">{t.home.manifestoBody}</p>
+          <Link to={path("about")} className="link-editorial mt-8">
+            <span className="link-editorial-label">{t.home.manifestoLink}</span>
+            <span aria-hidden className="link-editorial-arrow">
+              <ArrowRight weight="bold" className="link-editorial-icon" />
+            </span>
           </Link>
-        </p>
+        </div>
       </div>
     </section>
   );

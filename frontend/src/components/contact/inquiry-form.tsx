@@ -1,5 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { CaretDown } from "@phosphor-icons/react/dist/ssr/CaretDown";
 import { EnvelopeSimple } from "@phosphor-icons/react/dist/ssr/EnvelopeSimple";
 import { WhatsappLogo } from "@phosphor-icons/react/dist/ssr/WhatsappLogo";
 import { company, primaryWhatsApp } from "~/data/company";
@@ -27,9 +28,6 @@ type Status =
 
 const fieldOrder: (keyof InquiryPayload)[] = ["name", "contact", "service", "message"];
 
-const chevron =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%235c7392' d='M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z'/%3E%3C/svg%3E\")";
-
 /** A titled block of related fields; the index capsule echoes the process rail. */
 function FormGroup({
   index,
@@ -50,6 +48,24 @@ function FormGroup({
         {title}
       </h3>
       <div className="grid gap-6">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * A native <select> in a capsule field with its own caret well. Browsers
+ * that support customizable selects (`appearance: base-select`) also get a
+ * styled, animated option list; the rest keep their native popup, which
+ * stays the most reliable on phones. Keyboard, typeahead, and screen reader
+ * behaviour are the browser's own in both cases.
+ */
+function SelectField({ children }: { children: ReactNode }) {
+  return (
+    <div className="select-field">
+      {children}
+      <span aria-hidden className="select-caret">
+        <CaretDown weight="bold" className="size-3.5" />
+      </span>
     </div>
   );
 }
@@ -309,41 +325,45 @@ export function InquiryForm() {
             <label htmlFor={`${id}-budget`} className="field-label">
               {copy.budget}
             </label>
-            <select
-              id={`${id}-budget`}
-              name="budget"
-              className="field-input field-select"
-              style={{ backgroundImage: chevron }}
-              value={values.budget}
-              onChange={(event) => update("budget", event.target.value as InquiryPayload["budget"])}
-            >
-              {budgetValues.map((value) => (
-                <option key={value} value={value}>
-                  {copy.budgetOptions[value]}
-                </option>
-              ))}
-            </select>
+            <SelectField>
+              <select
+                id={`${id}-budget`}
+                name="budget"
+                className="field-input field-select"
+                value={values.budget}
+                onChange={(event) =>
+                  update("budget", event.target.value as InquiryPayload["budget"])
+                }
+              >
+                {budgetValues.map((value) => (
+                  <option key={value} value={value}>
+                    {copy.budgetOptions[value]}
+                  </option>
+                ))}
+              </select>
+            </SelectField>
           </div>
           <div className="field">
             <label htmlFor={`${id}-timeline`} className="field-label">
               {copy.timeline}
             </label>
-            <select
-              id={`${id}-timeline`}
-              name="timeline"
-              className="field-input field-select"
-              style={{ backgroundImage: chevron }}
-              value={values.timeline}
-              onChange={(event) =>
-                update("timeline", event.target.value as InquiryPayload["timeline"])
-              }
-            >
-              {timelineValues.map((value) => (
-                <option key={value} value={value}>
-                  {copy.timelineOptions[value]}
-                </option>
-              ))}
-            </select>
+            <SelectField>
+              <select
+                id={`${id}-timeline`}
+                name="timeline"
+                className="field-input field-select"
+                value={values.timeline}
+                onChange={(event) =>
+                  update("timeline", event.target.value as InquiryPayload["timeline"])
+                }
+              >
+                {timelineValues.map((value) => (
+                  <option key={value} value={value}>
+                    {copy.timelineOptions[value]}
+                  </option>
+                ))}
+              </select>
+            </SelectField>
           </div>
         </div>
 
@@ -405,7 +425,7 @@ export function InquiryForm() {
             name="channel"
             value="whatsapp"
             disabled={!hydrated}
-            className="btn btn-primary"
+            className="btn btn-primary btn-slice"
           >
             <WhatsappLogo aria-hidden className="size-5" weight="bold" />
             {copy.sendWhatsApp}
@@ -415,7 +435,7 @@ export function InquiryForm() {
             name="channel"
             value="email"
             disabled={!hydrated}
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-slice"
           >
             <EnvelopeSimple aria-hidden className="size-5" weight="bold" />
             {copy.sendEmail}

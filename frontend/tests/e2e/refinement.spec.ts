@@ -242,33 +242,23 @@ test.describe("preference switches", () => {
   });
 });
 
-/** inset() edges as numbers, rounded to 0.1, so engines' float noise is ignored. */
-const insetOf = async (page: Page, selector: string) =>
-  (await style(page, selector, "clip-path"))
-    .match(/-?[\d.]+/g)
-    ?.map((value) => Math.round(Number(value) * 10) / 10)
-    .join(" ");
-
 test.describe("adaptive header", () => {
-  test("folds the wordmark into the mark and back", async ({ page, viewport }) => {
+  test("folds the words into the mark and back", async ({ page }) => {
     await page.goto("/");
     const header = page.locator("header.site-header");
     await expect(header).toHaveAttribute("data-compact", "false");
-    expect(await insetOf(page, ".lockup-word")).toBe("0 0 0 28.6");
+    expect(await style(page, ".lockup-word", "opacity")).toBe("1");
     await scrollTo(page, 700);
     await expect(header).toHaveAttribute("data-compact", "true");
-    await expect
-      .poll(() => style(page, ".lockup-word", "opacity"))
-      .toBe((viewport?.width ?? 0) >= 768 ? "1" : "0");
-    await expect
-      .poll(() => insetOf(page, ".lockup-word"))
-      .toBe((viewport?.width ?? 0) >= 768 ? "0 0 0 100" : "0 71.4 0 28.6");
+    await expect.poll(() => style(page, ".lockup-word", "opacity")).toBe("0");
+    await expect.poll(() => style(page, ".lockup-desc", "opacity")).toBe("0");
     // The logo link still leads home from its condensed mark.
     const hit = (await page.locator(".logo-hit").boundingBox())!;
     expect(hit.width).toBeLessThan(80);
     await scrollTo(page, 0);
     await expect(header).toHaveAttribute("data-compact", "false");
-    await expect.poll(() => insetOf(page, ".lockup-word")).toBe("0 0 0 28.6");
+    await expect.poll(() => style(page, ".lockup-word", "opacity")).toBe("1");
+    await expect.poll(() => style(page, ".lockup-desc", "opacity")).toBe("1");
   });
 
   test("outside the floating capsule the page stays clickable", async ({ page, viewport }) => {
@@ -379,11 +369,13 @@ test.describe("case studies", () => {
       "aria-current",
       "location",
     );
-    // Order of the story: context, problem, solution, system, flow, features, technology, measure.
+    // Order of the story: context, problem, solution, preview, system, flow,
+    // features, technology, measure.
     await expect(rail.getByRole("link")).toHaveText([
       /Konteks/,
       /Permasalahan/,
       /Solusi/,
+      /Pratinjau responsif/,
       /Peta sistem/,
       /Alur utama/,
       /Fitur inti/,

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { BrandMark } from "~/components/brand/brand-mark";
+import { EcosystemRoadmap } from "~/components/sections/about/ecosystem-roadmap";
 import { PageIntro } from "~/components/ui/page-intro";
 import { useReveal } from "~/hooks/use-reveal";
 import { getMessages, localeFromPath, pathFor, useI18n } from "~/i18n";
@@ -87,6 +88,74 @@ export default function About() {
     { scope },
   );
 
+  /*
+   * Vision and values, tied to the reader's scroll in both directions (scrub),
+   * so nothing ever hides again on the way back up: the vision is read phrase
+   * by phrase as each brightens from the faint ink, while a cobalt axis draws
+   * down beside it; each value's rule draws across and its marker turns onto
+   * the logo's 33deg axis. Colour, never opacity, so every intermediate frame
+   * keeps large-text contrast. Without motion everything rests in its end state.
+   */
+  useMotion(
+    ({ gsap }) => {
+      const mm = gsap.matchMedia();
+      mm.add(motionQueries.motion, () => {
+        const phrases = gsap.utils.toArray<HTMLElement>("[data-phrase]");
+        const faint = getComputedStyle(document.documentElement)
+          .getPropertyValue("--ink-faint")
+          .trim();
+        const finals = phrases.map((phrase) => getComputedStyle(phrase).color);
+        const vision = {
+          trigger: "[data-vision]",
+          start: "top 75%",
+          end: "bottom 45%",
+          scrub: 0.5,
+        };
+        gsap.fromTo(
+          phrases,
+          { color: faint },
+          {
+            color: (index: number) => finals[index] ?? faint,
+            stagger: 0.5,
+            ease: "none",
+            scrollTrigger: { ...vision },
+          },
+        );
+        gsap.fromTo(
+          "[data-vision-axis]",
+          { scaleY: 0 },
+          { scaleY: 1, ease: "none", scrollTrigger: { ...vision } },
+        );
+        // The tip rests at the end of the axis and travels down with the fill.
+        const axis = document.querySelector<HTMLElement>("[data-vision-axis]");
+        gsap.fromTo(
+          "[data-vision-tip]",
+          { y: () => -(axis?.offsetHeight ?? 0) },
+          { y: 0, ease: "none", scrollTrigger: { ...vision, invalidateOnRefresh: true } },
+        );
+        for (const row of gsap.utils.toArray<HTMLElement>("[data-value]")) {
+          const scrub = { trigger: row, start: "top 88%", end: "top 55%", scrub: 0.5 };
+          gsap.fromTo(
+            row.querySelector("[data-value-rule]"),
+            { scaleX: 0 },
+            { scaleX: 1, ease: "none", scrollTrigger: scrub },
+          );
+          gsap.fromTo(
+            row.querySelector("[data-value-mark]"),
+            { rotate: 0, scaleX: 0.4 },
+            { rotate: -33, scaleX: 1, ease: "none", scrollTrigger: scrub },
+          );
+        }
+        return () => gsap.set(phrases, { clearProps: "color" });
+      });
+    },
+    { scope },
+  );
+
+  // The vision as phrases (split after each comma), so it can be read in
+  // steps. The text itself is unchanged and stays one sentence.
+  const phrases = t.company.vision.split(/(?<=,)\s+/);
+
   return (
     <div ref={scope}>
       <PageIntro
@@ -103,15 +172,23 @@ export default function About() {
         aria-labelledby="vision-title"
         className="border-t border-line py-[var(--spacing-section)]"
       >
-        <div className="shell grid gap-10 lg:grid-cols-12">
-          <h2 id="vision-title" data-reveal className="text-heading font-wide lg:col-span-3">
-            {copy.visionTitle}
-          </h2>
-          <p
-            data-reveal
-            className="text-[clamp(1.6rem,3.2vw,2.7rem)] leading-[1.18] font-semibold tracking-[-0.025em] font-wide lg:col-span-9"
-          >
-            {t.company.vision}
+        <div data-vision className="shell grid gap-10 lg:grid-cols-12">
+          <div className="vision-head lg:col-span-3">
+            <h2 id="vision-title" className="text-heading font-wide">
+              {copy.visionTitle}
+            </h2>
+            <span aria-hidden className="vision-axis">
+              <span data-vision-axis className="vision-axis-fill" />
+              <span data-vision-tip className="vision-axis-tip" />
+            </span>
+          </div>
+          <p className="vision-text lg:col-span-9">
+            {phrases.map((phrase, index) => (
+              <span key={index} data-phrase>
+                {phrase}
+                {index < phrases.length - 1 ? " " : ""}
+              </span>
+            ))}
           </p>
         </div>
       </section>
@@ -171,11 +248,16 @@ export default function About() {
         <h2 id="values-title" data-reveal className="max-w-[16ch] text-title">
           {copy.valuesTitle}
         </h2>
-        <dl className="mt-14 grid gap-x-12 gap-y-14 md:grid-cols-2 lg:mt-20">
-          {copy.values.map((value) => (
-            <div key={value.name} data-reveal className="border-t-2 border-ink pt-6">
-              <dt className="text-heading font-bold tracking-[-0.025em] font-wide">{value.name}</dt>
-              <dd className="mt-4 measure text-ink-muted">{value.text}</dd>
+        <dl className="values mt-14 lg:mt-20">
+          {copy.values.map((value, index) => (
+            <div key={value.name} data-value className="value-row">
+              <span aria-hidden data-value-rule className="value-rule" />
+              <span aria-hidden className="value-index">
+                <span data-value-mark className="value-mark" />
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <dt className="value-name">{value.name}</dt>
+              <dd className="value-text">{value.text}</dd>
             </div>
           ))}
         </dl>
@@ -186,37 +268,18 @@ export default function About() {
         className="border-t border-line py-[var(--spacing-section)]"
       >
         <div className="shell">
-          <h2 id="roadmap-title" data-reveal className="max-w-[18ch] text-title">
-            {copy.roadmapTitle}
-          </h2>
-          <p data-reveal className="mt-6 measure text-ink-muted">
-            {copy.roadmapText}
-          </p>
-          <ol className="mt-14 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {copy.roadmap.map((stage, index) => {
-              const current = index === 0;
-              return (
-                <li
-                  key={stage}
-                  data-reveal
-                  className={cn(
-                    "flex min-h-36 flex-col justify-between gap-6 rounded-[var(--radius-panel)] p-7",
-                    current ? "bg-accent text-accent-ink" : "border border-line bg-paper-raised",
-                  )}
-                >
-                  <span className="text-xl font-bold tracking-[-0.02em] font-wide">{stage}</span>
-                  <span
-                    className={cn(
-                      "self-start rounded-full px-3 py-1 text-sm font-semibold",
-                      current ? "bg-[#f4f7ff] text-[#1136d6]" : "bg-paper-sunken text-ink-muted",
-                    )}
-                  >
-                    {current ? copy.statusCurrent : copy.statusPlanned}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
+          <EcosystemRoadmap
+            intro={
+              <>
+                <h2 id="roadmap-title" data-reveal className="max-w-[20ch] text-title">
+                  {copy.roadmapTitle}
+                </h2>
+                <p data-reveal className="measure text-ink-muted">
+                  {copy.roadmapText}
+                </p>
+              </>
+            }
+          />
         </div>
       </section>
     </div>
