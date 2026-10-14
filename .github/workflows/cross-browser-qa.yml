@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Commit SHA, branch, or tag to test (default: the selected branch)
+        description: "Commit SHA, branch, or tag to test (default: the selected branch)"
         required: false
   # Runs once when this workflow itself changes on the frontend branch, since
   # workflow_dispatch only becomes available after it reaches the default branch.
