@@ -4,7 +4,7 @@ Shared instructions for every coding agent working in this repository.
 
 ## Project
 
-Solveit Indonesia company profile and portfolio, the first piece of the Solveit OpsHub ecosystem. Product facts live in `PRODUCT.md`; architecture, design, SEO, and integration docs live in `docs/`.
+Solveit Indonesia company profile and portfolio. This repository holds only the website and its own backend; Solveit OpsHub and other Solveit systems live in separate repositories and integrate through API contracts or events, never a shared database (see `docs/integration-plan.md`). Product facts live in `PRODUCT.md`; architecture, design, SEO, and integration docs live in `docs/`.
 
 - `frontend/`: React 19, TypeScript strict, Vite 8, React Router 7 (framework mode, static prerender), Tailwind CSS v4, GSAP.
 - `backend/`: reserved for Laravel 13 on PHP 8.5 (next phase, `backend` branch). Do not add fake endpoints.

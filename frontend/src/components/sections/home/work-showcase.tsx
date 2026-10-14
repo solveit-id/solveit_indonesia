@@ -62,7 +62,10 @@ export function WorkShowcase() {
           </h2>
           <p className="mt-5 measure text-ink-muted">{t.home.workLede}</p>
         </div>
-        <Link to={path("portfolio")} className="btn btn-secondary shrink-0 self-start md:self-end">
+        <Link
+          to={path("portfolio")}
+          className="btn btn-secondary btn-slice shrink-0 self-start md:self-end"
+        >
           {t.common.viewPortfolio}
           <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
         </Link>

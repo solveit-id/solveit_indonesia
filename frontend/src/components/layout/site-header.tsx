@@ -177,9 +177,11 @@ export function SiteHeader() {
       className="site-header fixed inset-x-0 top-0 z-[var(--z-header)]"
     >
       {/* The surface behind the bar: full-bleed once scrolled, then clipped
-          into a floating capsule (clip-path and opacity only, no layout). */}
+          into a floating capsule. Shadow, outline, and fill share one clip
+          geometry (clip-path, opacity, and colour only, no layout). */}
+      <div aria-hidden className="header-lift" />
+      <div aria-hidden className="header-rim" />
       <div aria-hidden className="header-plate" />
-      <div aria-hidden className="header-edge" />
       <div className="header-bar relative shell flex h-[var(--header-h)] items-center justify-between gap-4 lg:gap-6">
         <Link to={path("home")} className="header-logo shrink-0" aria-label={t.common.homeLink}>
           <HeaderLogo />

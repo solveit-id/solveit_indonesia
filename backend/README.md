@@ -1,6 +1,6 @@
 # Backend (fase berikutnya)
 
-Folder ini dicadangkan untuk Laravel REST API Solveit Indonesia. Belum ada kode atau endpoint: pengembangan dimulai di branch `backend`.
+Folder ini dicadangkan untuk Laravel REST API milik website Solveit Indonesia (inquiry, konten, admin website). Solveit OpsHub tidak dibangun di sini; ia punya repository sendiri. Belum ada kode atau endpoint: pengembangan dimulai di branch `backend`.
 
 ## Target platform
 
@@ -16,4 +16,4 @@ composer create-project laravel/laravel backend   # di root repo, folder ini mas
 cd backend && php artisan install:api
 ```
 
-Kontrak API awal (inquiry, proyek, layanan) dan peta jalan Solveit OpsHub ada di [`docs/integration-plan.md`](../docs/integration-plan.md). Simpan rahasia di `backend/.env` (diabaikan Git) dan dokumentasikan variabel di `.env.example`.
+Kontrak API awal (inquiry, proyek, layanan), batas sistem, dan peta jalan integrasi dengan Solveit OpsHub ada di [`docs/integration-plan.md`](../docs/integration-plan.md). Simpan rahasia di `backend/.env` (diabaikan Git) dan dokumentasikan variabel di `.env.example`.
