@@ -21,6 +21,7 @@ Jalankan dari `frontend/`:
 | `npm test` | Unit dan component test (Vitest) |
 | `npm run test:e2e` | Playwright di 3 viewport (desktop 1440, tablet 820, Pixel 7), termasuk axe di kedua tema dan kedua bahasa |
 | `PW_ALL_BROWSERS=1 npm run test:e2e` | Menambahkan Firefox dan WebKit desktop (butuh `npx playwright install firefox webkit`) |
+| GitHub Actions: **Cross-browser QA** | Suite penuh di WebKit desktop dan WebKit iPhone 14 pada runner bersih (1 worker, tanpa retry, laporan sebagai artefak). Jalankan lewat tab Actions atau `gh workflow run cross-browser-qa.yml -f ref=<sha>` setelah workflow ada di `main`. CI reguler tetap hanya Chromium |
 | `npm run format` / `format:check` | Prettier (dengan pengurutan kelas Tailwind) |
 | `npm run check` | lint + typecheck + test + build |
 

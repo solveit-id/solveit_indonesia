@@ -27,8 +27,8 @@ Cakupan: sembilan masukan pengguna dari evaluasi langsung. Kapsul navbar compact
 | E2E Chromium Pixel 7, 1 worker | 111 lulus, 1 gagal, 36 dilewati (148); kegagalan itu tes alur yang menggulir terlalu pendek di ponsel (lihat bawah), lulus setelah diperbaiki |
 | Ulang akhir pada build final (setelah perbaikan label demo): `polish`, `navigation`, `a11y` di desktop, tablet, Pixel 7 | 151 lulus, 0 gagal, 35 dilewati |
 | E2E Firefox desktop, 1 worker | 142 lulus, 0 gagal, 6 dilewati (148) |
-| E2E WebKit desktop, `polish.spec.ts` | 24 lulus, 1 dilewati (Tab ke tombol dimatikan bawaan WebKit), sebelum perbaikan akhir label demo |
-| E2E WebKit suite penuh | **Tidak selesai**: mesin hanya punya 0,5 GB RAM bebas dari 15,4 GB; hydration WebKit butuh sekitar 7,5 s untuk **baseline maupun build baru** (diukur berdampingan), dan tes lama yang tidak tersentuh perubahan ini habis waktu. Dihentikan, bukan dipaksa |
+| E2E WebKit desktop 1440, suite penuh, GitHub Actions, 1 worker, tanpa retry | 140 lulus, 0 gagal, 0 flaky, 8 dilewati (148) |
+| E2E WebKit iPhone 14, suite penuh, GitHub Actions, 1 worker, tanpa retry | 110 lulus, 0 gagal, 0 flaky, 38 dilewati (148) |
 | axe-core WCAG 2.0/2.1/2.2 A dan AA | 0 pelanggaran, 14 halaman x 2 tema, di desktop, tablet, ponsel |
 | Detektor impeccable | Hanya dua advisory lama (overshoot ikon tema yang sudah disetujui putaran 4); tidak ada temuan pada file yang diubah |
 
@@ -43,6 +43,19 @@ Cakupan e2e baru (`tests/e2e/polish.spec.ts`, 25 tes x project): kapsul compact 
 | Peta sistem lebih dari 2,6 s | e2e | Langkah dipacu eksplisit 0,54 s per bagian (sekitar 2 s total) |
 | Label demo keluar dari kartu studi kasus tetangga di ponsel | Screenshot 390 px | `white-space: nowrap` diganti `text-wrap: balance` |
 | Tes: hash setelah dua scroll halus yang saling memotong; Back memulihkan posisi tautan di dasar halaman; alur ponsel butuh scroll lebih jauh; tes roda pelan habis waktu di WebKit | e2e | Tes menunggu scroll tenang, membandingkan dengan bab di garis baca (bukan bab tetap), menggulir ke ujung alur, dan anggaran 90 s untuk tes roda. Perilaku produk sama dengan baseline untuk pemulihan scroll |
+
+### WebKit lintas browser (GitHub Actions)
+
+Run lokal WebKit tidak bisa diselesaikan: mesin hanya punya 0,5 sampai 1,5 GB RAM bebas dari 15,4 GB, hydration WebKit butuh sekitar 7,5 s untuk **baseline maupun build baru** (diukur berdampingan), dan tes lama yang tidak tersentuh perubahan ini habis waktu. Satu-satunya hasil lokal adalah `polish.spec.ts` (24 lulus, 1 dilewati). Suite penuh lalu dijalankan di runner bersih lewat workflow baru `.github/workflows/cross-browser-qa.yml` (`workflow_dispatch`, dan sekali saat workflow itu berubah di `frontend`): Ubuntu, Playwright 1.64 WebKit, `PW_ALL_BROWSERS=1`, satu project setelah yang lain, 1 worker, `--retries=0` (flake terlihat sebagai gagal), build produksi dari commit yang sama lewat `webServer` konfigurasi Playwright. Laporan HTML dan JSON disimpan sebagai artefak 14 hari.
+
+Run [38569534271](https://github.com/solveit-id/solveit_indonesia/actions/runs/38569534271) pada `11f1d57`, yang isi `frontend/`-nya identik dengan `89c5445` (commit sesudahnya hanya menambah workflow):
+
+| Project | Lulus | Gagal | Flaky | Dilewati | Durasi |
+|---|---|---|---|---|---|
+| WebKit desktop 1440 | 140 | 0 | 0 | 8 | 4,6 menit |
+| WebKit iPhone 14 | 110 | 0 | 0 | 38 | 4,0 menit |
+
+Semua yang dilewati adalah kondisi `test.skip` di tes itu sendiri, bukan kegagalan: kontrol khusus ponsel di desktop, rail bab dan fitur khusus desktop di iPhone (rail tampil mulai 1024 px), dan fokus keyboard pada tombol slice di WebKit (WebKit tidak berpindah ke tombol dengan Tab secara bawaan; slice saat fokus diverifikasi di Chromium dan Firefox). Spesifikasi putaran ini (`polish.spec.ts`) di WebKit desktop: 24 lulus, 1 dilewati; di iPhone: 11 lulus, 14 dilewati (desktop saja), 0 gagal. Tidak ada perubahan kode atau tes yang dibutuhkan.
 
 ### Lighthouse
 
@@ -76,7 +89,7 @@ Tidak ada error konsol pada sesi screenshot.
 ### Status
 
 - **Lulus terverifikasi**: format, lint, typecheck, unit 66/66, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse empat halaman sebelum/sesudah, bukti visual.
-- **Sebagian**: WebKit hanya `polish.spec.ts` (24 lulus); suite WebKit penuh tidak selesai karena tekanan memori mesin (baseline dan build baru sama lambatnya). Ulangi di CI atau mesin dengan RAM bebas lebih besar.
+- **Lulus terverifikasi (lintas browser)**: suite penuh WebKit desktop dan WebKit iPhone 14 di GitHub Actions, lihat bagian "WebKit lintas browser" di atas.
 - **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
 
 ## Putaran 4 (2026-10-13): layar pemuatan bermerek, morph navbar, kontrol mengambang, detail portofolio
