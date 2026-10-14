@@ -151,7 +151,7 @@ export function Hero() {
               </div>
             </fieldset>
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-4">
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary btn-slice">
                 {t.common.consult}
                 <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
               </button>

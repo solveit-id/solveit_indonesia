@@ -39,6 +39,9 @@
   --ink-faint: #6b809d;
   --line: rgb(8 42 86 / 0.13);
   --line-strong: rgb(8 42 86 / 0.28);
+  /* Outline of floating capsules (the condensed header): firmer than a
+     hairline so the capsule stays legible over any section. */
+  --capsule-rim: rgb(8 42 86 / 0.2);
   --accent: #1452ed;
   --accent-hover: #1136d6;
   --accent-ink: #f6f9ff;
@@ -89,6 +92,7 @@
   --ink-faint: #8094b3;
   --line: rgb(233 239 250 / 0.12);
   --line-strong: rgb(233 239 250 / 0.26);
+  --capsule-rim: rgb(233 239 250 / 0.2);
   --accent: #1452ed;
   --accent-hover: #2a66ff;
   --accent-ink: #f6f9ff;
@@ -368,6 +372,106 @@
 
   .btn:hover .btn-icon {
     transform: translateX(3px);
+  }
+
+  /*
+   * Slice: reserved for a few high-value calls to action (the hero's
+   * consultation submit, the closing band, the home "see the work" link),
+   * never for form controls, switches, or utility buttons. Two planes cut
+   * across the capsule along the logo's 33deg axis (skewX(-57deg) leaves an
+   * edge 33deg off horizontal): a bright sliver leads and the final colour
+   * follows it in; leaving, the same two planes withdraw in reverse order, a
+   * little faster. The planes sit under the label in the button's own
+   * stacking context, so the label and icon never move, and the capsule
+   * keeps its size. Pointer hover on fine pointers only (a tap never sticks)
+   * plus keyboard focus; reduced motion makes it an instant colour change.
+   */
+  .btn-slice {
+    --slice-lead: var(--brand-azure);
+    --slice-fill: var(--brand-navy);
+    --slice-ink: var(--accent-ink);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  .btn-slice::before,
+  .btn-slice::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset-block: 0;
+    inset-inline: -2.5rem;
+    pointer-events: none;
+    transform: translateX(-102%) skewX(-57deg);
+  }
+
+  .btn-slice::before {
+    background: var(--slice-lead);
+    transition: transform 0.42s var(--ease-in-out-quart) 0.06s;
+  }
+
+  .btn-slice::after {
+    background: var(--slice-fill);
+    transition: transform 0.42s var(--ease-in-out-quart);
+  }
+
+  .btn-slice:focus-visible::before,
+  .btn-slice:focus-visible::after {
+    transform: translateX(0) skewX(-57deg);
+  }
+
+  .btn-slice:focus-visible::before {
+    transition: transform 0.55s var(--ease-out-expo);
+  }
+
+  .btn-slice:focus-visible::after {
+    transition: transform 0.6s var(--ease-out-expo) 0.07s;
+  }
+
+  .btn-slice:focus-visible {
+    color: var(--slice-ink);
+    transition-delay: 0s, 0.1s, 0s, 0s, 0s;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .btn-slice:hover::before,
+    .btn-slice:hover::after {
+      transform: translateX(0) skewX(-57deg);
+    }
+
+    .btn-slice:hover::before {
+      transition: transform 0.55s var(--ease-out-expo);
+    }
+
+    .btn-slice:hover::after {
+      transition: transform 0.6s var(--ease-out-expo) 0.07s;
+    }
+
+    .btn-slice:hover {
+      color: var(--slice-ink);
+      transition-delay: 0s, 0.1s, 0s, 0s, 0s;
+    }
+  }
+
+  :root[data-theme="dark"] .btn-primary.btn-slice {
+    --slice-fill: var(--accent-hover);
+  }
+
+  .btn-secondary.btn-slice {
+    --slice-lead: var(--accent);
+    --slice-fill: var(--ink);
+    --slice-ink: var(--paper);
+  }
+
+  .btn-secondary.btn-slice:is(:hover, :focus-visible) {
+    border-color: var(--ink);
+  }
+
+  .btn-on-field.btn-slice {
+    --slice-lead: var(--brand-azure);
+    --slice-fill: var(--brand-navy);
+    --slice-ink: var(--field-ink);
   }
 
   .btn:disabled,
@@ -936,22 +1040,41 @@
 
   /*
    * Adaptive header. The bar keeps one fixed box at every state
-   * (--header-h), so nothing below it ever moves. What changes is the plate
-   * behind it: transparent over the hero, a full-bleed porcelain surface once
-   * content passes beneath, and, from 768px, a floating capsule (clip-path
-   * inset) once the reader is properly into the page. As it condenses the
+   * (--header-h), so nothing below it ever moves. What changes is the
+   * surface behind it, three stacked layers that share one clip geometry:
+   * transparent over the hero; a full-bleed porcelain plate with a bottom
+   * hairline once content passes beneath; and, from 768px, a floating
+   * capsule once the reader is properly into the page. As it condenses the
    * wordmark folds into the mark and the capsule contracts from the left to
-   * follow it; expanding plays the same path back. One duration and curve
-   * for every part, so it reads as a single motion.
+   * follow it; expanding plays the same path back. Every part runs on one
+   * duration and curve (--morph), so the bar reads as a single motion, and
+   * because each is a CSS transition a reversal mid-way retargets from where
+   * it is instead of snapping.
+   *
+   * - .header-rim: a flat hairline-coloured layer, clipped 1px larger than
+   *   the plate. Full-bleed it shows only as the bottom hairline; condensed
+   *   it is the capsule's outline, morphing with the shape instead of fading
+   *   in afterwards.
+   * - .header-plate: the translucent fill. Condensed it turns raised and
+   *   nearly opaque, so the capsule never melts into the page beneath.
+   * - .header-lift: the overlay shadow of the floating capsule, at its final
+   *   geometry; it arrives as the capsule lands and leaves first.
+   *
+   * Only clip-path, opacity, and colour transition; nothing lays out.
    */
   .site-header {
     --logo-w: 7rem;
-    --morph: 0.62s var(--ease-out-expo);
+    --morph-dur: 0.7s;
+    --morph-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --morph: var(--morph-dur) var(--morph-ease);
     --plate-x: max(0.375rem, calc((100% - 88rem) / 2 + var(--spacing-gutter) - 0.875rem));
     /* The condensed capsule is 3.75rem tall at every breakpoint. */
+    --cap-r: 1.875rem;
     --plate-y: calc((var(--header-h) - 3.75rem) / 2);
     /* How far the capsule's left edge follows the folding logo. */
     --fold: 0px;
+    --surface: color-mix(in srgb, var(--paper) 86%, transparent);
+    --rim: var(--line);
   }
 
   @media (min-width: 768px) {
@@ -968,7 +1091,8 @@
   }
 
   .header-plate,
-  .header-edge {
+  .header-rim,
+  .header-lift {
     position: absolute;
     inset-inline: 0;
     top: 0;
@@ -976,47 +1100,69 @@
     pointer-events: none;
   }
 
-  .header-plate {
-    background: color-mix(in srgb, var(--paper) 86%, transparent);
-    backdrop-filter: blur(12px) saturate(1.2);
-    box-shadow: inset 0 -1px 0 var(--line);
+  .header-rim {
+    background: var(--rim);
     opacity: 0;
     clip-path: inset(0 0 0 0 round 0);
     transition:
       opacity var(--dur-state) ease,
       clip-path var(--morph),
-      box-shadow var(--dur-state) ease;
+      background-color var(--morph);
   }
 
-  .site-header[data-scrolled="true"] .header-plate,
-  .site-header[data-menu="open"] .header-plate,
-  .site-header[data-menu="closing"] .header-plate {
+  .header-plate {
+    background: var(--surface);
+    backdrop-filter: blur(12px) saturate(1.2);
+    opacity: 0;
+    clip-path: inset(0 0 1px 0 round 0);
+    transition:
+      opacity var(--dur-state) ease,
+      clip-path var(--morph),
+      background-color var(--morph);
+  }
+
+  .site-header[data-scrolled="true"] :is(.header-plate, .header-rim),
+  .site-header[data-menu="open"] :is(.header-plate, .header-rim),
+  .site-header[data-menu="closing"] :is(.header-plate, .header-rim) {
     opacity: 1;
   }
 
-  /* Hairline and lift of the floating capsule. It fades in once the plate
-     has condensed and leaves first when it expands. */
-  .header-edge {
+  .header-lift {
     inset: var(--plate-y) var(--plate-x) auto calc(var(--plate-x) + var(--fold));
     height: calc(var(--header-h) - var(--plate-y) * 2);
-    border: 1px solid var(--line);
     border-radius: 9999px;
-    box-shadow: 0 18px 40px -30px rgb(var(--shadow-tint) / 0.55);
+    box-shadow:
+      0 1px 2px rgb(var(--shadow-tint) / 0.06),
+      0 16px 32px -18px rgb(var(--shadow-tint) / 0.42);
     opacity: 0;
-    transition: opacity 0.12s ease;
+    transition: opacity 0.16s ease;
+  }
+
+  /* Condensed on any width: a firmer hairline and a raised, nearly opaque
+     surface (the phone bar stays full-bleed, so this is its only change). */
+  .site-header[data-compact="true"]:not([data-menu="open"]) {
+    --surface: color-mix(in srgb, var(--paper-raised) 94%, transparent);
+    --rim: var(--capsule-rim);
   }
 
   @media (min-width: 768px) {
-    .site-header[data-compact="true"]:not([data-menu="open"]) .header-plate {
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-rim {
       clip-path: inset(
-        var(--plate-y) var(--plate-x) var(--plate-y) calc(var(--plate-x) + var(--fold)) round 9999px
+        var(--plate-y) var(--plate-x) var(--plate-y) calc(var(--plate-x) + var(--fold)) round
+          var(--cap-r)
       );
-      box-shadow: none;
     }
 
-    .site-header[data-compact="true"]:not([data-menu="open"]) .header-edge {
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-plate {
+      clip-path: inset(
+        calc(var(--plate-y) + 1px) calc(var(--plate-x) + 1px) calc(var(--plate-y) + 1px)
+          calc(var(--plate-x) + var(--fold) + 1px) round calc(var(--cap-r) - 1px)
+      );
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) .header-lift {
       opacity: 1;
-      transition: opacity var(--dur-overlay) ease 0.3s;
+      transition: opacity 0.42s ease 0.28s;
     }
 
     /* Outside the capsule the page stays clickable. */
@@ -2506,9 +2652,132 @@ html[data-boot="intro"] .dock-launcher {
   transform: rotate(-33deg);
 }
 
+/* ---------------------------------------------------------- principles */
+
+/* Home bento (src/components/sections/home/principles.tsx). The tiles are
+   statements, not links: hover never lifts, outlines, or changes the
+   cursor; it only moves what is inside, on fine pointers. */
+@layer components {
+  .principle-previews {
+    display: flex;
+    gap: 0.5rem;
+    align-self: flex-end;
+  }
+
+  .principle-preview {
+    display: block;
+    width: 1.5rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: var(--accent-ink);
+    transform: rotate(-33deg);
+  }
+
+  .principle-stage {
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    background: var(--paper-sunken);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    /* The scope lattice drifts along the 33deg axis: depth, not a lift. */
+    .principle-art > * {
+      transition: transform 1.4s var(--ease-out-expo);
+    }
+
+    .principle-scope:hover .principle-art > * {
+      transform: translate(1.6%, -1.04%) scale(1.03);
+    }
+
+    /* One preview after another steps forward along its own axis. */
+    .principle-progress:hover .principle-preview {
+      animation: preview-tick 0.7s var(--ease-out-expo) calc(var(--i) * 80ms) both;
+    }
+
+    /* The portal's stages run in order, the way a project will. */
+    .principle-portal:hover .principle-stage {
+      animation: stage-pass 1.1s ease calc(var(--i) * 90ms) both;
+    }
+  }
+}
+
+@keyframes preview-tick {
+  40% {
+    transform: rotate(-33deg) translateX(0.35rem);
+  }
+}
+
+@keyframes stage-pass {
+  30% {
+    background-color: var(--accent);
+    color: var(--accent-ink);
+  }
+}
+
 /* --------------------------------------------------------- case study */
 
+/* A flow marker presses in as the reader's progress reaches it. */
+@keyframes flow-mark {
+  0% {
+    transform: scale(0.84);
+  }
+
+  55% {
+    transform: scale(1.08);
+  }
+}
+
 @layer components {
+  /* Demonstration status (src/components/portfolio/demo-label.tsx). A
+     status, never a control: dashed outline, small type, default cursor, no
+     hover. The radius equals half the one-line height, so it is a capsule on
+     one line and a soft panel if a narrow card makes it wrap. */
+  .demo-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    max-width: 100%;
+    min-height: 2.125rem;
+    padding: 0.4rem 1rem 0.4rem 0.8rem;
+    border: 1px dashed color-mix(in srgb, var(--ink-muted) 62%, transparent);
+    border-radius: 1.0625rem;
+    background: var(--paper-raised);
+    font-size: 0.875rem;
+    line-height: 1.3;
+    color: var(--ink-muted);
+    cursor: default;
+  }
+
+  .demo-label-lead {
+    font-weight: 650;
+    color: var(--ink);
+  }
+
+  .demo-label-rest {
+    font-weight: 500;
+  }
+
+  /* On a narrow card the text wraps into two even lines, which lands the
+     break at the comma for both languages. */
+  .demo-label-text {
+    min-width: 0;
+    text-wrap: balance;
+  }
+
+  /* A hollow logo capsule on the 33deg axis: the outline of a part that has
+     not been built yet. */
+  .demo-label-glyph {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 0.45rem;
+    border: 1.5px solid var(--accent-text);
+    border-radius: 9999px;
+    transform: rotate(-33deg);
+  }
+
   /* Fact sheet under the case study title: four facts on one hairline. */
   .case-facts {
     display: grid;
@@ -2640,20 +2909,40 @@ html[data-boot="intro"] .dock-launcher {
     transform: rotate(-33deg);
   }
 
-  /* Context and problem: two cards. The problem's outline is dashed, the
-     signifier for something still open. */
+  /* Context and problem: two full-width cards, one under the other. From
+     768px the heading holds the left column and the text reads beside it at
+     a comfortable measure. The problem's outline is dashed, the signifier
+     for something still open. */
   .case-card {
-    display: flex;
-    flex-direction: column;
-    padding: clamp(1.75rem, 3vw, 2.5rem);
+    display: grid;
+    align-items: start;
+    padding: clamp(1.75rem, 3vw, 2.75rem);
     border: 1px solid var(--line);
     border-radius: var(--radius-panel);
     background: var(--paper-raised);
   }
 
-  .case-card .text-title {
-    font-size: var(--text-heading);
-    line-height: var(--text-heading--line-height);
+  @media (min-width: 768px) {
+    .case-card {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      column-gap: clamp(2rem, 4vw, 3.5rem);
+    }
+  }
+
+  .case-card-text {
+    max-width: 60ch;
+    margin-top: 1.25rem;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--ink-muted);
+  }
+
+  /* Beside the heading, the text starts on the title's line, not the index's. */
+  @media (min-width: 768px) {
+    .case-card-text {
+      margin-top: 0;
+      padding-top: 2.15rem;
+    }
   }
 
   .case-card-open {
@@ -2700,23 +2989,151 @@ html[data-boot="intro"] .dock-launcher {
     color: var(--accent-text);
   }
 
+  /* An indicator to measure: a frame under an ink rule (its own element, so
+     it can be drawn), the indicator, and an empty dashed slot for a value
+     that does not exist yet. */
   .case-metric {
+    position: relative;
     display: flex;
     flex-direction: column;
     min-height: 11rem;
-    padding: 1.5rem;
-    border-top: 2px solid var(--ink);
+    padding: 1.625rem 1.5rem 1.5rem;
     background: var(--paper-raised);
     border-radius: 0 0 var(--radius-field) var(--radius-field);
+  }
+
+  .case-metric-rule {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 2px;
+    background: var(--ink);
+    transform-origin: left center;
   }
 
   .case-metric-slot {
     flex-shrink: 0;
     width: 2.5rem;
     height: 1.1rem;
-    border: 1px dashed var(--line-strong);
+    border: 1px dashed color-mix(in srgb, var(--ink-muted) 70%, transparent);
     border-radius: 9999px;
     transform: rotate(-33deg);
+  }
+
+  /*
+   * Main flow: a rule across the steps from 768px (down the markers on
+   * phones) with a cobalt fill on top. Every marker is lit by default (no
+   * JavaScript, reduced motion); once motion arms the flow, a marker lights
+   * as the fill reaches it, with a short press, and unlit labels go quieter
+   * but stay readable.
+   */
+  .flow-rule {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 1.375rem;
+    width: 1px;
+  }
+
+  .flow-fill {
+    transform-origin: top center;
+  }
+
+  @media (min-width: 768px) {
+    .flow-rule {
+      top: 1.375rem;
+      right: 10%;
+      bottom: auto;
+      left: 10%;
+      width: auto;
+      height: 1px;
+    }
+
+    .flow-fill {
+      transform-origin: left center;
+    }
+  }
+
+  .flow-step {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .flow-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      text-align: center;
+    }
+  }
+
+  .flow-marker {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--accent);
+    border-radius: 9999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition:
+      background-color 0.45s var(--ease-out-expo),
+      border-color 0.45s var(--ease-out-expo),
+      color 0.45s var(--ease-out-expo);
+  }
+
+  .flow-label {
+    max-width: 16ch;
+    font-weight: 600;
+    line-height: 1.375;
+    transition: color 0.45s var(--ease-out-expo);
+  }
+
+  [data-flow][data-armed="true"] .flow-step:not(.is-passed) .flow-marker {
+    border-color: var(--line-strong);
+    background: var(--paper);
+    color: var(--ink-muted);
+  }
+
+  [data-flow][data-armed="true"] .flow-step:not(.is-passed) .flow-label {
+    color: var(--ink-muted);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    [data-flow][data-armed="true"] .flow-step.is-passed .flow-marker {
+      animation: flow-mark 0.6s var(--ease-out-expo);
+    }
+  }
+
+  /* System map: the ring a part shows once as data reaches it, and the
+     signal capsule that rides a connector's drawing tip. Both rest hidden;
+     only motion shows them. */
+  .system-ring {
+    position: absolute;
+    inset: -5px;
+    border: 1.5px solid var(--accent);
+    border-radius: 9999px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .system-signal {
+    position: absolute;
+    top: -1.5px;
+    right: -0.25rem;
+    width: 0.75rem;
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--accent);
+    opacity: 0;
   }
 
   /* Previous and next: a cover thumbnail beside the title. */

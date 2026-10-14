@@ -1,12 +1,19 @@
 # Rencana Integrasi Backend dan Solveit OpsHub
 
-Status: **usulan**. Belum ada endpoint yang dibangun. Dokumen ini menjadi kontrak awal agar frontend dan Laravel API dapat dikembangkan tanpa merombak fondasi.
+Status: **usulan**. Belum ada endpoint yang dibangun. Dokumen ini menjadi kontrak awal agar frontend dan Laravel API website dapat dikembangkan tanpa merombak fondasi, dan agar website dapat terhubung ke sistem Solveit lain tanpa menyatu dengannya.
+
+## Batas sistem (keputusan 2026-10-14)
+
+- **Repository ini** hanya berisi website company profile Solveit Indonesia (`frontend/`) dan backend/API yang memang menjadi tanggung jawab website itu (`backend/`: inquiry, konten proyek dan layanan, kebutuhan admin website).
+- **Solveit OpsHub** dan aplikasi bisnis atau produk Solveit lainnya dikembangkan sebagai proyek dan repository **terpisah**, masing-masing dengan deployment, dependensi, dan siklus rilisnya sendiri. Tidak ada monorepo perusahaan dan tidak ada satu aplikasi yang memuat semua sistem.
+- Hubungan antarsistem lewat **kontrak**: REST API berversi, event/webhook (misalnya inquiry baru dari website diteruskan ke OpsHub), dan tautan antar-domain. Tidak memakai database bersama lintas aplikasi sebagai ketergantungan utama; setiap sistem memiliki datanya sendiri dan membuka API untuk yang dibutuhkan sistem lain.
+- Identitas visual boleh dibagi (token desain, logo), tetapi sebagai aset atau paket yang disalin/dipublikasikan, bukan import lintas repository.
 
 ## Backend
 
 - Laravel 13, PHP 8.5 (minimum 8.5.7, target 8.5.11 atau patch stabil terbaru seri 8.5), REST JSON di bawah `/api/v1`.
 - Dikembangkan di branch `backend`, folder `backend/`.
-- Autentikasi Client Portal: Laravel Sanctum (cookie SPA) untuk domain yang sama, atau token untuk subdomain API.
+- Autentikasi: hanya untuk admin website (mis. Laravel Sanctum). Autentikasi klien dan portal klien milik OpsHub, bukan backend ini.
 
 ## Titik tukar di frontend
 
@@ -42,15 +49,17 @@ Bentuk data mengikuti tipe `Project` di `frontend/src/types/content.ts` (termasu
 
 Bentuk data mengikuti tipe `Service`.
 
-## Peta jalan OpsHub
+## Peta jalan integrasi dengan OpsHub
 
-| Tahap | Fitur | Dampak ke frontend |
+OpsHub (pemesanan, proposal, kontrak, invoice, progres dan revisi, pemeliharaan, portal klien) dibangun di repository-nya sendiri. Kolom kanan hanya mencatat apa yang berubah **di website ini** pada setiap tahap.
+
+| Tahap | Fitur (di OpsHub) | Dampak ke website ini |
 |---|---|---|
-| 1 | Inquiry via API, panel admin | Kanal `api` di form kontak |
-| 2 | Akun klien, pemesanan layanan | Route `/portal/*` di dalam layout terpisah yang dilindungi |
-| 3 | Proposal dan kontrak digital | Halaman dokumen + tanda tangan |
-| 4 | Invoice dan pembayaran | Integrasi payment gateway |
-| 5 | Progres dan revisi | Timeline proyek, permintaan revisi terhubung ke ruang lingkup |
-| 6 | Pemeliharaan dan tiket | Sistem tiket dukungan |
+| 1 | Inquiry via API website, panel admin website | Kanal `api` di form kontak (backend website ini); inquiry diteruskan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
+| 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain OpsHub; tidak ada route `/portal/*` di website ini |
+| 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di OpsHub |
+| 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di OpsHub |
+| 5 | Progres dan revisi | Opsional: studi kasus nyata dapat menampilkan data yang dipublikasikan OpsHub lewat API publik, setelah izin klien |
+| 6 | Pemeliharaan dan tiket | Tautan ke kanal dukungan OpsHub |
 
-Halaman publik tetap prerender statis. Portal klien menjadi bagian aplikasi yang dirender di klien, berbagi design tokens, komponen, dan `services/`.
+Halaman publik website tetap prerender statis. Autentikasi klien (mis. Sanctum atau OIDC) adalah tanggung jawab OpsHub; website tidak menyimpan sesi klien.

@@ -73,7 +73,7 @@ export function SiteFooter({ showCta }: SiteFooterProps) {
                 </h2>
                 <p className="mt-6 measure text-lede text-field-ink-muted">{t.footer.ctaLede}</p>
                 <div className="mt-10 flex flex-wrap gap-3">
-                  <Link to={path("contact")} className="btn btn-on-field">
+                  <Link to={path("contact")} className="btn btn-on-field btn-slice">
                     {t.common.consult}
                     <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
                   </Link>

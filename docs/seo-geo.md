@@ -36,6 +36,10 @@ Kata kunci dipakai secara alami di title, h1, lede, dan FAQ. Tidak ada keyword s
 - **FAQ:** pertanyaan nyata calon klien (biaya, durasi, revisi, serah terima) tanpa janji angka.
 - **Kejujuran:** studi kasus demo diberi label dan tidak masuk structured data; tidak ada klaim peringkat, klien, atau statistik.
 
+## Tugas fase deployment (ditunda)
+
+Keputusan 2026-10-14: optimasi SEO dan GEO **final** dikerjakan setelah website dan sistem terkait selesai, hosting siap, domain tersedia, dan konfigurasi produksi jelas. Sampai saat itu tidak ada kampanye optimasi, tebakan domain, atau dependensi SEO baru; semua yang sudah valid di atas (metadata, HTML semantik, hreflang, logika canonical, sitemap, robots, prerender, structured data) dipertahankan dan dijaga oleh e2e. Daftar di bawah menjadi checklist fase deployment.
+
 ## Setelah domain tersedia
 
 1. Isi `VITE_SITE_URL` di lingkungan build, build ulang, pastikan canonical dan `sitemap.xml` muncul.
