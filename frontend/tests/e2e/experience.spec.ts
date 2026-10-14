@@ -71,17 +71,28 @@ test.describe("logo morph", () => {
     await expect.poll(() => css(page, ".lockup-mark", "transform")).toBe("none");
   });
 
-  test("a page reloaded mid-scroll starts compact without replaying the morph", async ({
-    page,
-  }) => {
-    await page.goto("/layanan");
-    await scrollTo(page, 1200);
-    await expect(page.locator("header.site-header")).toHaveAttribute("data-compact", "true");
-    await page.reload();
+  test("a page opened mid-scroll starts compact without replaying the morph", async ({ page }) => {
+    // A deep link is scrolled by the browser during load, before hydration:
+    // the same situation as a restored scroll position, but deterministic in
+    // every engine. Any lockup transition that starts would be a replay.
+    await page.addInitScript(() => {
+      const runs: string[] = [];
+      (window as Window & { __lockupRuns?: string[] }).__lockupRuns = runs;
+      document.addEventListener("transitionrun", (event) => {
+        if ((event.target as Element).classList?.contains("lockup-layer"))
+          runs.push(`${(event.target as Element).getAttribute("class")}:${event.propertyName}`);
+      });
+    });
+    await page.goto("/layanan#services-faq");
     const header = page.locator("header.site-header");
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(96);
     await expect(header).toHaveAttribute("data-compact", "true");
     await expect(header).not.toHaveAttribute("data-instant", /.*/);
     expect(await css(page, ".lockup-word", "opacity")).toBe("0");
+    await page.waitForTimeout(800);
+    expect(
+      await page.evaluate(() => (window as Window & { __lockupRuns?: string[] }).__lockupRuns),
+    ).toEqual([]);
   });
 
   test("navigating while compact lands on an expanded header at the top", async ({ page }) => {
