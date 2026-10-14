@@ -26,7 +26,8 @@ Cakupan: brief "Final experience refinement" fase 1 sampai 12. Baseline: `main` 
 | E2E Chromium tablet 820, 1 worker | 159 lulus, 0 gagal, 24 dilewati (183) |
 | E2E Chromium Pixel 7, 1 worker | 145 lulus, 0 gagal, 38 dilewati (183) |
 | E2E Firefox desktop, 1 worker | 177 lulus, 0 gagal, 6 dilewati (183). Firefox memakai jalur cadangan: FAQ membuka instan dan select memakai popup native |
-| E2E WebKit desktop dan iPhone 14 | Lewat workflow Cross-browser QA di GitHub Actions setelah push; hasil dicatat di PR |
+| E2E WebKit desktop 1440, suite penuh, GitHub Actions, 1 worker, tanpa retry | 175 lulus, 0 gagal, 0 flaky, 8 dilewati (183), run [38609496831](https://github.com/solveit-id/solveit_indonesia/actions/runs/38609496831) pada `e8468df` |
+| E2E WebKit iPhone 14, suite penuh, GitHub Actions, 1 worker, tanpa retry | 143 lulus, 0 gagal, 0 flaky, 40 dilewati (183), run yang sama |
 | axe-core WCAG 2.0/2.1/2.2 A dan AA | 0 pelanggaran, 14 halaman x 2 tema, di desktop, tablet, ponsel, dan Firefox |
 
 Run e2e penuh pertama dihentikan sistem karena memori mesin hampir habis (Chromium "Target crashed", lalu 141 kali "worker process exited unexpectedly"; bukan kegagalan asersi). Setelah memori dibebaskan, setiap project dijalankan ulang di latar depan dalam dua shard berurutan, 1 worker; angka di atas berasal dari run ulang itu. Tidak ada perlindungan memori atau tes yang dilonggarkan.
@@ -79,7 +80,7 @@ Tidak ada error konsol pada sesi screenshot.
 ### Status
 
 - **Lulus terverifikasi**: format, lint, typecheck, unit 69/69, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse lima halaman sebelum/sesudah, bukti visual.
-- **Menunggu**: WebKit desktop dan iPhone 14 lewat workflow Cross-browser QA (dicatat di PR).
+- **Lulus terverifikasi (lintas browser)**: suite penuh WebKit desktop dan WebKit iPhone 14 di GitHub Actions. Run pertama pada `ebc9a97` gagal di satu tes baru di kedua project: tes "muat ulang di tengah scroll" bergantung pada kapan router menyimpan posisi scroll sebelum reload, dan di runner WebKit halaman kembali di atas. Lokal (WebKit dan Chromium) posisi pulih dan header benar. Tes diganti dengan deep link yang discroll browser sebelum hydration di semua engine, dan kini juga memastikan tidak ada transisi lockup yang berjalan; tidak ada perubahan kode produk.
 - **Keputusan pemilik**: teks visi resmi masih menyebut "melalui Solveit OpsHub"; lihat `docs/product-naming.md`.
 - **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
 
