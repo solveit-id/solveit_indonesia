@@ -1,0 +1,77 @@
+# Cross-browser regression on demand. The regular Frontend CI runs Chromium
+# only; this runs the full Playwright suite in WebKit (desktop and iPhone
+# emulation) on a clean runner, one project after the other, one worker,
+# no retries, so a pass is a real pass and a flake shows as a failure.
+# It never changes the application: it builds and serves the same commit the
+# way Frontend CI does (playwright.config.ts webServer).
+name: Cross-browser QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit SHA, branch, or tag to test (default: the selected branch)
+        required: false
+  # Runs once when this workflow itself changes on the frontend branch, since
+  # workflow_dispatch only becomes available after it reaches the default branch.
+  push:
+    branches: [frontend]
+    paths: [".github/workflows/cross-browser-qa.yml"]
+
+concurrency:
+  group: cross-browser-qa-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  webkit:
+    name: e2e (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        project: [webkit, webkit-mobile]
+    env:
+      PW_ALL_BROWSERS: "1"
+      PLAYWRIGHT_JSON_OUTPUT_FILE: results.json
+      PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit
+      - name: Tested commit
+        run: git rev-parse HEAD
+      - name: Playwright (${{ matrix.project }}, 1 worker, no retries)
+        run: npx playwright test --project=${{ matrix.project }} --workers=1 --retries=0 --reporter=list,html,json
+      - name: Summary
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("results.json")) process.exit(0);
+            const { stats } = JSON.parse(fs.readFileSync("results.json", "utf8"));
+            const line = `${{ matrix.project }}: ${stats.expected} passed, ${stats.unexpected} failed, ${stats.flaky} flaky, ${stats.skipped} skipped`;
+            console.log(line);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + "\n");
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-${{ matrix.project }}
+          path: |
+            frontend/playwright-report
+            frontend/results.json
+            frontend/test-results
+          retention-days: 14
