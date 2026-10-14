@@ -2,6 +2,96 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Putaran 5 (2026-10-14): navbar compact, label demo, bab studi kasus, motion bab, Principles, CTA slice
+
+Cakupan: sembilan masukan pengguna dari evaluasi langsung. Kapsul navbar compact yang lebih jelas dan morph yang menyatu, label demonstrasi, tata letak dan scrollspy bab studi kasus, motion Peta sistem / Alur utama / Yang akan diukur, komposisi "Cara kerja yang bisa Anda pegang.", dan hover slice pada tiga CTA. Juga keputusan batas sistem (website terpisah dari OpsHub) dan SEO/GEO final sebagai tugas fase deployment. Baseline: `main` pada `7443d4a`. Tanpa perubahan backend, tanpa dependensi baru, layar pemuatan tidak diubah.
+
+### Akar masalah yang diperbaiki
+
+| Masalah | Penyebab | Perbaikan |
+|---|---|---|
+| Kapsul compact menyatu dengan latar | Isi 86 persen `--paper` (warna yang sama dengan halaman) dan garis tepi `--line` 13 persen yang baru muncul 0,3 s setelah kapsul selesai menyusut | Tiga lapisan dengan geometri clip yang sama: rim `--capsule-rim` (20 persen) yang ikut berubah bentuk, isi porselen terangkat 94 persen 1 px di dalamnya, bayangan overlay tipis. Satu treatment, tanpa glow |
+| Morph kurang terasa dan "patah" | Radius `round 9999px` langsung menjadi kapsul di awal transisi; garis tepi muncul terpisah; expo-out sangat depan | Radius 1,875 rem yang berinterpolasi dari 0, garis tepi bagian dari bentuk, satu `--morph` 0,7 s `cubic-bezier(0.22, 1, 0.36, 1)` untuk pelat, rim, logo |
+| Bab aktif salah atau saling menimpa | Konteks dan Permasalahan sejajar (`md:grid-cols-2`) dengan dua ScrollTrigger `onToggle` independen pada posisi vertikal yang sama | Konteks dan Permasalahan bertumpuk; satu scrollspy deterministik (`src/lib/scrollspy.ts`) menghitung satu bab dari garis baca, offset dokumen tanpa transform, fallback dasar halaman, kunci klik rail sampai input pembaca. Baseline juga tidak menandai bab apa pun setelah Back ke dasar halaman; kini Pengukuran |
+| Label demo kecil dan pucat | 13 px tinta redup, garis putus-putus 28 persen | 14 px, frasa utama tinta penuh 650, kapsul berongga 33 derajat, garis putus-putus tinta redup 62 persen, latar porselen terangkat, wrap seimbang |
+
+### Pemeriksaan otomatis
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run format:check`, `npm run lint`, `npm run typecheck` | Lulus (satu-satunya peringatan format: cache lokal `.impeccable/hook.cache.json`, tidak di-commit) |
+| `npm test` (Vitest) | 66/66 lulus. Baru: `lib/scrollspy.test.ts` (tanpa bab sebelum judul pertama, satu bab, bab panjang tetap aktif di sela, urutan baca untuk bab sejajar, fallback dasar halaman, garis baca di atas titik mendarat anchor) |
+| `npm run build` | Lulus; 22 halaman terindeks + 404 per bahasa |
+| E2E Chromium desktop 1440, 1 worker | 143 lulus, 0 gagal, 5 dilewati (148) |
+| E2E Chromium tablet 820, 1 worker | 125 lulus, 0 gagal, 23 dilewati (148) |
+| E2E Chromium Pixel 7, 1 worker | 111 lulus, 1 gagal, 36 dilewati (148); kegagalan itu tes alur yang menggulir terlalu pendek di ponsel (lihat bawah), lulus setelah diperbaiki |
+| Ulang akhir pada build final (setelah perbaikan label demo): `polish`, `navigation`, `a11y` di desktop, tablet, Pixel 7 | 151 lulus, 0 gagal, 35 dilewati |
+| E2E Firefox desktop, 1 worker | 142 lulus, 0 gagal, 6 dilewati (148) |
+| E2E WebKit desktop 1440, suite penuh, GitHub Actions, 1 worker, tanpa retry | 140 lulus, 0 gagal, 0 flaky, 8 dilewati (148) |
+| E2E WebKit iPhone 14, suite penuh, GitHub Actions, 1 worker, tanpa retry | 110 lulus, 0 gagal, 0 flaky, 38 dilewati (148) |
+| axe-core WCAG 2.0/2.1/2.2 A dan AA | 0 pelanggaran, 14 halaman x 2 tema, di desktop, tablet, ponsel |
+| Detektor impeccable | Hanya dua advisory lama (overshoot ikon tema yang sudah disetujui putaran 4); tidak ada temuan pada file yang diubah |
+
+Cakupan e2e baru (`tests/e2e/polish.spec.ts`, 25 tes x project): kapsul compact di kedua tema (opasitas dan warna rim, isi 94 persen, radius 30 px, pelat tepat 1 px di dalam rim, bayangan, kembali penuh di atas), lewat ambang bolak-balik cepat lalu tenang, logo dan kontrol tetap fokus/klik saat compact; label demo di daftar, detail, dan studi kasus tetangga di dua bahasa (teks, kursor bawaan, bukan tombol, tidak keluar dari wadahnya); Konteks di atas Permasalahan; 5 studi kasus x 2 bahasa digulir maju dan mundur melewati delapan bab dengan tepat satu bab aktif dan urutan benar, tanpa bab di atas bab pertama; scroll roda pelan dicatat MutationObserver: tidak pernah dua bab, urutan hanya maju; klik rail (URL hash, fokus, bab aktif sebelum dan sesudah scroll halus selesai), hash langsung, Back, Forward, dan pergantian bahasa (bab aktif = bab di garis baca halaman baru); viewport pendek 620 px; motion peta sistem (kapsul terpentaskan lalu terbuka penuh, sinyal dan cincin kembali tersembunyi), alur maju dan mundur, rencana pengukuran tanpa angka atau persen; reduced motion (semua tampil, penanda alur menyala, tanpa transform); Principles (terpentaskan, terbuka, kursor bawaan, tanpa tautan, hover hanya di pointer halus, tile tidak terangkat); CTA slice (tepat tiga, tidak di header/switch/tutup, bidang masuk saat hover di pointer halus dan tetap di luar pada sentuh, ukuran tetap, warna label, fokus keyboard dengan cincin).
+
+### Temuan yang diperbaiki selama QA
+
+| Temuan | Sumber | Perbaikan |
+|---|---|---|
+| Judul "Permasalahan" menabrak kolom teks di kartu | Screenshot desktop | Override ukuran judul di `@layer components` kalah dari utilitas `text-title`; `ChapterHead` kini menerima `compact` (skala heading), kolom 5/7 |
+| Konteks pendek hampir tidak pernah aktif | Screenshot + rail | Garis baca 30 persen menjadi 22 persen dari sisa tinggi layar |
+| Peta sistem lebih dari 2,6 s | e2e | Langkah dipacu eksplisit 0,54 s per bagian (sekitar 2 s total) |
+| Label demo keluar dari kartu studi kasus tetangga di ponsel | Screenshot 390 px | `white-space: nowrap` diganti `text-wrap: balance` |
+| Tes: hash setelah dua scroll halus yang saling memotong; Back memulihkan posisi tautan di dasar halaman; alur ponsel butuh scroll lebih jauh; tes roda pelan habis waktu di WebKit | e2e | Tes menunggu scroll tenang, membandingkan dengan bab di garis baca (bukan bab tetap), menggulir ke ujung alur, dan anggaran 90 s untuk tes roda. Perilaku produk sama dengan baseline untuk pemulihan scroll |
+
+### WebKit lintas browser (GitHub Actions)
+
+Run lokal WebKit tidak bisa diselesaikan: mesin hanya punya 0,5 sampai 1,5 GB RAM bebas dari 15,4 GB, hydration WebKit butuh sekitar 7,5 s untuk **baseline maupun build baru** (diukur berdampingan), dan tes lama yang tidak tersentuh perubahan ini habis waktu. Satu-satunya hasil lokal adalah `polish.spec.ts` (24 lulus, 1 dilewati). Suite penuh lalu dijalankan di runner bersih lewat workflow baru `.github/workflows/cross-browser-qa.yml` (`workflow_dispatch`, dan sekali saat workflow itu berubah di `frontend`): Ubuntu, Playwright 1.64 WebKit, `PW_ALL_BROWSERS=1`, satu project setelah yang lain, 1 worker, `--retries=0` (flake terlihat sebagai gagal), build produksi dari commit yang sama lewat `webServer` konfigurasi Playwright. Laporan HTML dan JSON disimpan sebagai artefak 14 hari.
+
+Run [38569534271](https://github.com/solveit-id/solveit_indonesia/actions/runs/38569534271) pada `11f1d57`, yang isi `frontend/`-nya identik dengan `89c5445` (commit sesudahnya hanya menambah workflow):
+
+| Project | Lulus | Gagal | Flaky | Dilewati | Durasi |
+|---|---|---|---|---|---|
+| WebKit desktop 1440 | 140 | 0 | 0 | 8 | 4,6 menit |
+| WebKit iPhone 14 | 110 | 0 | 0 | 38 | 4,0 menit |
+
+Semua yang dilewati adalah kondisi `test.skip` di tes itu sendiri, bukan kegagalan: kontrol khusus ponsel di desktop, rail bab dan fitur khusus desktop di iPhone (rail tampil mulai 1024 px), dan fokus keyboard pada tombol slice di WebKit (WebKit tidak berpindah ke tombol dengan Tab secara bawaan; slice saat fokus diverifikasi di Chromium dan Firefox). Spesifikasi putaran ini (`polish.spec.ts`) di WebKit desktop: 24 lulus, 1 dilewati; di iPhone: 11 lulus, 14 dilewati (desktop saja), 0 gagal. Tidak ada perubahan kode atau tes yang dibutuhkan.
+
+### Lighthouse
+
+Lighthouse 13.5, mobile default (Moto G Power teremulasi, simulated slow 4G, CPU 4x), Chromium 156. **Berselang-seling** sebelum/sesudah per halaman, 3 run masing-masing, median; build produksi tanpa `VITE_SITE_URL` di kedua sisi, layar pemuatan penuh (muatan pertama di tab), server `scripts/serve.mjs` yang sama, satu browser pada satu waktu. "Sebelum" adalah `main` `7443d4a`. RAM bebas saat pengukuran sekitar 0,5 GB, sehingga Speed Index kedua sisi lebih tinggi dari putaran 4; pembanding yang adil adalah kolom sebelum di tabel ini.
+
+| Halaman | Performance sebelum / sesudah | LCP (s) | TBT (ms) | Speed Index (s) | CLS |
+|---|---|---|---|---|---|
+| `/` | 94 / **96** | 1,59 / 1,60 | 232 / 176 | 3,98 / 3,74 | 0 / 0 |
+| `/portofolio` | 98 / **98** | 1,60 / 1,59 | 72 / 81 | 3,78 / 3,78 | 0 / 0 |
+| `/portofolio/sistem-antrean-klinik` | 98 / **97** | 1,58 / 1,60 | 122 / 141 | 3,11 / 3,04 | 0 / 0 |
+| `/en` | 98 / **98** | 1,59 / 1,59 | 104 / 115 | 3,25 / 3,17 | 0 / 0 |
+
+Accessibility, Best Practices, dan SEO 100 di semua run. Performance tetap 96 sampai 98, LCP di bawah 1,6 s, CLS 0. TBT berubah dalam rentang noise run tunggal (studi kasus +19 ms median; sebaran run sebelum 99 sampai 177 ms, sesudah 116 sampai 246 ms). Ukuran: CSS 14,2 ke 15,3 KB brotli, total JS 223,2 ke 224,5 KB, HTML Beranda 17,3 ke 17,5 KB, HTML studi kasus tetap 18,9 KB.
+
+### Bukti visual
+
+Disimpan lokal di `.impeccable/review/round-5/` (di-gitignore seperti putaran sebelumnya), diambil dari build final dan dari baseline yang sama-sama disajikan lokal:
+
+| Bukti | Isi |
+|---|---|
+| `navbar-before-after.png` | Kapsul compact di atas Principles (paper), karya (sunken), dan bidang cobalt footer, terang dan gelap, sebelum lalu sesudah |
+| `navbar-morph-filmstrip.png`, `navbar-tablet-mobile-after.png` | Morph normal ke compact (0 sampai 450 ms) dan kembali (90 sampai 750 ms); tablet dan ponsel |
+| `case-context-before-after.png` | Konteks dan Permasalahan sejajar dengan rail menandai Permasalahan saat Konteks dibaca (sebelum) lalu bertumpuk dengan Konteks aktif (sesudah) |
+| `case-chapters-after-desktop.png`, `case-chapters-after-mobile.png` | Peta sistem, alur, pengukuran di desktop dan ponsel, terang dan gelap |
+| `badge-before-after.png`, `badge-mobile-after.png` | Label demo di detail (dua tema), kartu daftar, dan studi kasus tetangga EN di ponsel |
+| `principles-before-after.png`, `principles-mobile-after.png` | Komposisi di tengah entrance dan akhir, hover portal di gelap; ponsel |
+| `slice-cta-frames.png` | Slice CTA hero: diam, 120 ms, 260 ms, 700 ms, keluar 200 ms, fokus keyboard, gelap; "Lihat portofolio" terang/gelap; CTA bidang penutup |
+
+Tidak ada error konsol pada sesi screenshot.
+
+### Status
+
+- **Lulus terverifikasi**: format, lint, typecheck, unit 66/66, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse empat halaman sebelum/sesudah, bukti visual.
+- **Lulus terverifikasi (lintas browser)**: suite penuh WebKit desktop dan WebKit iPhone 14 di GitHub Actions, lihat bagian "WebKit lintas browser" di atas.
+- **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
+
 ## Putaran 4 (2026-10-13): layar pemuatan bermerek, morph navbar, kontrol mengambang, detail portofolio
 
 Cakupan: 16 masukan pengguna dari evaluasi langsung. Layar pemuatan fullscreen bermerek (membatalkan keputusan putaran 3, atas permintaan pengguna), tombol tema dan pemilih bahasa, header lebih lega dengan morph logo primer ke ikon, urutan menu baru, dock kembali ke atas dan asisten, audit kursor dan kontrol tutup merah, logo teknologi, desain ulang detail studi kasus, dan penghalusan motion. Baseline: `main` pada `1ea6eea`.

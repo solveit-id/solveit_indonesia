@@ -15,8 +15,8 @@ import { PageIntro } from "~/components/ui/page-intro";
 import { useParallax } from "~/hooks/use-parallax";
 import { useReveal } from "~/hooks/use-reveal";
 import { getMessages, localeFromPath, pathFor, useI18n } from "~/i18n";
-import { cn } from "~/lib/cn";
 import { motionQueries, useMotion } from "~/lib/motion";
+import { documentTop, pickChapter, readingLine } from "~/lib/scrollspy";
 import { buildMeta, creativeWorkSchema } from "~/lib/seo";
 import { categoryLabel } from "~/services/content";
 import { getAdjacentProjects, getProjectByPath } from "~/services/projects";
@@ -74,13 +74,22 @@ const chapterIds: ChapterId[] = [
 const chapterNumber = (id: ChapterId) => String(chapterIds.indexOf(id) + 1).padStart(2, "0");
 
 /** Numbered chapter heading: the index sits on the logo's axis beside the title. */
-function ChapterHead({ id, children }: { id: ChapterId; children: ReactNode }) {
+function ChapterHead({
+  id,
+  compact = false,
+  children,
+}: {
+  id: ChapterId;
+  /** Heading scale, for chapters set inside a card. */
+  compact?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div className="case-chapter-head">
       <span aria-hidden className="case-chapter-index">
         {chapterNumber(id)}
       </span>
-      <h2 id={`${id}-title`} className="text-title">
+      <h2 id={`${id}-title`} className={compact ? "text-heading font-wide" : "text-title"}>
         {children}
       </h2>
     </div>
@@ -88,18 +97,29 @@ function ChapterHead({ id, children }: { id: ChapterId; children: ReactNode }) {
 }
 
 /*
- * Case study as an editorial sequence: context and problem side by side,
- * then the solution on the cobalt field, how its parts connect, how a user
- * moves through it, what it can do, what it would be built with, and what
- * would prove it works. Wide screens keep a chapter rail in view that
- * follows the reader. Everything is readable without JavaScript; motion
- * only stages what is already there.
+ * Case study as an editorial sequence read top to bottom: context, then the
+ * problem, then the solution on the cobalt field, how its parts connect,
+ * how a user moves through it, what it can do, what it would be built with,
+ * and what would prove it works. Wide screens keep a chapter rail in view
+ * that follows the reader. Everything is readable without JavaScript;
+ * motion only stages what is already there.
  */
+const markRail = (rail: HTMLElement | null, id: ChapterId | null) =>
+  rail?.querySelectorAll<HTMLAnchorElement>("a[data-chapter-link]").forEach((link) => {
+    if (link.dataset.chapterLink === id) link.setAttribute("aria-current", "location");
+    else link.removeAttribute("aria-current");
+  });
+
 function CaseStudy({ project }: { project: ProjectData }) {
   const { t, locale, path } = useI18n();
   const copy = t.project;
   const scope = useRef<HTMLElement>(null);
   const railRef = useRef<HTMLOListElement>(null);
+  // The one current chapter, and the chapter a rail click asked for: it
+  // holds until the reader scrolls on their own (near the page end the
+  // target may never reach the reading line).
+  const active = useRef<ChapterId | null>(null);
+  const requested = useRef<ChapterId | null>(null);
   const adjacent = getAdjacentProjects(locale, project.key);
   const projectHref = (slug: string) => `${path("portfolio")}/${slug}`;
   const hasResults = project.results.length > 0;
@@ -109,32 +129,71 @@ function CaseStudy({ project }: { project: ProjectData }) {
   // The cover drifts slower than the page: depth without moving layout.
   useParallax(scope);
 
+  const setActive = (id: ChapterId | null) => {
+    if (active.current === id) return;
+    active.current = id;
+    markRail(railRef.current, id);
+  };
+
+  /*
+   * Chapter rail (any motion setting: it is state, not motion). One
+   * listener computes the single current chapter from the chapters'
+   * positions against a reading line under the header (lib/scrollspy.ts),
+   * so neighbouring chapters can never toggle each other, and the rail is
+   * written only when the answer changes.
+   */
   useMotion(
     ({ gsap, ScrollTrigger }) => {
-      // Chapter rail follows the reader (any motion setting: it is state, not motion).
-      const rail = railRef.current;
-      if (rail) {
-        const mark = (id: string) =>
-          rail.querySelectorAll<HTMLAnchorElement>("a[data-chapter-link]").forEach((link) => {
-            const on = link.dataset.chapterLink === id;
-            if (on) link.setAttribute("aria-current", "location");
-            else link.removeAttribute("aria-current");
-          });
-        gsap.utils.toArray<HTMLElement>("[data-chapter]").forEach((chapter) => {
-          ScrollTrigger.create({
-            trigger: chapter,
-            start: "top 45%",
-            end: "bottom 45%",
-            onToggle: (self) => {
-              if (self.isActive) mark(chapter.dataset.chapter ?? "");
+      const chapters = gsap.utils.toArray<HTMLElement>("[data-chapter]");
+      const header = document.querySelector<HTMLElement>(".site-header");
+      const update = () => {
+        if (requested.current) return setActive(requested.current);
+        const scrollY = window.scrollY;
+        const viewport = window.innerHeight;
+        setActive(
+          pickChapter(
+            chapters.map((el) => ({
+              id: el.dataset.chapter as ChapterId,
+              top: documentTop(el) - scrollY,
+            })),
+            {
+              line: readingLine(header?.offsetHeight ?? 0, viewport),
+              viewport,
+              atBottom: scrollY >= ScrollTrigger.maxScroll(window) - 2,
             },
-          });
-        });
-      }
+          ),
+        );
+      };
+      ScrollTrigger.create({ start: 0, end: "max", onUpdate: update, onRefresh: update });
+      update();
+      // Any input of the reader's own hands the rail back to the scrollspy.
+      const release = () => {
+        if (!requested.current) return;
+        requested.current = null;
+        update();
+      };
+      const inputs = ["wheel", "touchstart", "keydown", "pointerdown", "hashchange"] as const;
+      for (const type of inputs) window.addEventListener(type, release, { passive: true });
+      return () => {
+        for (const type of inputs) window.removeEventListener(type, release);
+        requested.current = null;
+      };
+    },
+    { scope },
+  );
 
+  useMotion(
+    ({ gsap }) => {
+      const root = scope.current;
+      if (!root) return;
       const mm = gsap.matchMedia();
-      mm.add(motionQueries.motion, () => {
+      mm.add({ motion: motionQueries.motion, tablet: motionQueries.tablet }, (context) => {
+        const { motion, tablet } = context.conditions as Record<string, boolean>;
+        if (!motion) return;
         const once = (trigger: string, start = "top 80%") => ({ trigger, start, once: true });
+        const pick = <T extends Element = Element>(parent: Element, selector: string) =>
+          parent.querySelector<T>(selector);
+
         // The solution arrives on the cobalt field, uncovered along the 33deg axis.
         gsap
           .timeline({ scrollTrigger: once("[data-solution]") })
@@ -149,24 +208,163 @@ function CaseStudy({ project }: { project: ProjectData }) {
             },
           )
           .from("[data-solution] > *", { opacity: 0, y: 18, stagger: 0.1, duration: 0.8 }, 0.25);
-        // System map: the parts step up the staircase, their links drawing on.
-        gsap
-          .timeline({ scrollTrigger: once("[data-system-map]", "top 82%") })
-          .from("[data-system-node]", { opacity: 0, x: -16, stagger: 0.12, duration: 0.8 })
-          .from(
-            "[data-system-link]",
-            { scaleX: 0, stagger: 0.12, duration: 0.6, ease: "power2.inOut" },
-            0.25,
-          );
-        // The flow reads in order: the rail draws through each step.
-        gsap
-          .timeline({ scrollTrigger: once("[data-flow]") })
-          .fromTo(
-            "[data-flow-line]",
-            { scaleX: 0, scaleY: 0 },
-            { scaleX: 1, scaleY: 1, duration: 1.4, ease: "power2.inOut" },
-          )
-          .from("[data-flow-step]", { opacity: 0, y: 12, stagger: 0.22, duration: 0.6 }, 0.1);
+
+        /*
+         * System map: the data's journey. Each part extends along its own
+         * length, its handoff label follows, and the connector draws up the
+         * 33deg stair with a signal capsule riding its tip; the next part
+         * rings once as the signal arrives, then extends in turn. On phones
+         * the spine draws down beside the same sequence. About 2s in all.
+         */
+        const map = pick<HTMLElement>(root, "[data-system-map]");
+        if (map) {
+          const journey = gsap.timeline({
+            scrollTrigger: once("[data-system-map]", "top 78%"),
+            defaults: { ease: "expo.out" },
+          });
+          // Each part starts as the previous connector finishes drawing.
+          const STEP = 0.54;
+          gsap.utils.toArray<HTMLElement>("[data-system-node]", map).forEach((node, index) => {
+            const start = index * STEP;
+            const capsule = pick(node, "[data-system-capsule]");
+            const ring = pick(node, "[data-system-ring]");
+            const link = pick(node, "[data-system-link]");
+            const signal = pick(node, "[data-system-signal]");
+            const handoff = pick(node, "[data-system-handoff]");
+            journey.fromTo(
+              capsule,
+              { clipPath: "inset(0% 100% 0% 0% round 9999px)" },
+              {
+                clipPath: "inset(0% 0% 0% 0% round 9999px)",
+                duration: 0.5,
+                clearProps: "clipPath",
+              },
+              start,
+            );
+            if (ring)
+              journey.fromTo(
+                ring,
+                { opacity: 1, scale: 0.97 },
+                {
+                  opacity: 0,
+                  scale: 1.12,
+                  duration: 0.7,
+                  ease: "power2.out",
+                  immediateRender: false,
+                },
+                start,
+              );
+            if (handoff) journey.from(handoff, { opacity: 0, y: 6, duration: 0.45 }, start + 0.14);
+            if (link) {
+              journey.fromTo(
+                link,
+                { scaleX: 0 },
+                { scaleX: 1, duration: 0.36, ease: "power2.inOut" },
+                start + 0.22,
+              );
+              if (signal)
+                journey
+                  .fromTo(
+                    signal,
+                    { opacity: 0 },
+                    { opacity: 1, duration: 0.08, immediateRender: false },
+                    start + 0.22,
+                  )
+                  .to(signal, { opacity: 0, duration: 0.24, ease: "power1.out" }, start + 0.6);
+            }
+          });
+          const spine = pick(root, "[data-system-spine]");
+          if (spine && !tablet)
+            journey.fromTo(
+              spine,
+              { scaleY: 0 },
+              { scaleY: 1, duration: journey.duration(), ease: "none" },
+              0,
+            );
+        }
+
+        /*
+         * Flow: progress follows the reader. The cobalt line fills with the
+         * scroll (across from 768px, down on phones) and each step's marker
+         * lights, with a small press, when the line reaches it. Labels stay
+         * readable throughout; unlit steps are only quieter.
+         */
+        const flow = pick<HTMLElement>(root, "[data-flow]");
+        const track = flow && pick<HTMLElement>(flow, "[data-flow-track]");
+        const line = flow && pick<HTMLElement>(flow, "[data-flow-line]");
+        if (flow && track && line) {
+          const steps = gsap.utils.toArray<HTMLElement>("[data-flow-step]", flow);
+          let marks: number[] = [];
+          const measure = () => {
+            const box = track.getBoundingClientRect();
+            marks = steps.map((step) => {
+              const marker = (
+                pick<HTMLElement>(step, "[data-flow-marker]") ?? step
+              ).getBoundingClientRect();
+              const at = tablet
+                ? (marker.left + marker.width / 2 - box.left) / box.width
+                : (marker.top + marker.height / 2 - box.top) / box.height;
+              return Math.min(1, Math.max(0, at));
+            });
+          };
+          const light = (progress: number) =>
+            steps.forEach((step, index) =>
+              step.classList.toggle(
+                "is-passed",
+                progress > 0.001 && progress >= (marks[index] ?? 0) - 0.02,
+              ),
+            );
+          measure();
+          flow.dataset.armed = "true";
+          gsap.fromTo(line, tablet ? { scaleX: 0 } : { scaleY: 0 }, {
+            ...(tablet ? { scaleX: 1 } : { scaleY: 1 }),
+            ease: "none",
+            onUpdate() {
+              light(this.progress());
+            },
+            scrollTrigger: {
+              trigger: flow,
+              start: tablet ? "top 80%" : "top 62%",
+              end: tablet ? "top 36%" : "bottom 62%",
+              scrub: 0.35,
+              onRefresh: measure,
+            },
+          });
+        }
+
+        /*
+         * What would be measured: a frame for a value that does not exist
+         * yet. The card's rule draws, the indicator settles, and the empty
+         * slot turns from flat onto the logo's axis beside its note. No
+         * numbers, no fill, no progress: it shows a plan, not a result.
+         */
+        const metrics = gsap.utils.toArray<HTMLElement>("[data-metric]");
+        if (metrics.length > 0) {
+          const plan = gsap.timeline({
+            scrollTrigger: once("[data-metrics]", "top 82%"),
+            defaults: { ease: "expo.out" },
+          });
+          metrics.forEach((metric, index) => {
+            const at = index * 0.14;
+            plan.fromTo(
+              pick(metric, "[data-metric-rule]"),
+              { scaleX: 0 },
+              { scaleX: 1, duration: 0.8, ease: "power3.out" },
+              at,
+            );
+            plan.from(
+              pick(metric, "[data-metric-name]"),
+              { opacity: 0, y: 12, duration: 0.7 },
+              at + 0.12,
+            );
+            const slot = pick(metric, "[data-metric-slot]");
+            if (slot)
+              plan.from(slot, { rotate: 0, scaleX: 0.35, opacity: 0, duration: 0.9 }, at + 0.32);
+            const note = pick(metric, "[data-metric-note]");
+            if (note) plan.from(note, { opacity: 0, x: -6, duration: 0.6 }, at + 0.42);
+          });
+        }
+
         // Technology layers settle one after another, badges popping in.
         gsap.from("[data-tech-layer] [data-tech-badge]", {
           opacity: 0,
@@ -176,26 +374,27 @@ function CaseStudy({ project }: { project: ProjectData }) {
           duration: 0.6,
           scrollTrigger: once("[data-tech-stack]"),
         });
-        // Empty measurement slots tilt onto the logo axis: open, not missing.
-        gsap.from("[data-metric-slot]", {
-          rotate: 0,
-          scaleX: 0.4,
-          opacity: 0,
-          stagger: 0.1,
-          duration: 0.9,
-          scrollTrigger: once("[data-metrics]"),
-        });
+
+        return () => {
+          if (!flow) return;
+          flow.dataset.armed = "false";
+          for (const step of flow.querySelectorAll(".is-passed"))
+            step.classList.remove("is-passed");
+        };
       });
     },
     { scope },
   );
 
-  // Rail links scroll smoothly (instantly under reduced motion) and move
-  // focus to the chapter, so keyboard and screen reader users land there too.
+  // Rail links scroll smoothly (instantly under reduced motion), mark their
+  // chapter at once, and move focus to it, so keyboard and screen reader
+  // users land there too. The URL takes the hash without a new history entry.
   const jump = (event: MouseEvent<HTMLAnchorElement>, id: ChapterId) => {
     const target = document.getElementById(id);
     if (!target) return;
     event.preventDefault();
+    requested.current = id;
+    setActive(id);
     const reduce = matchMedia(motionQueries.reduce).matches;
     target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     target.focus({ preventScroll: true });
@@ -280,14 +479,21 @@ function CaseStudy({ project }: { project: ProjectData }) {
         </nav>
 
         <div className="grid gap-[clamp(4.5rem,9vw,7.5rem)] lg:col-span-9">
-          <div className="grid gap-5 md:grid-cols-2">
+          {/* The brief: context, then the problem it leads to, one under the
+              other in reading order (never side by side, so each chapter has
+              its own place on the reading line). */}
+          <div className="grid gap-4 md:gap-5">
             <section {...chapter("context")} className="case-card" data-reveal>
-              <ChapterHead id="context">{copy.context}</ChapterHead>
-              <p className="mt-5 text-lg leading-relaxed text-ink-muted">{project.context}</p>
+              <ChapterHead id="context" compact>
+                {copy.context}
+              </ChapterHead>
+              <p className="case-card-text">{project.context}</p>
             </section>
             <section {...chapter("problem")} className="case-card case-card-open" data-reveal>
-              <ChapterHead id="problem">{copy.problem}</ChapterHead>
-              <p className="mt-5 text-lg leading-relaxed text-ink-muted">{project.problem}</p>
+              <ChapterHead id="problem" compact>
+                {copy.problem}
+              </ChapterHead>
+              <p className="case-card-text">{project.problem}</p>
             </section>
           </div>
 
@@ -309,40 +515,20 @@ function CaseStudy({ project }: { project: ProjectData }) {
 
           <section {...chapter("flow")}>
             <ChapterHead id="flow">{copy.flowTitle}</ChapterHead>
-            <ol data-flow className="relative mt-12 grid gap-8 md:grid-cols-5 md:gap-4">
-              <span
-                aria-hidden
-                className="absolute top-0 bottom-0 left-[1.375rem] w-px bg-line-strong md:top-[1.375rem] md:right-[10%] md:bottom-auto md:left-[10%] md:h-px md:w-auto"
-              />
-              <span
-                aria-hidden
-                data-flow-line
-                className="absolute top-0 bottom-0 left-[1.375rem] w-px origin-top bg-accent md:top-[1.375rem] md:right-[10%] md:bottom-auto md:left-[10%] md:h-px md:w-auto md:origin-left"
-              />
-              {project.flow.map((step, index) => {
-                const last = index === project.flow.length - 1;
-                return (
-                  <li
-                    key={step}
-                    data-flow-step
-                    className="group/step relative grid grid-cols-[2.75rem_1fr] items-center gap-x-5 md:flex md:flex-col md:items-center md:gap-4 md:text-center"
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "relative z-10 grid size-11 place-items-center rounded-full text-sm font-bold transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover/step:-translate-y-1",
-                        last
-                          ? "bg-accent text-accent-ink"
-                          : "border border-accent bg-paper text-accent-text",
-                      )}
-                    >
+            <div data-flow className="relative mt-12">
+              <span aria-hidden data-flow-track className="flow-rule bg-line-strong" />
+              <span aria-hidden data-flow-line className="flow-rule flow-fill bg-accent" />
+              <ol className="relative grid gap-8 md:grid-cols-5 md:gap-4">
+                {project.flow.map((step, index) => (
+                  <li key={step} data-flow-step className="flow-step">
+                    <span aria-hidden data-flow-marker className="flow-marker">
                       {index + 1}
                     </span>
-                    <span className="max-w-[16ch] leading-snug font-semibold">{step}</span>
+                    <span className="flow-label">{step}</span>
                   </li>
-                );
-              })}
-            </ol>
+                ))}
+              </ol>
+            </div>
           </section>
 
           <section {...chapter("features")}>
@@ -379,12 +565,15 @@ function CaseStudy({ project }: { project: ProjectData }) {
             {!hasResults && <p className="mt-5 max-w-[60ch] text-ink-muted">{copy.measureNote}</p>}
             <ul data-metrics className="mt-10 grid gap-4 sm:grid-cols-3">
               {(hasResults ? project.results : project.metricsToTrack).map((item) => (
-                <li key={item} className="case-metric">
-                  <span className="text-lg leading-snug font-semibold">{item}</span>
+                <li key={item} data-metric className="case-metric">
+                  <span aria-hidden data-metric-rule className="case-metric-rule" />
+                  <span data-metric-name className="text-lg leading-snug font-semibold">
+                    {item}
+                  </span>
                   {!hasResults && (
                     <span className="mt-auto flex items-center gap-3 pt-6 text-sm text-ink-muted">
                       <span aria-hidden data-metric-slot className="case-metric-slot" />
-                      {copy.measurePending}
+                      <span data-metric-note>{copy.measurePending}</span>
                     </span>
                   )}
                 </li>

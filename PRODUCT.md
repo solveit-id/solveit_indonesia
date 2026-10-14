@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Pinned by the brief: monorepo with `frontend/` (React, TypeScript strict, Vite, GSAP) and `backend/` (Laravel 13 on PHP 8.5, later phase). Styling, routing, and prerendering were delegated: Tailwind CSS v4, React Router 7 framework mode with static prerendering (`ssr: false`).
+Pinned by the brief: one repository for this website only, with `frontend/` (React, TypeScript strict, Vite, GSAP) and the website's own `backend/` (Laravel 13 on PHP 8.5, later phase). Other Solveit systems are separate repositories. Styling, routing, and prerendering were delegated: Tailwind CSS v4, React Router 7 framework mode with static prerendering (`ssr: false`).
 
 ## Users
 
@@ -18,7 +18,7 @@ Owners and decision makers at individual businesses, UMKM, startups, organisatio
 
 Solveit Indonesia is a technology startup and software house. This website is the company profile and portfolio: branding, service marketing, portfolio presentation, and lead acquisition. Success means a qualified visitor understands the offer and starts a consultation.
 
-It is also the first piece of a planned ecosystem (Solveit OpsHub) covering consultation, service ordering, proposals, contracts, invoices, project development, progress and revision tracking, and maintenance. None of those features exist yet; the frontend must be ready to grow into them.
+It is also the first piece of a planned ecosystem (Solveit OpsHub) covering consultation, service ordering, proposals, contracts, invoices, project development, progress and revision tracking, and maintenance. None of those features exist yet. OpsHub and other business systems are built as independent projects (own repository, deployment, and lifecycle); this website connects to them through API contracts, events, or links, never a shared database, and never grows into them.
 
 ## Positioning
 
@@ -46,7 +46,7 @@ Tagline (official, English): "We Don't Just Build Software. We Build Digital Sol
 
 1. Truth over polish: never state a claim the company cannot back.
 2. Explain the engagement plainly: what happens, in what order, and what the client receives.
-3. Build for the ecosystem: every page should be extendable into the client portal without rework.
+3. Build for the ecosystem: keep the website's data behind services and typed contracts, so it can exchange data with OpsHub and other systems without rework, while staying its own application.
 4. Fast and accessible on ordinary Indonesian mobile connections.
 
 ## Accessibility & Inclusion

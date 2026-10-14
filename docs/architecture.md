@@ -13,6 +13,10 @@ solveit_indonesia/
 
 Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau endpoint. Formulir konsultasi menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email.
 
+### Batas sistem
+
+Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend/API yang menjadi tanggung jawab website (inquiry, konten, admin website). Solveit OpsHub (pemesanan, proposal, kontrak, invoice, progres, revisi, pemeliharaan, portal klien) dan aplikasi Solveit lain adalah proyek terpisah dengan repository, deployment, dependensi, dan siklus rilis sendiri. Website terhubung ke sistem itu lewat REST API berversi, event/webhook, atau tautan antar-domain, bukan database bersama dan bukan route di dalam aplikasi ini. Rinciannya di `integration-plan.md`.
+
 ## Frontend
 
 | Lapisan | Lokasi | Isi |
@@ -57,8 +61,9 @@ Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau e
 - Parallax scroll di tiga area: lapisan hero (lattice, mark, dan teks pada kedalaman berbeda, mulai 768px), sampul portofolio dan studi kasus (`useParallax`, separuh jarak di ponsel), dan mark di halaman Tentang yang terakit tepat saat seksinya berada di tengah layar.
 - Konten terlihat secara default (tanpa JS, reduced motion). Teks di atas lipatan masuk dengan animasi CSS agar tidak menunggu JS.
 - Navigasi klien: halaman baru naik pendek (opacity dan 14 px, 500 ms); pergantian bahasa pada halaman yang sama hanya meredup ke 0,55 lalu pulih (350 ms) dan fokus tetap di pemilih bahasa. Halaman lama tidak ditahan untuk animasi keluar, karena itu sama dengan menunda navigasi.
-- Header adaptif dan tombol kembali ke atas membaca posisi scroll dari listener ScrollTrigger yang sama dan hanya menulis atribut saat keadaannya berganti. Morph logo header (wordmark terlipat ke mark) dan penyusutan kapsul pelat adalah transisi CSS (transform dan clip-path) yang dipicu atribut itu, bukan animasi per frame scroll.
-- Studi kasus: rail bab memakai ScrollTrigger (`onToggle`) untuk `aria-current="location"`; reveal solusi (clip diagonal), peta sistem, alur, badge teknologi, dan slot pengukuran adalah timeline `once` di dalam `gsap.matchMedia()`.
+- Header adaptif dan tombol kembali ke atas membaca posisi scroll dari listener ScrollTrigger yang sama dan hanya menulis atribut saat keadaannya berganti. Morph logo header (wordmark terlipat ke mark) dan penyusutan kapsul adalah transisi CSS (transform, clip-path, opacity, warna) yang dipicu atribut itu, bukan animasi per frame scroll. Permukaan kapsul terdiri dari tiga lapisan dengan geometri clip yang sama (rim garis tepi, pelat isi 1 px di dalamnya, bayangan angkat), satu durasi dan kurva (`--morph`, 0,7 s), sehingga berbalik mulus bila ambang dilewati cepat.
+- Studi kasus: rail bab memakai satu scrollspy deterministik (`src/lib/scrollspy.ts`): satu listener ScrollTrigger menghitung **satu** bab aktif dari posisi semua bab terhadap garis baca (tepat di bawah header, 22 persen dari sisa tinggi layar), memakai offset dokumen yang tidak terpengaruh transform entrance, dan hanya menulis `aria-current="location"` saat jawabannya berubah. Bab sebelum garis tetap aktif sampai judul berikutnya mencapai garis (sela antar-bab tidak pernah kosong), di dasar halaman bab terakhir yang terlihat menang, dan klik rail mengunci bab yang diminta sampai pembaca menggulir sendiri (wheel, sentuh, tombol, pointer, atau `hashchange`). Konteks dan permasalahan berurutan vertikal. Tanpa JavaScript rail tetap tautan `#bab` biasa.
+- Motion bab (di dalam `gsap.matchMedia()`, hanya transform, opacity, clip-path, dan warna): solusi dengan clip diagonal; peta sistem sebagai perjalanan data (kapsul memanjang, label handoff, penghubung 33 derajat tergambar dengan kapsul sinyal di ujungnya, cincin sekali saat data tiba; tulang punggung vertikal di ponsel; sekitar 2 s, sekali); alur utama terikat scroll (garis terisi mengikuti pembaca, penanda menyala saat dicapai, dapat dibalik, label selalu terbaca); yang akan diukur sebagai rencana (garis kartu tergambar, slot kosong berputar ke sumbu 33 derajat, tanpa angka atau progres). Reduced motion dan tanpa JS: semua tampil dan penanda alur menyala.
 - Scroll native. Tidak ada `scroll-behavior: smooth` global karena menggagalkan pemulihan scroll saat Back (lihat QA putaran 3).
 
 ### Umpan balik pemuatan

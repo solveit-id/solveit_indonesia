@@ -2,7 +2,7 @@
 
 > We Don't Just Build Software. We Build Digital Solutions That Last.
 
-Monorepo website company profile dan portofolio Solveit Indonesia, sekaligus fondasi ekosistem Solveit OpsHub.
+Repository website company profile dan portofolio Solveit Indonesia: frontend dan backend/API milik website ini saja. Solveit OpsHub dan sistem Solveit lain dibangun di repository terpisah dan terhubung lewat kontrak API atau event (lihat [docs/integration-plan.md](docs/integration-plan.md)).
 
 | Folder | Isi |
 |---|---|
