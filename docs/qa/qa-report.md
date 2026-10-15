@@ -2,6 +2,86 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Backend B0 dan B1: fondasi Laravel 13, Laravel Boost, API inquiry (2026-10-15)
+
+Cakupan: fondasi backend di branch `backend` (fast-forward dari `main` `7e37a77`). Tanpa perubahan kode frontend, desain, atau konten. Mesin: Windows 11, PHP 8.5.7 (ZTS, XAMPP), Composer 2.8.12, Node 22.23.1, Claude Code CLI, Codex CLI 0.160.0. Cursor tidak terpasang.
+
+### Fondasi Laravel
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Scaffolding | `composer create-project laravel/laravel:^13.0` di folder sementara di luar repository, lalu disalin ke `backend/` tanpa menimpa README. `php artisan --version`: **Laravel Framework 13.36.0** |
+| Kompatibilitas PHP | Lock pertama memilih Symfony 8.1 (butuh PHP 8.4.1), bertentangan dengan `"php": "^8.3"`. Diperbaiki dengan `config.platform.php = 8.3.0`: 17 paket Symfony turun ke 7.4 LTS, `composer check-platform-reqs --lock` lulus |
+| `composer validate --strict` | `./composer.json is valid` |
+| `composer audit` | `No security vulnerability advisories found.` |
+| `vendor/bin/pint --test` | Lulus |
+| `php artisan route:list --except-vendor` | `POST api/v1/inquiries .. api.v1.inquiries.store`; ditambah `GET /up`. Rute penyajian file `storage/{path}` bawaan dimatikan (`serve => false`). `POST /api/api/v1/inquiries` menghasilkan 404 (dites lewat HTTP) |
+| Migrasi | Database lokal: 4 migrasi `Ran`. File SQLite sekali pakai: naik 4, rollback 4, naik lagi 4 (sama dengan langkah CI) |
+| Instalasi produksi | Salinan bersih: `composer install --no-dev` menghapus `laravel/boost`, `laravel/mcp`, `laravel/roster`; aplikasi boot, route terdaftar, 0 perintah `boost:`, `config:cache` berhasil |
+| Clone bersih | File yang akan di-commit disalin ke folder kosong: `composer install`, `key:generate`, `migrate`, `boost:update --no-discover` membuat `AGENTS.md` identik byte dan skill untuk tiga agent; `php artisan test` 89/89 |
+
+### Laravel Boost
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Paket | `laravel/boost` **v2.10.3** di `require-dev` (bersama `laravel/mcp`, `laravel/roster` sebagai dependensinya), tercatat di `composer.lock` |
+| `php artisan list boost` | `boost:add-skill`, `boost:install`, `boost:list-skills`, `boost:mcp`, `boost:update` |
+| `boost:install` | Non-interaktif dengan `boost.json` (agent `claude_code`, `codex`, `cursor`; `cloud: false`) dan `--guidelines --skills --mcp`: 8 guideline dan 3 skill (`infer-conventions`, `laravel-best-practices`, `testing-best-practices`) untuk ketiga agent, MCP untuk ketiganya, semua ✓ |
+| Guideline | `deployments` (rekomendasi Laravel Cloud) dikecualikan karena hosting belum diputuskan. Guideline kustom `backend/.ai/guidelines/solveit.md` masuk di urutan pertama blok. Pengantar di luar blok `AGENTS.md` bertahan setelah `boost:update` |
+| MCP dari root repository | Klien stdio MCP (handshake JSON-RPC) ke `php backend/artisan boost:mcp`: server `Laravel Boost`, protokol `2025-06-18`, 10 tool (`application-info`, `browser-logs`, `database-connections`, `database-query`, `database-schema`, `get-absolute-url`, `last-error`, `read-log-entries`, `record-rule`, `search-docs`) |
+| Tool baca-saja | `application-info`: `php_version 8.5`, `laravel_version 13.36.0`, `database_engine sqlite` |
+| Dokumentasi sesuai versi | `search-docs` (routing, rate limiting, CORS, trusted proxies, exception JSON, validasi enum, Form Request, testing database) mengembalikan hasil berlabel `laravel/framework@13.x`; dipakai untuk merancang route, limiter, CORS, proxy, render exception, dan tes |
+| Claude Code | `claude mcp list` dari root: `laravel-boost: php backend/artisan boost:mcp - ✔ Connected`, scope "Project config (shared via .mcp.json)". Skill di `backend/.claude/skills/` ditemukan otomatis oleh sesi yang berjalan di root |
+| Codex | Dengan `CODEX_HOME` sementara yang mempercayai repository: `codex mcp list` dari root menampilkan `laravel-boost php backend/artisan boost:mcp enabled`; dari `backend/` memakai konfigurasi buatan Boost (`php artisan boost:mcp`). Tanpa kepercayaan proyek, konfigurasi proyek tidak dimuat (perilaku Codex). Pemanggilan tool dari dalam sesi Codex **tidak diuji** (butuh sesi Codex yang login) |
+| Cursor | `.cursor/mcp.json` dibuat, **tidak diverifikasi**: Cursor tidak terpasang |
+| Playwright MCP | Entri tidak berubah (diff hanya menambah baris). `claude mcp list` melaporkan timeout 30 s untuk `npx` pada Windows, seperti catatan yang sudah ada di `CLAUDE.md`; server yang sama dijalankan langsung (`cmd /c npx -y @playwright/mcp@0.0.83`) menjawab handshake dalam sekitar 10 s dengan 25 tool, dan tool Playwright tersedia di sesi ini |
+
+### API inquiry: tes otomatis
+
+`php artisan test`: **89 lulus, 0 gagal, 227 assertion** (SQLite in-memory, `RefreshDatabase`).
+
+| Area | Tes |
+|---|---|
+| Sukses | 201 dengan `{id, status}` persis, baris tersimpan dengan semua field, status `received`, timestamp; dua kiriman mendapat referensi berbeda; log hanya `Inquiry received.` dengan nomor referensi |
+| Field opsional dan teks | `organization` tidak dikirim, `""`, atau spasi menjadi `null`; Unicode (aksen, aksara Jepang, emoji) tersimpan utuh; spasi di tepi dibuang |
+| Validasi | Payload kosong (enam field wajib, pesan persis); format 422 Laravel persis; 13 batas panjang termasuk karakter multibyte (2/120 nama, 160 organisasi, 254 kontak, 20/5000 pesan); kontak email dan telepon; 7 nilai enum tidak valid (tidak dikenal, label, huruf besar, angka, array); tipe non-string |
+| Aturan kontak (unit) | 8 nilai valid dan 14 tidak valid, termasuk batas 8 dan 18 karakter telepon, tab, dan baris baru |
+| Kontrak frontend | Nilai enum backend sama persis dengan `ServiceId`, `BudgetRange`, `Timeline` yang dibaca dari `frontend/src/types/` |
+| Referensi publik | Format `INQ-XXXX-XXXX-XXXX` Crockford; 5000 referensi unik; tidak berurutan; database menolak duplikat (`UniqueConstraintViolationException`) |
+| Spam dan penyalahgunaan | Honeypot terisi: 422 dan tidak tersimpan; honeypot kosong: 201 dan tidak tersimpan sebagai kolom; batas per menit dan per jam (429, `Retry-After`, tidak tersimpan); percobaan yang ditolak ikut dihitung; `X-Forwarded-For` palsu tidak melewati batas tanpa proxy tepercaya, dan dihormati di belakang proxy tepercaya; body di atas batas: 413 |
+| Mass assignment | `id`, `public_id`, `status`, `created_at` dari klien diabaikan |
+| Kegagalan | Tabel dihapus di tengah tes: 503 tanpa referensi dan tanpa `received`; exception yang dilaporkan tidak memuat nama, kontak, atau pesan dan tidak membawa `QueryException`; galat tak terduga: 500 `Server Error` tanpa detail |
+| Akses | `GET`/`PUT`/`DELETE` koleksi: 405; `GET`/`PATCH`/`DELETE` dengan referensi: 404; tidak ada data yang bocor dan baris tidak berubah. Respons galat dengan `APP_DEBUG=false` hanya berisi `message` |
+| CORS | Origin terdaftar mendapat izin preflight tanpa credentials; origin lain tidak; tanpa konfigurasi tidak ada izin |
+| Lainnya | `/up` 200 `{"status":"ok"}` tanpa cookie sesi, 503 `{"status":"down"}` tanpa detail saat pemeriksaan gagal; `/` 404; route bernama berada di `/api/v1/inquiries`; tes memakai SQLite `:memory:` |
+
+### API inquiry: HTTP nyata
+
+`php artisan serve` dengan database SQLite lokal: contoh `curl` di `docs/api/inquiries.md` mengembalikan `201 {"id":"INQ-ZVM2-M64Z-4VQM","status":"received"}` dengan `X-RateLimit-Limit: 5`; payload salah 422 dengan enam field; `GET` 405; `/up` 200 JSON tanpa `Set-Cookie`; `/api/api/v1/inquiries` 404. Dengan `CORS_ALLOWED_ORIGINS` terisi, preflight dari `http://localhost:5173` mendapat `Access-Control-Allow-Origin`, `Allow-Methods: GET, POST`, `Max-Age: 3600`; origin lain tidak. Catatan: `backend/.env` lokal dibuat sebelum variabel baru ada, jadi tanpa variabel itu CORS menolak semua origin (default aman); salin variabel baru dari `.env.example`.
+
+### Temuan yang diperbaiki selama QA
+
+| Temuan | Perbaikan |
+|---|---|
+| `"php": "^8.3"` tidak benar karena lock membutuhkan PHP 8.4.1 | `config.platform.php` 8.3.0, CI menguji 8.3 dan 8.5 |
+| Halaman `/up` bawaan berjudul "Laravel" | `/up` JSON sendiri di luar grup `web` |
+| Respons 429 menyertakan trace saat `APP_DEBUG=true` | Perilaku framework yang benar untuk lokal; tes memakai `APP_DEBUG=false` seperti produksi, dan dokumentasi mewajibkan `false` di luar lokal |
+| Pesan `QueryException` memuat nilai SQL (data pribadi) bila dilaporkan | `InquiryNotStoredException` tanpa exception sebelumnya, hanya SQLSTATE |
+| Rute `storage/{path}` bawaan aktif | Dimatikan untuk host API |
+| Aturan `deny` `Read(./**/.env.*)` memblokir `.env.example` (pembacaan ditolak di sesi ini) | Pola diganti daftar file rahasia yang eksplisit; `.env.example` dapat dibaca, `.env` tetap ditolak |
+| Guideline Boost "buat dokumentasi hanya bila diminta" dan rekomendasi Laravel Cloud bertentangan dengan aturan repository | Guideline kustom Solveit menyatakan prioritas; `deployments` dikecualikan |
+
+### CI dan frontend
+
+- **Backend CI** baru (`.github/workflows/backend-ci.yml`). Hasil run di GitHub dicatat di `.ai/project-status.md` dan di PR setelah push.
+- Frontend tidak diubah (`git status frontend/` bersih). Hasil pemeriksaan frontend di bawah.
+
+### Keterbatasan
+
+- Codex: konfigurasi diverifikasi, pemanggilan tool dari sesi Codex tidak. Cursor: tidak diverifikasi sama sekali.
+- Belum ada deployment, database produksi, domain, atau origin produksi; proteksi spam tambahan (CAPTCHA, firewall) menunggu keputusan deployment.
+- Masa simpan, ekspor, dan penghapusan data inquiry belum diputuskan (`docs/api/inquiries.md`, Privasi).
+
 ## Kerapian struktur repository (2026-10-15)
 
 Cakupan: permintaan pemilik setelah rilis putaran 6. Tanpa perubahan fitur, desain, atau motion.
