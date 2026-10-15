@@ -75,7 +75,7 @@ File lain tidak diletakkan di root. Lisensi (`LICENSE`), `CHANGELOG.md`, `CONTRI
 | Hook | `use-<nama>.ts`, ekspor `use<Nama>` | `use-reveal.ts` |
 | Modul TypeScript lain | `kebab-case.ts` | `scrollspy.ts`, `logo-paths.ts` |
 | Unit test | Di samping file yang diuji: `<nama>.test.ts(x)` | `inquiry.test.ts` |
-| Tes end-to-end | `tests/e2e/<area>.spec.ts` | `navigation.spec.ts` |
+| Tes end-to-end | `tests/e2e/<area>.spec.ts`; untuk build varian `tests/e2e-<varian>/` dengan `playwright.<varian>.config.ts` | `navigation.spec.ts`, `e2e-api/inquiry-api.spec.ts` |
 | Aset merek | `<merek>-<jenis>-<varian>.<ext>` | `solveit-logo-full.svg`, `solveit-logo-icon.svg` |
 | Gambar lain | `<konteks>-<isi>.<ext>`, tanpa spasi atau huruf besar | `solveit-og.png` |
 | File konvensi platform | Pertahankan nama yang dituntut platform | `favicon.svg`, `apple-touch-icon.png`, `site.webmanifest` |
@@ -188,10 +188,11 @@ frontend/
 │   ├── test/               Setup Vitest
 │   ├── types/              Tipe domain bersama
 │   ├── root.tsx, routes.ts, entry.client.tsx
-├── tests/e2e/              Playwright: spec per area, fixtures, daftar route
+├── tests/e2e/              Playwright: spec per area, fixtures, daftar route (build bawaan)
+├── tests/e2e-api/          Playwright untuk build dengan kanal API inquiry aktif (respons di-mock)
 └── package.json, package-lock.json, tsconfig.json, vite.config.ts, vitest.config.ts,
-    playwright.config.ts, react-router.config.ts, eslint.config.js, .prettierrc.json,
-    .prettierignore, .env.example
+    playwright.config.ts, playwright.api.config.ts, react-router.config.ts, eslint.config.js,
+    .prettierrc.json, .prettierignore, .env.example
 ```
 
 Aturan:
@@ -225,6 +226,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── bootstrap/app.php           [W] Routing (api:), middleware, penanganan exception
 ├── config/                     [W] Ditambah config proyek (cors.php, trustedproxy.php, <domain>.php) dan boost.php [B]
 ├── database/                   [W] migrations, factories, seeders; *.sqlite tidak di-commit
+├── docker/mysql/               [P] Hanya pengembangan lokal: compose.yaml (MySQL 8.4) dan initdb/ (database dan pengguna). secrets/ [L], diabaikan Git
 ├── public/                     [W] index.php, .htaccess, robots.txt
 ├── resources/views/            [W] Boleh kosong (.gitkeep) pada aplikasi API
 ├── routes/                     [W] api.php (/api/v1/...), web.php, console.php

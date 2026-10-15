@@ -2,6 +2,121 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## MySQL 8.4 lokal permanen dan uji integrasi nyata B2 (2026-10-16)
+
+Lingkungan pengembangan di mesin pemilik, tanpa mengubah XAMPP. Kode backend dan frontend tidak berubah; yang di-commit hanya `backend/docker/mysql/` dan dokumentasi.
+
+### Kondisi awal
+
+- PHP CLI `C:\xampp\php\php.exe` 8.5.7 (ZTS, x64), `php.ini` `C:\xampp\php\php.ini`, `pdo_mysql` dan `mysqlnd` aktif. Composer 2.8.12 memakai PHP yang sama.
+- MariaDB XAMPP 10.4.32 mendengarkan di 3306 (`mysqld.exe`). Klien `mysql` di `PATH` adalah klien MariaDB itu. Tidak ada layanan Windows MySQL.
+- Docker 29.8.2 (Linux, amd64), Compose 5.6.0. Port 3307 kosong. Belum ada container `solveit-mysql` maupun volume `solveit-mysql-data`. Container proyek lain (berhenti) tidak disentuh.
+- `backend/.env` masih memilih SQLite; `backend/.env.testing` belum ada.
+
+### Instalasi
+
+- `backend/docker/mysql/compose.yaml`: image `mysql:8.4.11` (digest sama dengan `mysql:8.4`), container `solveit-mysql`, `127.0.0.1:3307->3306`, volume bernama `solveit-mysql-data`, `restart: unless-stopped`, health check `mysqladmin ping` lewat TCP. Kata sandi acak (48 karakter heksadesimal) sebagai Docker secret dari `secrets/` yang diabaikan Git; `docker inspect` hanya menampilkan `MYSQL_ROOT_PASSWORD_FILE`. `root` hanya `root@localhost` di dalam container.
+- `initdb/10-solveit-databases.sh` berjalan pada start pertama dan membuat kedua database dan kedua pengguna.
+- Restart container: kembali `healthy`, keempat migrasi tetap tercatat.
+
+### Verifikasi SQL
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `VERSION()`, `@@version_comment` | `8.4.11`, `MySQL Community Server - GPL` (bukan MariaDB) |
+| `sql_mode`, engine, charset server | `STRICT_TRANS_TABLES` dan mode default 8.4 lainnya, InnoDB, `utf8mb4` |
+| Database | `solveit_indonesia` dan `solveit_indonesia_testing`, keduanya `utf8mb4_unicode_ci` |
+| `SHOW GRANTS` `solveit_dev@%` | `USAGE ON *.*`, `ALL PRIVILEGES ON `` `solveit\_indonesia`.* `` |
+| `SHOW GRANTS` `solveit_test@%` | `USAGE ON *.*`, `ALL PRIVILEGES ON `` `solveit\_indonesia\_testing`.* `` |
+| PDO dari PHP 8.5.7 (mysqlnd 8.5.7) | Kedua pengguna tersambung ke 8.4.11 dan memilih database masing-masing; `USE` ke database yang lain ditolak (SQLSTATE 42000) |
+
+### Laravel
+
+- `backend/.env` diubah dengan izin pemilik oleh script yang hanya mengganti `DB_*` dan menambah `CORS_ALLOWED_ORIGINS` (cadangan `backend/.env.backup`); nilai tidak ditampilkan. `.env.testing` dibuat baru (`APP_KEY` sendiri, `solveit_test`).
+- `php artisan db:show`: MySQL 8.4.11, `solveit_indonesia`, `127.0.0.1:3307`, `solveit_dev`, 0 tabel. `php artisan migrate`: 4 migrasi, batch 1.
+- `php artisan test`: **109 tes, 275 assertion, lulus** pada `solveit_indonesia_testing` (pengaman menerima grant yang di-escape).
+- Pint lulus; `composer validate --strict` valid; `composer check-platform-reqs` semua sukses (php 8.5.7); `composer audit`: tidak ada advisory (perlu `COMPOSER_IPRESOLVE=4`; lewat IPv6 permintaan ke Packagist timeout di jaringan ini); `route:list --except-vendor`: `POST api/v1/inquiries`, `GET|HEAD up`.
+- Laravel Boost MCP: `application-info` melaporkan Laravel 13.36.0, PHP 8.5, engine `mysql`; `database-schema` membaca tabel hasil migrasi.
+
+### Integrasi nyata frontend ke Laravel ke MySQL (B2, tanpa mock)
+
+Frontend `frontend` di `1ef187c` dibangun dengan `VITE_INQUIRY_API_ENABLED=true` dan `VITE_API_BASE_URL=http://127.0.0.1:8000` ke `build/inquiry-api-local`, disajikan di `http://localhost:4174`; Laravel `php artisan serve` di `127.0.0.1:8000`. Data sintetis saja.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Preflight `OPTIONS` dari `http://localhost:4174` | `204`, `Access-Control-Allow-Origin: http://localhost:4174`, metode `GET, POST` |
+| Preflight dari origin lain | `204` tanpa header `Access-Control-Allow-Origin` (browser menolak) |
+| Membuka `/kontak` | 0 request ke API |
+| Klik ganda **Kirim melalui website** (Chromium) | Tepat 1 `POST /api/v1/inquiries`, `201` `{"id":"INQ-DXJA-G0DD-MFXE","status":"received"}`; referensi yang tampil sama dengan respons; tidak ada `window.open`, tidak ada pesan konsol |
+| Database | Tepat 1 baris dengan `public_id` itu (`website`, `belum-tahu`, `fleksibel`, `received`) |
+| `422` data tidak valid (curl, header `Origin`) | Galat untuk `name`, `contact`, `service`, `budget`, `timeline`, `message`; header CORS ada |
+| `422` honeypot terisi | Galat hanya `homepage`; jumlah baris tetap 1 |
+| Build bawaan (tanpa variabel) | `/kontak` tanpa tombol website dan honeypot, tidak ada rujukan ke API lokal |
+
+Sebelum service dipilih, validasi formulir di browser menolak kiriman dan tidak ada request. Baris uji dihapus setelahnya berdasarkan referensinya (sisa 0 baris). Penghitung rate limit di tabel `cache` kedaluwarsa sendiri (paling lama 1 jam).
+
+### Belum diverifikasi
+
+- Tampilan `422` dari server sungguhan di browser: validasi klien menolak data yang sama lebih dulu. Pemetaan `422`, `429`, `503`, dan galat jaringan tetap dibuktikan dengan respons tiruan (bagian B2 di bawah).
+- Rate limit `429` nyata tidak dipicu, agar tidak mengisi cache dengan percobaan tambahan.
+- WebKit dan Firefox tidak dipakai untuk uji nyata ini (hanya Chromium).
+
+## B2: integrasi API inquiry di frontend (2026-10-15)
+
+Cakupan: kanal **Kirim melalui website** di formulir kontak, di balik flag yang nonaktif secara default, dan perbaikan tes animasi tema yang flaky di WebKit. Baseline yang diverifikasi: `origin/main`, `origin/frontend`, `origin/backend` = `88db528` (rilis B1.1, PR #21), `origin/staging` `22f6853` dengan tree yang sama (`4b71119`); working tree bersih, tanpa stash atau worktree lain.
+
+### Mode aktif dan nonaktif
+
+Nilai `VITE_*` ditanam saat build, jadi mode aktif dibuktikan dengan build kedua (`playwright.api.config.ts`: `BUILD_DIR=build/inquiry-api`, port 4174, `VITE_INQUIRY_API_ENABLED=true`, `VITE_API_BASE_URL=http://127.0.0.1:65530`). Semua request ke origin itu dijawab `page.route`; tidak ada request yang keluar dan tidak ada data inquiry nyata. Build bawaan (dan Frontend CI) tetap membuktikan mode nonaktif: tes `the default build has no website channel and calls no API` memeriksa teks privasi lama, tidak ada tombol website atau honeypot, dan tidak ada request ke path `/api/` saat WhatsApp dibuka.
+
+### Pemeriksaan otomatis (lokal, Windows 11, Node 22.23.1, Playwright 1.64)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run lint`, `npm run typecheck`, `npm run build` | Lulus |
+| Prettier | Semua file yang akan di-commit lulus. `npm run format:check` lokal menandai `frontend/.impeccable/hook.cache.json`, cache hook desain yang dikecualikan lewat `.git/info/exclude` (tidak ada di checkout CI) |
+| `npm test` | 15 file, 125 tes lulus (sebelumnya 69). Baru: `site.test.ts` (origin dan flag), `inquiry-api.test.ts` (request, 201 valid dan rusak, 422, honeypot, 413, 429 dengan/tanpa `Retry-After`, 503, 4xx/5xx lain, jaringan, timeout, abort, pembersihan timer dan listener, tanpa retry), `inquiry-form.api.test.tsx` (17 tes mode aktif, ID dan EN), paritas validasi di `inquiry.test.ts` |
+| E2E build bawaan, Chromium desktop 1440 | 180 lulus, 5 dilewati, 0 gagal |
+| E2E build bawaan, Chromium tablet 820 | 161 lulus, 24 dilewati, 0 gagal |
+| E2E build bawaan, Pixel 7 | 147 lulus, 38 dilewati, 0 gagal |
+| E2E build API, desktop + tablet + Pixel 7 | 24 lulus |
+| E2E build API, Firefox | 8 lulus |
+| E2E build API, WebKit desktop + iPhone 14 (lokal) | 14 lulus, 2 dilewati: tes email di WebKit, karena WebKit Playwright di Windows menyerahkan `mailto:` ke handler email sistem yang mengganti halaman (perilaku sama dengan kode lama; komposisi `mailto:` dites di unit test, Chromium, dan Firefox) |
+| axe pada status penerimaan (build API, semua project) | 0 pelanggaran |
+
+### Tes tema yang flaky di WebKit (diperbaiki, akar masalah terkonfirmasi)
+
+Gejala: Cross-browser QA run 38723672210 percobaan 1, `webkit-mobile`, `refinement.spec.ts` "the theme icons roll through the button": `expect(moving).not.toBe("none")`, diterima `"none"`; lulus pada percobaan 2 tanpa perubahan kode.
+
+Akar masalah: `setTheme()` (`src/lib/theme.ts`) menerapkan `data-theme` di dalam callback `document.startViewTransition()`, yang berjalan satu frame atau lebih setelah klik. Tes membaca `transform` ikon matahari tepat setelah `click()`, jadi kadang membaca keadaan sebelum tema berganti. Pada perangkat sentuh (`hover: none`) keadaan itu `none` sehingga gagal; pada perangkat pointer, rotasi hover matahari (`rotate(45deg)`) membuat asersi lulus walau tema belum berganti, jadi tes tidak pernah benar-benar memeriksa gulungan ikon di sana. Bukti (skrip diagnostik, 10 run per konfigurasi, callback ditunda 100 ms untuk meniru frame lambat di runner): pembacaan lama memberi `theme=light transform=none` di WebKit iPhone 14 dan Chromium Pixel 7, dan `theme=light transform=moved` di desktop; asersi baru lulus di keempatnya. Tanpa penundaan, keempat konfigurasi selalu membaca tema gelap (80/80), sesuai kegagalan yang hanya muncul di runner CI yang sibuk.
+
+Perbaikan (hanya tes, aplikasi tidak berubah): tunggu `data-theme="dark"`, catat transisi ikon lewat `transitionrun` yang terjadi setelah tema gelap aktif (gulungan hover sebelumnya tidak terhitung), wajibkan transisi `transform` pada matahari dan bulan, lalu periksa keadaan akhir: matahari bergeser ke bawah sel (`DOMMatrix.f > 0`) dan transparan, bulan opasitas 1 dan tegak setelah pointer menjauh. Tes baru untuk reduced motion: hanya crossfade, tanpa transisi `transform`. Tidak ada timeout yang dinaikkan. Pengulangan lokal: WebKit desktop dan iPhone 14, 10 kali masing-masing untuk kedua tes, 40/40 lulus; Chromium desktop dan Pixel 7 lulus.
+
+### CI (GitHub Actions)
+
+| Run | Hasil |
+|---|---|
+| Frontend CI 38734922594 (PR #22, `8eed02d`) | Lulus. E2E build bawaan 488 lulus; E2E build API 24 lulus |
+| Cross-browser QA 38734781136 (`09efbc0`, push) dan 38734933837 (`8eed02d`, dispatch), 1 worker, tanpa retry | Keduanya: WebKit 177 lulus, 0 gagal, 0 flaky, 8 dilewati; WebKit iPhone 14 145 lulus, 0 gagal, 0 flaky, 40 dilewati; build API 7 lulus dan 1 dilewati per project. Tes tema yang sebelumnya flaky lulus di keempat eksekusi |
+
+### Performa dan aksesibilitas
+
+| Ukuran (gzip) | `main` `88db528` | B2 (build bawaan) |
+|---|---|---|
+| Chunk route kontak | 3,46 KB | 6,95 KB |
+| Seluruh JS | 254,9 KB | 260,4 KB (+5,5 KB, sebagian besar teks dua bahasa) |
+| HTML `/kontak` | 15.540 B | 15.559 B |
+
+Lighthouse 13.5, preset mobile bawaan (simulasi throttling), `/kontak`, median 3 run, kedua build disajikan `scripts/serve.mjs`: performa 100 vs 100, LCP 1590 vs 1588 ms, TBT 9 vs 9 ms, CLS 0 vs 0, aksesibilitas 100 vs 100. Tidak ada request saat render atau prerender; request hanya setelah klik dan validasi lolos.
+
+Review visual build API pada 1440, 820, dan 390 px, tema terang dan gelap: status idle, mengirim, diterima, dan tidak pasti. Satu perbaikan selama review: judul "Atau kirim sendiri lewat WhatsApp atau email" menjadi pemisah tenang bergaris agar pemilih nomor jelas milik WhatsApp. Umpan balik sebelumnya tetap tampil (redup) selama mengirim agar tombol tidak melompat, kecuali ringkasan kolom yang belum diisi karena isinya sudah tidak benar.
+
+### Integrasi Laravel dan MySQL
+
+**Tidak diverifikasi secara lokal.** Mesin pemilik belum punya MySQL 8.4 permanen, dan tugas ini tidak mengizinkan memasang layanan, membuat kredensial, atau membaca `.env`. Semua tes frontend memakai respons mock sesuai `docs/api/inquiries.md`; kontrak backend tetap dibuktikan oleh tes backend dan Backend CI (MySQL 8.4) yang tidak berubah. Uji HTTP nyata frontend ke Laravel dan MySQL perlu dilakukan setelah lingkungan sekali pakai diizinkan atau API di-deploy.
+
+Pembaruan 2026-10-16: uji nyata ini sudah dilakukan setelah MySQL 8.4 lokal disiapkan; hasilnya di bagian "MySQL 8.4 lokal permanen dan uji integrasi nyata B2" di atas.
+
 ## B1.1: review akhir dan penyelarasan konfigurasi QA (2026-10-15)
 
 Cakupan: temuan review PR #20, tanpa memperluas B1.1. Baseline yang diverifikasi: `origin/backend` = lokal `258dae4`, `origin/staging` `7e936b5`, `origin/main` dan `origin/frontend` `7729d17`; PR #20 open, mergeable, Backend CI run 38711417910 dan Frontend CI run 38711417888 lulus pada `258dae4`. Server uji: container `mysql:8.4` sekali pakai baru (MySQL 8.4.11, `127.0.0.1:3307`, tmpfs), dihapus di akhir sesi.

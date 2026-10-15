@@ -78,3 +78,23 @@ test("text typed before the app takes over is kept and sent", async ({ page }) =
   expect(decodeURIComponent(urls[0]!)).toContain("Nama: Rina Wulandari");
   expect(page.url()).not.toContain("Rina");
 });
+
+test("the default build has no website channel and calls no API", async ({ page }) => {
+  // The production build ships with VITE_INQUIRY_API_ENABLED unset (false).
+  const apiCalls: string[] = [];
+  page.on("request", (request) => {
+    if (/\/api\//.test(new URL(request.url()).pathname)) apiCalls.push(request.url());
+  });
+  await page.goto("/kontak?layanan=website");
+  await expect(page.getByText(/Formulir ini tidak mengirim atau menyimpan data/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Kirim melalui website/ })).toHaveCount(0);
+  await expect(page.locator('input[name="homepage"]')).toHaveCount(0);
+  await page.getByLabel(/^Nama/).fill("Rina Wulandari");
+  await page.getByLabel(/^Email atau nomor WhatsApp/).fill("rina@example.com");
+  await page
+    .getByLabel(/^Ceritakan kebutuhan Anda/)
+    .fill("Kami butuh website profil dengan katalog produk.");
+  await page.getByRole("button", { name: "Kirim lewat WhatsApp" }).click();
+  expect(await opened(page)).toHaveLength(1);
+  expect(apiCalls).toEqual([]);
+});

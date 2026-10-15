@@ -54,19 +54,54 @@ Jangan memakai pengguna `root`, database proyek lain, atau database bersama.
 
 ### Server lokal
 
-Pilih salah satu, tanpa mengubah server database milik proyek lain:
+Cara yang disarankan adalah Docker lewat `docker/mysql/compose.yaml`. Hanya untuk pengembangan: produksi tidak memakai Docker. Server database XAMPP dan milik proyek lain tidak diubah.
 
-- **Docker**: volume bernama agar data pengembangan bertahan, port hanya terbuka di `127.0.0.1` dan tidak bentrok dengan XAMPP:
+| | |
+|---|---|
+| Image | `mysql:8.4.11` (Oracle MySQL 8.4 LTS, dikunci ke patch; bukan `latest`, bukan MariaDB) |
+| Container | `solveit-mysql`, proyek Compose `solveit-indonesia` |
+| Port | `127.0.0.1:3307` (hanya loopback; 3306 tetap milik MariaDB XAMPP) |
+| Data | Volume bernama `solveit-mysql-data` (bukan bind mount Windows) |
+| Restart | `unless-stopped`: hidup lagi bersama Docker Desktop, kecuali dihentikan manual |
+| Kata sandi | Docker secret dari `docker/mysql/secrets/` (diabaikan Git), tidak lewat variabel environment atau argumen perintah. `root` hanya ada di dalam container |
 
-  ```bash
-  docker run -d --name solveit-mysql -p 127.0.0.1:3307:3306 \
-    -e MYSQL_ROOT_PASSWORD=<kata-sandi-root-lokal> -v solveit-mysql-data:/var/lib/mysql mysql:8.4
-  ```
+Sekali, dari `backend/docker/mysql/` di Git Bash:
 
-  Lalu `DB_PORT=3307` di `.env`. `docker stop solveit-mysql` bila tidak dipakai; data tetap di volume.
-- **MySQL Community Server 8.4 LTS** dari dev.mysql.com, di port selain 3306 bila XAMPP berjalan.
+```bash
+mkdir -p secrets
+for name in mysql_root_password solveit_dev_password solveit_test_password; do
+  [ -e "secrets/$name" ] || php -r 'echo bin2hex(random_bytes(24));' > "secrets/$name"
+done
+docker compose up -d
+docker compose ps     # tunggu sampai (healthy)
+```
 
-Buat database dan pengguna sekali sebagai root (kata sandi milik Anda, tidak pernah di-commit):
+Pada start pertama (volume masih kosong) `initdb/10-solveit-databases.sh` membuat kedua database dan kedua pengguna dengan grant yang sama seperti SQL di bawah. Lalu isi `backend/.env`: `DB_CONNECTION=mysql`, `DB_HOST=127.0.0.1`, `DB_PORT=3307`, `DB_DATABASE=solveit_indonesia`, `DB_USERNAME=solveit_dev`, dan `DB_PASSWORD` dengan isi `docker/mysql/secrets/solveit_dev_password`. Buat `.env.testing` seperti di [Kredensial tes](#kredensial-tes), lalu `php artisan migrate` dan `php artisan test`.
+
+Perintah harian, dari `backend/docker/mysql/`:
+
+| Tugas | Perintah |
+|---|---|
+| Menyalakan | `docker compose up -d` |
+| Menghentikan hanya container ini (data tetap) | `docker compose stop` |
+| Restart | `docker compose restart` |
+| Status dan health | `docker compose ps` |
+| Log server | `docker compose logs --tail=50 mysql` |
+| Versi server yang sebenarnya | `php artisan db:show` dari `backend/` (baris `MySQL 8.4.x`) |
+| Konsol SQL sebagai root | `docker exec -it solveit-mysql bash -c 'mysql --defaults-extra-file=<(printf "[client]\nuser=root\npassword=%s\n" "$(cat /run/secrets/mysql_root_password)")'` |
+| Menjalankan ulang provisioning (aman; menyamakan kata sandi kedua pengguna dengan secret) | `docker exec solveit-mysql bash -c 'bash /docker-entrypoint-initdb.d/10-solveit-databases.sh'` (dalam `bash -c` agar Git Bash tidak mengubah path) |
+| Backup database pengembangan, ke luar repository | `docker exec solveit-mysql bash -c 'mysqldump --defaults-extra-file=<(printf "[client]\nuser=root\npassword=%s\n" "$(cat /run/secrets/mysql_root_password)") --single-transaction --databases solveit_indonesia' > ~/solveit-backup-$(date +%Y%m%d).sql` |
+| Memulihkan backup | `docker exec -i solveit-mysql bash -c 'mysql --defaults-extra-file=<(printf "[client]\nuser=root\npassword=%s\n" "$(cat /run/secrets/mysql_root_password)")' < ~/solveit-backup-<tanggal>.sql` |
+
+Backup berisi data inquiry (data pribadi): simpan di luar repository dan jangan dibagikan. `docker compose down` menghapus container dan jaringannya tetapi **tidak** volume; data hanya hilang dengan `docker compose down -v` atau `docker volume rm solveit-mysql-data`, jadi jangan menjalankan keduanya kecuali memang ingin mengosongkan database lokal.
+
+Masalah umum:
+
+- **Port 3307 dipakai proses lain** (`netstat -ano | findstr :3307` di PowerShell): ganti port host di `compose.yaml` (misalnya `127.0.0.1:3308:3306`) serta `DB_PORT` di `.env` dan `.env.testing`. Jangan menghentikan layanan milik proyek lain.
+- **`mysql --version` menampilkan MariaDB**: `mysql` di PATH adalah klien bawaan XAMPP (`C:\xampp\mysql\bin`). Perintah itu hanya menyebut versi klien, bukan server yang dipakai Laravel. Server diperiksa lewat koneksi sungguhan: `php artisan db:show`, atau `SELECT VERSION(), @@version_comment` (hasilnya `8.4.x` dan `MySQL Community Server - GPL`). Pakai konsol di dalam container di atas, bukan klien MariaDB.
+- **Unhealthy saat start pertama**: `docker compose logs mysql`. Script provisioning menolak secret yang kosong atau kurang dari 32 huruf/angka.
+
+Tanpa Docker: **MySQL Community Server 8.4 LTS** dari dev.mysql.com, di port selain 3306 bila XAMPP berjalan. Buat database dan pengguna sekali sebagai root (kata sandi milik Anda, tidak pernah di-commit):
 
 ```sql
 CREATE DATABASE solveit_indonesia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -81,7 +116,20 @@ Garis bawah di-escape (`\_`) karena pada grant tingkat database MySQL memperlaku
 
 ### Kredensial tes
 
-`phpunit.xml` mengunci `APP_ENV=testing`, driver `mysql`, dan nama database `solveit_indonesia_testing` di `$_SERVER` dan `$_ENV` (Laravel membaca `$_SERVER` lebih dulu), jadi variabel shell tidak dapat memindahkan tes. Host, port, pengguna, dan kata sandi dibaca dari `backend/.env.testing` (diabaikan Git) atau dari environment. Buat `.env.testing` berisi `APP_KEY` (salin dari `.env`), `DB_HOST`, `DB_PORT`, `DB_USERNAME=solveit_test`, dan `DB_PASSWORD`. `.env.testing` wajib ada: tanpa file itu Laravel memakai `.env`, dan pengguna pengembangan akan ditolak pengaman.
+`phpunit.xml` mengunci `APP_ENV=testing`, driver `mysql`, dan nama database `solveit_indonesia_testing` di `$_SERVER` dan `$_ENV` (Laravel membaca `$_SERVER` lebih dulu), jadi variabel shell tidak dapat memindahkan tes. Host, port, pengguna, dan kata sandi dibaca dari `backend/.env.testing` (diabaikan Git) atau dari environment. Buat `.env.testing` berisi `APP_KEY`, `DB_HOST`, `DB_PORT`, `DB_USERNAME=solveit_test`, dan `DB_PASSWORD`. `.env.testing` wajib ada: tanpa file itu Laravel memakai `.env`, dan pengguna pengembangan akan ditolak pengaman. Dengan container Docker di atas, dari `backend/` (tidak ada nilai yang tampil di layar):
+
+```bash
+[ -e .env.testing ] || cat > .env.testing <<EOF
+APP_ENV=testing
+APP_KEY=$(php -r 'echo "base64:".base64_encode(random_bytes(32));')
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3307
+DB_DATABASE=solveit_indonesia_testing
+DB_USERNAME=solveit_test
+DB_PASSWORD=$(cat docker/mysql/secrets/solveit_test_password)
+EOF
+```
 
 Pengaman (`tests/Support/TestDatabaseGuard.php`, dipanggil dari `tests/TestCase.php` sebelum `RefreshDatabase` menghapus tabel; sekali per proses) memverifikasi identitas yang eksplisit:
 
@@ -106,9 +154,9 @@ Semua variabel terdokumentasi di `.env.example`. Yang khusus proyek ini:
 | Variabel | Default | Fungsi |
 |---|---|---|
 | `APP_DEBUG` | `true` di contoh | **Wajib `false` di luar lokal**: mode debug menambahkan stack trace ke respons galat |
-| `DB_*` | `mysql`, `127.0.0.1:3306`, `solveit_indonesia`, `solveit_dev` | Database pengembangan. Tes memakai database terpisah (di atas) |
+| `DB_*` | `mysql`, `127.0.0.1:3307`, `solveit_indonesia`, `solveit_dev` | Database pengembangan; port 3307 milik container Docker di atas (server lain: portnya sendiri). Tes memakai database terpisah (di atas) |
 | `MYSQL_ATTR_SSL_CA` | kosong | Sertifikat CA bila server MySQL produksi mewajibkan TLS |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:4173` | Origin browser yang boleh memanggil `/api/*`. Kosong: tidak ada |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:4173,http://localhost:4174` | Origin browser yang boleh memanggil `/api/*`: server Vite, preview statis, dan build frontend dengan kanal API aktif (port 4174). Kosong: tidak ada |
 | `TRUSTED_PROXIES` | kosong | IP atau CIDR load balancer/CDN; tanpa itu `X-Forwarded-For` diabaikan |
 | `INQUIRY_RATE_LIMIT_PER_MINUTE` / `_PER_HOUR` | `5` / `20` | Batas kiriman inquiry per IP |
 | `INQUIRY_MAX_BODY_BYTES` | `65536` | Batas body; di atasnya `413` |
@@ -133,6 +181,7 @@ app/
 ├── Models/Inquiry.php
 └── Rules/EmailOrPhone.php                       Format kontak yang sama dengan frontend
 config/{cors,trustedproxy,inquiries,boost}.php
+docker/mysql/                                    MySQL 8.4 lokal (compose.yaml, initdb/); secrets/ diabaikan Git. Bukan untuk produksi
 routes/api.php                                   /api/v1/...
 tests/TestCase.php, tests/Support/               Pengaman database tes (TestDatabaseGuard)
 tests/Feature/...                                Endpoint, action, health check, konfigurasi MySQL

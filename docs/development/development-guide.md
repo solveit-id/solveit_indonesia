@@ -23,6 +23,7 @@ Jalankan dari `frontend/`:
 | `npm run typecheck` | Typegen React Router + `tsc` |
 | `npm test` | Unit dan component test (Vitest) |
 | `npm run test:e2e` | Playwright di 3 viewport (desktop 1440, tablet 820, Pixel 7), termasuk axe di kedua tema dan kedua bahasa |
+| `npm run test:e2e:api` | Playwright untuk build kedua dengan kanal API inquiry aktif (`playwright.api.config.ts`, `tests/e2e-api/`, port 4174, output `build/inquiry-api/client`). Semua respons API di-mock dengan `page.route`; tidak ada request yang keluar. Nilai `VITE_*` ditanam saat build, jadi mode aktif dan nonaktif hanya bisa dibuktikan dengan dua build |
 | `PW_ALL_BROWSERS=1 npm run test:e2e` | Menambahkan Firefox dan WebKit desktop (butuh `npx playwright install firefox webkit`) |
 | GitHub Actions: **Cross-browser QA** | Suite penuh di WebKit desktop dan WebKit iPhone 14 pada runner bersih (1 worker, tanpa retry, laporan sebagai artefak). Jalankan lewat tab Actions atau `gh workflow run cross-browser-qa.yml -f ref=<sha>` setelah workflow ada di `main`. CI reguler tetap hanya Chromium |
 | `npm run format` / `format:check` | Prettier (dengan pengurutan kelas Tailwind) |
@@ -35,7 +36,8 @@ Salin `frontend/.env.example` menjadi `frontend/.env.local` bila perlu. Semua va
 | Variabel | Kapan diisi |
 |---|---|
 | `VITE_SITE_URL` | Setelah domain dikonfirmasi. Mengaktifkan canonical, `og:url`, `og:image` absolut, BreadcrumbList, dan `sitemap.xml` |
-| `VITE_API_BASE_URL` | Saat API backend di-deploy dan kanal `api` formulir dibangun (B2). Lokal: `http://localhost:8000` |
+| `VITE_API_BASE_URL` | Origin API Laravel saja (skema, host, port opsional; tanpa path, query, atau kredensial). HTTPS wajib, kecuali `http://localhost`, `http://127.0.0.1`, atau `http://[::1]` untuk pengembangan. Nilai yang tidak valid dianggap kosong. Lokal: `http://localhost:8000` |
+| `VITE_INQUIRY_API_ENABLED` | Kanal **Kirim melalui website** hanya aktif bila nilainya persis `true` **dan** `VITE_API_BASE_URL` valid; formulir lalu mengirim ke `<origin>/api/v1/inquiries`. Default `false`. Jangan diaktifkan di produksi sebelum pemilik menyetujui pemberitahuan privasi, masa simpan, hosting, database, dan penanganan operasional (`docs/api/inquiries.md`). Nilai ini publik (ditanam di bundle): jangan pernah menaruh rahasia atau kredensial Laravel di variabel `VITE_*` |
 | `VITE_GOOGLE_SITE_VERIFICATION` | Token verifikasi Search Console |
 
 Jangan commit file `.env*` selain `.env.example`.
@@ -74,7 +76,7 @@ Ringkasan untuk pengembangan harian. Rincian environment, struktur, dan keamanan
 
 ### Setup dari clone baru
 
-Siapkan dulu MySQL 8.4 dengan database `solveit_indonesia` (pengembangan) dan `solveit_indonesia_testing` (tes), masing-masing dengan pengguna sendiri: perintah dan SQL ada di `backend/README.md` bagian Database MySQL. Database MariaDB bawaan XAMPP tidak dipakai.
+Siapkan dulu MySQL 8.4 dengan database `solveit_indonesia` (pengembangan) dan `solveit_indonesia_testing` (tes), masing-masing dengan pengguna sendiri. Cara yang disarankan: container Docker `solveit-mysql` dari `backend/docker/mysql/compose.yaml` (MySQL 8.4.11 di `127.0.0.1:3307`, volume `solveit-mysql-data`, kata sandi sebagai Docker secret); langkah, perintah harian, backup, dan SQL untuk server non-Docker ada di `backend/README.md` bagian Database MySQL. Database MariaDB bawaan XAMPP tidak dipakai dan tidak diubah.
 
 ```bash
 cd backend
@@ -87,7 +89,17 @@ php artisan test                      # database solveit_indonesia_testing (kred
 php artisan serve                     # http://localhost:8000
 ```
 
-Untuk mencoba bersama frontend: `npm run dev` di `frontend/` (origin `http://localhost:5173` sudah ada di `CORS_ALLOWED_ORIGINS` contoh). Frontend belum memanggil API sampai B2.
+Frontend tanpa variabel (`npm run dev`, build bawaan) tidak memanggil API. Untuk mencoba kanal **Kirim melalui website** terhadap Laravel dan MySQL lokal (B2):
+
+```bash
+# backend/: origin http://localhost:4174 sudah ada di CORS_ALLOWED_ORIGINS contoh
+php artisan serve --host=127.0.0.1 --port=8000
+# frontend/: build varian ke folder sendiri, lalu sajikan di port 4174
+BUILD_DIR=build/inquiry-api-local VITE_INQUIRY_API_ENABLED=true VITE_API_BASE_URL=http://127.0.0.1:8000 npm run build
+BUILD_DIR=build/inquiry-api-local PORT=4174 node scripts/serve.mjs
+```
+
+Buka `http://localhost:4174/kontak` dan kirim data sintetis saja: kiriman tersimpan di database pengembangan dan dihitung rate limit (5 per menit per IP). `npm run build` biasa membersihkan seluruh `build/`, termasuk folder varian ini. Jangan memakai variabel ini untuk build yang dirilis.
 
 ### Perintah
 
@@ -160,6 +172,8 @@ Lihat tabel di `backend/README.md`. Yang paling penting: `APP_DEBUG=false` di lu
 | `SQLSTATE[HY000] [1045]` atau `[1044]` | Pengguna atau kata sandi salah, atau pengguna tidak punya hak pada database itu. Tes memakai `solveit_test` pada `solveit_indonesia_testing` |
 | Tes berhenti dengan "The test database user may only hold privileges on …" | Pengguna di `.env.testing` punya hak di luar database tes (misalnya `root`, `GRANT ... ON *.*`, database lain, atau grant tanpa escape `solveit_indonesia_testing.*`). Pakai pengguna `solveit_test` dengan grant persis di `backend/README.md`; jangan melemahkan pengaman |
 | Tes berhenti dengan "selected … instead of solveit_indonesia_testing" atau "Tests only run …" | Koneksi tidak sampai ke database tes yang diharapkan (misalnya `DB_URL` di `.env.testing`). Hapus `DB_URL` dan periksa host serta port |
+| `mysql --version` menampilkan MariaDB | Itu klien XAMPP di `PATH`, bukan server yang dipakai Laravel. Periksa server lewat `php artisan db:show` (harus `MySQL 8.4.x`) |
+| Port 3307 sudah dipakai | Ganti port host di `backend/docker/mysql/compose.yaml` serta `DB_PORT` di `.env` dan `.env.testing`; jangan menghentikan layanan proyek lain |
 | Versi MySQL terdeteksi MariaDB | Tes `MySqlDatabaseTest` gagal: server yang dipakai adalah MariaDB (misalnya XAMPP). Jalankan MySQL 8.4 terpisah |
 | Composer menolak PHP | `composer.json` mewajibkan PHP 8.5.7 atau lebih baru; perbarui PHP. Jangan menurunkan `config.platform.php` |
 | Agent tidak dapat membaca `.env.example` | Pola `deny` di `.claude/settings.json` terlalu lebar; lihat `docs/project-structure.md` bagian 6 |

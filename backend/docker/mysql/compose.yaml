@@ -1,0 +1,45 @@
+# Local development MySQL 8.4 LTS for the Solveit Indonesia backend. Development only:
+# production does not run Docker. Setup, credentials, and commands: backend/README.md
+# (Database MySQL). Run from this folder: docker compose up -d
+name: solveit-indonesia
+
+services:
+  mysql:
+    image: mysql:8.4.11
+    container_name: solveit-mysql
+    restart: unless-stopped
+    # Loopback only: reachable from this machine, never from the network. 3307 keeps
+    # clear of XAMPP MariaDB on 3306.
+    ports:
+      - "127.0.0.1:3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      # root exists only inside the container (docker exec); Laravel uses solveit_dev.
+      MYSQL_ROOT_HOST: localhost
+    secrets:
+      - mysql_root_password
+      - solveit_dev_password
+      - solveit_test_password
+    volumes:
+      - solveit-mysql-data:/var/lib/mysql
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # TCP, so the networkless temporary server of the first start does not count.
+      test: ["CMD", "mysqladmin", "ping", "--host=127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+volumes:
+  solveit-mysql-data:
+    name: solveit-mysql-data
+
+# One random value per file, ignored by Git (backend/README.md shows how to create them).
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql_root_password
+  solveit_dev_password:
+    file: ./secrets/solveit_dev_password
+  solveit_test_password:
+    file: ./secrets/solveit_test_password

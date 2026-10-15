@@ -4,7 +4,7 @@ Menyimpan satu permintaan konsultasi dari formulir kontak website. Ini satu-satu
 
 Implementasi: `backend/routes/api.php`, `app/Http/Requests/Api/V1/StoreInquiryRequest.php` (validasi), `app/Actions/SubmitInquiry.php` (penyimpanan), `app/Http/Resources/InquiryResource.php` (respons). Tes: `backend/tests/Feature/Http/Controllers/Api/V1/InquiryControllerTest.php`.
 
-Frontend belum memanggil endpoint ini. Kanal `api` di `frontend/src/services/inquiry.ts` adalah tugas B2; sampai API di-deploy, formulir tetap menyusun pesan WhatsApp atau email.
+Klien frontend (B2) sudah dibangun, tetapi **nonaktif secara default**: kanal **Kirim melalui website** hanya muncul pada build dengan `VITE_INQUIRY_API_ENABLED=true` dan `VITE_API_BASE_URL` yang valid (lihat Klien frontend di bawah). Build produksi saat ini tidak mengaktifkannya dan API belum di-deploy, jadi website publik tetap hanya menyusun pesan WhatsApp atau email.
 
 ## Permintaan
 
@@ -53,7 +53,7 @@ Sama dengan `validateInquiry()` di `frontend/src/services/inquiry.ts`:
 - Email: `^[^\s@]+@[^\s@]+\.[^\s@]{2,}$` (contoh `rina@example.com`).
 - Telepon: `^\+?[0-9][0-9 -]{7,16}$`, yaitu `+` opsional, diawali angka, total 8 sampai 17 karakter setelah `+` (contoh `+62 877-5964-1358`, `081230252499`).
 
-Satu perbedaan yang disengaja: frontend memakai `\s` (spasi apa pun) di pola telepon, server hanya menerima spasi biasa. Input formulir satu baris tidak dapat menghasilkan tab atau baris baru, jadi pengguna nyata tidak terdampak.
+Sejak B2 pola telepon frontend juga hanya menerima spasi biasa (sebelumnya `\s`), sehingga kedua sisi sama persis.
 
 ## Respons
 
@@ -81,7 +81,7 @@ Format validasi Laravel, dipetakan ke `InquiryErrors` di frontend (ambil elemen 
 }
 ```
 
-Pesan dalam bahasa Inggris (bawaan Laravel). Frontend menampilkan pesannya sendiri per field dalam bahasa halaman; teks server cukup sebagai cadangan. Tidak ada yang disimpan saat validasi gagal.
+Pesan dalam bahasa Inggris (bawaan Laravel). Frontend hanya memakai nama field-nya dan menampilkan pesannya sendiri dalam bahasa halaman; teks server tidak ditampilkan. Tidak ada yang disimpan saat validasi gagal.
 
 ### `429 Too Many Attempts`
 
@@ -100,6 +100,32 @@ Tidak ada `id` dan tidak ada `status`. Frontend B2 harus menganggapnya gagal dan
 ### Lainnya
 
 `413` (body terlalu besar), `500` (galat tak terduga, tanpa detail), dan format galat bersama ada di [README.md](README.md).
+
+## Klien frontend (B2)
+
+Implementasi: `frontend/src/config/site.ts` (konfigurasi), `frontend/src/services/inquiry-api.ts` (klien), `frontend/src/components/contact/inquiry-form.tsx` (formulir). Tes: `src/config/site.test.ts`, `src/services/inquiry-api.test.ts`, `src/components/contact/inquiry-form.api.test.tsx`, `tests/e2e-api/inquiry-api.spec.ts`.
+
+**Aktivasi.** `siteConfig.inquiryApiUrl` berisi `<origin>/api/v1/inquiries` hanya bila `VITE_INQUIRY_API_ENABLED` persis `true` dan `VITE_API_BASE_URL` adalah origin yang valid: tanpa path, query, fragment, atau kredensial; HTTPS, kecuali `localhost`, `127.0.0.1`, atau `[::1]` lewat HTTP untuk pengembangan. Selain itu kanal tidak dirender dan tidak ada request. Nilai dibaca saat build (Vite), sehingga mode aktif dan nonaktif dites dengan dua build terpisah. Merender formulir tidak pernah memanggil API; request hanya dikirim setelah pengunjung menekan **Kirim melalui website** dan validasi lokal lolos.
+
+**Request.** `fetch` bawaan: `POST`, `Accept` dan `Content-Type` `application/json`, `credentials: "omit"`, `cache: "no-store"`, `redirect: "error"`, tanpa token. Body berisi field `InquiryPayload` yang sudah di-trim plus `homepage` dari input honeypot (kosong untuk manusia). Batas waktu 15 detik lewat `AbortController`; request juga dibatalkan bila formulir di-unmount. **Tidak ada retry otomatis**, karena endpoint belum idempoten. Isi inquiry tidak pernah di-log atau dikirim ke analitik.
+
+**Pemetaan respons.**
+
+| Respons | Arti bagi formulir |
+|---|---|
+| `201` dengan `id` berpola `INQ-XXXX-XXXX-XXXX` (Crockford base32) dan `status: "received"` | Diterima. Nomor referensi asli ditampilkan; tidak ada klaim sudah dibaca, dibalas, atau ada notifikasi |
+| `201` dengan body lain atau tidak terbaca | Hasil tidak pasti (bukan sukses) |
+| `422` dengan field yang dikenal | Galat per field dengan teks lokal (ID/EN) milik frontend; teks server tidak pernah ditampilkan |
+| `422` `errors.homepage` | Ditolak; disarankan WhatsApp atau email |
+| `429` | Batas laju; `Retry-After` (detik atau tanggal HTTP, maksimal 24 jam) dibulatkan ke menit, tanpa hitung mundur |
+| `413` | Pesan terlalu besar |
+| `503` | Tidak tersimpan; coba lagi nanti atau pakai WhatsApp atau email |
+| `4xx` lain | Tidak terkirim; pakai WhatsApp atau email |
+| `500`, `5xx` lain, `2xx` lain, galat jaringan, timeout | Hasil tidak pasti: permintaan mungkin sudah sampai; pengunjung diminta memastikan lewat WhatsApp atau email sebelum mengirim lagi |
+
+Pada semua kegagalan isian formulir tetap ada. WhatsApp dan email tetap pilihan terpisah yang hanya dibuka oleh pengunjung sendiri, tidak pernah otomatis. Selama request berjalan, tombol memakai `aria-busy` dan `aria-disabled` dan sebuah `ref` sinkron menolak kiriman kedua. Setelah `201`, tombol website nonaktif sampai isian berubah; perubahan setelah pengiriman ditandai belum terkirim.
+
+**CORS.** Origin website harus masuk `CORS_ALLOWED_ORIGINS` di backend; `Retry-After` sudah termasuk header yang dapat dibaca (README). Lokal, `http://localhost:4174` (build varian dengan kanal aktif) sudah ada di `.env.example`; uji nyata browser ke Laravel ke MySQL tercatat di `docs/qa/qa-report.md` (bagian MySQL 8.4 lokal permanen).
 
 ## Proteksi spam
 

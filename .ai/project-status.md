@@ -1,10 +1,10 @@
 # Project status
 
-Last updated: 2026-10-15 (B1.1 on `backend`, PR #20 to `staging` open; not yet on `main`).
+Last updated: 2026-10-16 (B1.1 released on `main` as `88db528`. On `staging`: B2 through PR #22 (`5449bcc`) and the local MySQL 8.4 setup through PR #23 (`f277caf`). Release PR #24 `staging` to `main` open, awaiting owner review).
 
 ## In one paragraph
 
-The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main` through six refinement rounds. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up`. B1.1 standardized it on **MySQL 8.4 LTS** and **PHP 8.5 (at least 8.5.7)**, limited agent tooling to **Claude Code and Codex**, hardened repository hygiene, and added design documents for the admin dashboard, visitor analytics, and the GitHub integration boundary (Planned, nothing built). The API is **not deployed and the frontend does not call it yet**: the contact form still composes a WhatsApp or email message. No domain or hosting exists.
+The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main` through six refinement rounds. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS** (B1.1, released). Supported coding agents: **Claude Code and Codex** only. B2 (on `staging`, release PR #24 to `main` open) adds the contact form's **Send through website** channel, built and tested but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`): the public build still composes WhatsApp or email messages and never calls the API. A real browser to Laravel to MySQL submission has been verified on the owner machine against a local Docker MySQL 8.4.11 (PR #23). The API is **not deployed**; no domain or hosting exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`).
 
 ## Shipped (on `main`)
 
@@ -16,46 +16,98 @@ The public website (frontend) is built, bilingual (Indonesian at `/`, English at
 | 4 | #8 | Branded loader, navbar morph, floating controls, portfolio detail |
 | 5 | #10 | Compact navbar, demo labels, case study chapters and scrollspy, slice hover |
 | 6 | #13 | Navbar logo morph fix, glass navbar, About storytelling and ecosystem map, shared FAQ, responsive case study preview, consultation selects, ecosystem naming proposal, owner's new vision text |
-| B0, B1 | #18 (from #16, #17) | Laravel 13 backend foundation, Laravel Boost, `POST /api/v1/inquiries` with tests and Backend CI; post-save logging fix (#17). Not deployed |
+| B0, B1 | #18 (from #16, #17) | Laravel 13 backend foundation, Laravel Boost, `POST /api/v1/inquiries` with tests and Backend CI. Not deployed |
+| B1.1 | #21 (from #20) | MySQL 8.4 LTS and PHP 8.5.7+, test database guard, Claude Code and Codex only, repository hygiene, Planned architecture documents. Release commit `88db528` |
 
 Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies, `/kontak`, 404, each mirrored under `/en/` with English slugs. Case studies are labelled demonstration concepts (`isDemo: true`, no results).
 
-## B1.1 (PR #20, `backend` to `staging`)
+## B2: frontend inquiry API integration (PR #22, merged into `staging` as `5449bcc`)
 
-Status key: Implemented and Verified unless stated otherwise. Evidence: `docs/qa/qa-report.md`, section "B1.1".
+Status: Implemented and Verified with mocked API responses in CI; real HTTP integration with Laravel and MySQL Verified locally afterwards (next section); **not enabled** in any build that ships. Evidence: `docs/qa/qa-report.md`, section "B2". Contract and client behaviour: `docs/api/inquiries.md`, section "Klien frontend (B2)".
 
-- **MySQL 8.4 LTS** (owner decision): `.env.example` and `config/database.php` default to MySQL; tests run only on the disposable `solveit_indonesia_testing` database. `phpunit.xml` pins `APP_ENV`, driver, and database; `tests/Support/TestDatabaseGuard.php` verifies the environment, the database the server selected, and that the user's grants cover only `` `solveit\_indonesia\_testing` `` (root, global privileges, other databases, and unescaped wildcard grants are refused). Storage failures are injected as rows MySQL rejects instead of `Schema::drop`; tests cover reference collisions, MySQL settings, and the guard. Verified locally on MySQL 8.4.11 (disposable Docker container): 109 tests, 275 assertions; HTTP smoke test as a DML-only user. Schema unchanged.
-- **PHP 8.5.7** (owner decision): `"php": "^8.5.7"`, `config.platform.php` 8.5.7; no package version changed. Local PHP 8.5.7.
-- **Backend CI**: PHP 8.5 (asserts at least 8.5.7, records the patch; the runner had 8.5.11) with a `mysql:8.4` service (asserts 8.4.x, not MariaDB; 8.4.11), least-privilege users with masked random passwords, migrations up/down/up, HTTP smoke test, tests, audit, `--no-dev` boot. Green; see Branches.
-- **Agents**: Cursor removed (`.cursor/mcp.json`, `cursor` in `boost.json`, local copies); Boost regenerated. Review follow-up: `.claude/skills/backend-verify/SKILL.md` rewritten for MySQL 8.4 and PHP 8.5.7+; `.claude/rules/backend.md` removed because `backend/CLAUDE.md` and `backend/AGENTS.md` load on the same trigger with the same rules (`.claude/rules/frontend.md` kept). Claude Code: `laravel-boost` and `playwright` Connected. Codex: config discovery verified for the root and `backend/`; start Codex in `backend/` for backend work (`AGENTS.md` is read root-down, skills cwd-up). Tool calls from a logged-in Codex session not verified.
-- **Repository security**: `.gitignore` covers keys, database files and dumps, test caches, `.cursor/`; all workflows use `permissions: contents: read`; gitleaks on all refs and the working tree found no leaks. The repository is public.
-- **Planned (design only)**: `docs/architecture/admin-dashboard.md`, `visitor-analytics.md`, `github-integration.md`. No admin UI, auth, analytics, tracking, GitHub App, or repository action exists.
+- **Flag and config** (`frontend/src/config/site.ts`): the channel is on only when `VITE_INQUIRY_API_ENABLED` is exactly `true` and `VITE_API_BASE_URL` is a bare HTTPS origin (plain HTTP only for loopback, no path or credentials). Then the endpoint is `<origin>/api/v1/inquiries`. Default builds have no channel, no honeypot, and no request.
+- **Client** (`frontend/src/services/inquiry-api.ts`): one POST, no retry, 15 s timeout, abort on unmount. Only a `201` with a valid `INQ-` reference counts as received. 422/413/429/503 and other 4xx mean not stored; 5xx, malformed 2xx, network errors, and timeouts are an uncertain outcome.
+- **Form** (`frontend/src/components/contact/inquiry-form.tsx`): third channel with ref-based double-submit guard. It shows the real reference or localized feedback, keeps the visitor's values, and never opens WhatsApp or email by itself. The privacy copy depends on the mode. Validation now matches `StoreInquiryRequest` (all seven fields, character lengths, plain-space phone pattern).
+- **Tests**:
+  - 125 unit and component tests (69 before).
+  - Default-build e2e proves the disabled mode.
+  - A second build proves the enabled mode: `playwright.api.config.ts`, `tests/e2e-api/`, `npm run test:e2e:api`, with mocked responses.
+  - Both builds run in Frontend CI and Cross-browser QA.
+- **Flaky WebKit test fixed (root cause confirmed)**:
+  - The failure: `refinement.spec.ts` theme icon test, Cross-browser QA run 38723672210 attempt 1 (`webkit-mobile`).
+  - Why it failed: `setTheme()` applies the theme inside the View Transition update callback, a frame or more after the click. The test read the icon transform right after `click()`. On touch devices that read could still see `none`. On pointer devices the hover rotation made it pass without checking the roll.
+  - The fix waits for the theme and asserts the recorded transform transitions and the settled state. A reduced-motion check was added. Only the test changed.
+  - Evidence: reproduced deterministically by delaying the callback; 40/40 local WebKit repeats pass.
+- **Build dir**: `BUILD_DIR` (default `build`) lets the API-enabled variant build into `build/inquiry-api` without touching `build/client`.
+
+## Local MySQL 8.4 environment (PR #23, merged into `staging` as `f277caf`)
+
+Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-report.md`, section "MySQL 8.4 lokal permanen". No application code changed.
+
+- **Setup** (`backend/docker/mysql/`):
+  - `compose.yaml` runs `mysql:8.4.11` as container `solveit-mysql` on `127.0.0.1:3307`, with the named volume `solveit-mysql-data` and `restart: unless-stopped`.
+  - Passwords are Docker secrets in the ignored `secrets/` folder. `root` exists only inside the container.
+  - `initdb/` creates `solveit_indonesia` (`solveit_dev`) and `solveit_indonesia_testing` (`solveit_test`) with escaped, database-only grants.
+  - The steps and the daily commands, including backup, are in `backend/README.md`.
+- **Owner machine**:
+  - XAMPP MariaDB 10.4 on 3306 and PHP 8.5.7 are unchanged.
+  - `backend/.env` now uses the container, changed with owner approval. The backup is `backend/.env.backup`, and the old SQLite file is unused.
+  - `backend/.env.testing` exists.
+- **Verified**:
+  - Server: `VERSION()` 8.4.11, MySQL Community Server.
+  - Migrations: run on the development database.
+  - Tests: 109 tests, 275 assertions.
+  - Laravel Boost `application-info` reports the `mysql` engine.
+- **Real B2 smoke test** (no mocks), with the API-enabled build on `localhost:4174` against `php artisan serve`:
+  - A CORS preflight passes.
+  - A double click sent one POST, which returned `201` with a real `INQ-` reference.
+  - Exactly one row was stored. Invalid input and the honeypot returned `422` and stored nothing.
+  - The test row was removed afterwards. Real `429` and the browser display of a server `422` were not exercised.
+- **Defaults changed**: `backend/.env.example` now uses `DB_PORT=3307` and adds `http://localhost:4174` to `CORS_ALLOWED_ORIGINS`. Backend CI sets its own `DB_PORT`.
 
 ## Branches
 
-- `main`: `7729d17` (release B0 and B1, PR #18).
-- `staging`: `7e936b5` (merge of PR #19, handoff docs).
-- `backend`: B1.1 commits on top of `7e936b5`: `f19be27` feat, `7b27794` chore, `8991ebd` docs, `fb2e434` and `258dae4` handoff, then the review follow-up `431a902` (test database guard) and `856c6f3` (backend-verify skill, agent docs), plus this status update. PR #20 to `staging`.
-- `frontend`: `7729d17`; no frontend file changed in B1.1 (0 files under `frontend/` in the PR diff).
-- CI for `856c6f3` (PR #20 head before this status update): **green**. Backend CI runs 38713920726 (pull_request) and 38713906937 (push): `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, 109 tests and 275 assertions passed with the CI test user's escaped grant accepted by the guard, no audit advisories. Frontend CI run 38713920741: pass. Earlier heads `8991ebd`, `fb2e434`, `258dae4` were green as well. PR #20: mergeable, clean, no review yet; not merged. Checks re-run for every push because `pull_request` path filters look at the whole PR diff.
+- `main`: `88db528` (release B1.1, PR #21).
+- `staging`: `f277caf`, the merge of PR #23 on top of `5449bcc` (the merge of PR #22). Release PR #24 to `main` is open and left unmerged for the owner's review; `main` has no commit missing from `staging`.
+- `frontend`: `1ef187c` (B2: `fe6d272` test, `b4748d9` feat, `b843531` docs, `09efbc0` chore, `8eed02d` and `1ef187c` status). Merged.
+- `backend`: `f277caf` (fast-forwarded to `staging`) plus this status update, in a docs PR to `staging`. Before that: `e7f5b6f` (chore, local MySQL setup), `45da75e` (docs), the merge of `origin/staging` `3a3feb0` that resolved the two documentation conflicts, and `b490185` (docs, consistency); merged as PR #23. No application code changed on `backend`.
+- CI before B2 (on `88db528`): Frontend CI 38723671948 and Cross-browser QA 38723672210 green (WebKit 175 passed; WebKit iPhone 14 143 passed after one re-run of the flaky theme test, fixed in B2). Backend CI for B1.1 green on PHP 8.5.11 and MySQL 8.4.11.
+- CI for PR #22 (all green):
+  - Frontend CI run 38734922594 on `8eed02d`: default build e2e 488 passed; API build e2e 24 passed.
+  - Cross-browser QA, no retries, run 38734781136 on `09efbc0` (push) and run 38734933837 on `8eed02d` (dispatch), each with the same result:
+    - WebKit: 177 passed, 0 failed, 0 flaky.
+    - WebKit iPhone 14: 145 passed, 0 failed, 0 flaky.
+    - API build: 7 passed per project, with the email test skipped on WebKit.
+  - Last PR #22 head `1ef187c`: Frontend CI run 38738309596 green. Pushes to `staging` run no workflow, so the merge commit `5449bcc` has no run of its own; its tree is identical to `1ef187c`.
+- CI for PR #23: Backend CI run 38783110473 on the final head `b490185` green (PHP 8.5.11, MySQL 8.4.11, 109 tests, 275 assertions, no advisories). The tree of `staging` `f277caf` is identical to `b490185`, and `frontend/` and `.github/` are identical to `1ef187c`.
+- Release PR #24, head `f277caf` (all green, no retries):
+  - Frontend CI 38784609468: 125 unit and component tests, default E2E 488 passed, API-build E2E 24 passed.
+  - Backend CI 38784609456: 109 tests, 275 assertions on PHP 8.5.11 and MySQL 8.4.11.
+  - Cross-browser QA 38786723379, dispatched with the workflow from `staging` so the API-build step runs: WebKit 177 passed, WebKit iPhone 14 145 passed, API build 7 passed and 1 skipped per project, 0 failed, 0 flaky. Run 38784441899 used `main`'s older workflow file and covered the default build only.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
 ## Quality baseline
 
-- Frontend (round 6, unchanged): lint, typecheck, unit tests 69/69, build pass; E2E Chromium desktop/tablet/Pixel 7, Firefox, WebKit desktop/iPhone 14 with 0 failures; axe 0 violations. Lighthouse mobile 96 to 99 performance.
-- Backend: 109 tests, 275 assertions on MySQL 8.4.11 and PHP 8.5.7; Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean.
+- Frontend (B2): lint, typecheck, unit tests 125/125, build pass.
+  - E2E, default build: Chromium desktop 180, tablet 161, and Pixel 7 147 passed, 0 failed.
+  - E2E, API build: Chromium 24, Firefox 8, and WebKit 14 passed (2 skipped).
+  - axe: 0 violations.
+  - Lighthouse mobile on `/kontak`: performance 100 and CLS 0, unchanged from `main`.
+- Backend (no application change since B1.1): 109 tests, 275 assertions on MySQL 8.4.11 and PHP 8.5.7, in CI and on the owner machine's local Docker MySQL; Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (locally `composer audit` needs `COMPOSER_IPRESOLVE=4` because IPv6 requests to Packagist time out on that network).
 
 ## Blocked or owner action required
 
-- **Local MySQL on the owner machine** (Blocked until done): XAMPP runs MariaDB 10.4, not MySQL, and the existing `backend/.env` still selects SQLite (the Boost MCP `application-info` therefore reports `sqlite`). Run MySQL 8.4 (Docker or MySQL Community Server; `backend/README.md`, Database MySQL), create both databases and users with the escaped grants shown there, update `backend/.env`, and create `backend/.env.testing` with the `solveit_test` user. Until then `php artisan test` cannot run on that machine (the old local `database/database.sqlite` is unused and can be deleted by the owner).
-- **Claude Code `playwright` MCP** timed out once in `claude mcp list` (known Windows `npx` cold start, see `CLAUDE.md`); not related to B1.1.
-- **Merge PR #20** after review, then a `staging` to `main` release PR with owner approval.
+- **Local MySQL on the owner machine**: Done (section above). After a Windows restart Docker Desktop must be running; the container then starts by itself.
+- **API activation** (owner decision): enabling `VITE_INQUIRY_API_ENABLED` in any shipped build needs approval of the privacy notice text, retention period, hosting, the production MySQL database, `CORS_ALLOWED_ORIGINS`, and who handles inquiries.
+- **Release**: merge this status PR into `staging`, then release PR #24 to `main`, after review. Nothing is merged to `main` without the owner.
+- **Security hardening (pending, owner approval)**: on the owner machine, `backend/docker/mysql/secrets/` and `backend/.env` inherit the D: drive ACL (`Authenticated Users` and `CodexSandboxUsers` can read). Change ACLs only after an effective-permissions audit, a decision about the Codex sandbox group, and specific owner approval.
+- **Production limits**: the API is not deployed and has no production database, domain, or CORS origin; the inquiry channel stays off in every shipped build until the owner decisions below.
 
 ## Open decisions (owner)
 
 - Domain and hosting (MySQL 8.4 and PHP 8.5 are decided). They unlock canonical URLs, sitemap, final SEO/GEO, the production CORS origin, `TRUSTED_PROXIES`, and API deployment. The hosting must allow the document root `backend/public/`.
-- Inquiry data: retention period, export and deletion procedure, privacy notice on the form, and whether a free CAPTCHA (Turnstile) is needed after launch.
+- Inquiry data: retention period, export and deletion procedure, privacy notice on the form, and whether a free CAPTCHA (Turnstile) is needed after launch. Backend idempotency (an idempotency key) before activation, so a visitor who retries after an uncertain outcome cannot create duplicates.
 - Admin dashboard: frontend option (recommended: separate `admin/` app on a subdomain), roles, MFA scope, content workflow (static rebuild vs runtime data).
 - Visitor analytics: legal and privacy review under UU PDP before any activation, retention, and whether to use a third-party service instead.
 - GitHub integration lives in Solveit OpsHub; GitHub App permissions are verified at implementation time.
@@ -64,9 +116,10 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 ## Next task
 
-1. Owner: review and merge PR #20 into `staging`, then open and approve `staging` to `main`; set up local MySQL 8.4 as above.
-2. **B2: frontend inquiry API integration** on the `frontend` branch, after fast-forwarding it to the release that contains B1.1:
-   1. Add an `api` channel to `frontend/src/services/inquiry.ts` that POSTs the existing `InquiryPayload` to `${VITE_API_BASE_URL}/api/v1/inquiries` with an empty hidden `homepage` honeypot field.
-   2. Show the `INQ-...` reference only from a real `201`; map `422` errors to `InquiryErrors`; on `429`, `503`, network errors, or when `VITE_API_BASE_URL` is unset, keep the WhatsApp and email channels as the path forward. Never claim a submission that did not happen.
-   3. Add unit and e2e tests (mocked API) in both languages, and record results in `docs/qa/qa-report.md`.
-3. Then the admin foundation (`docs/architecture/admin-dashboard.md`, section 9), after the owner decisions above.
+1. Owner: merge this status PR into `staging`, then review and merge release PR #24 (`staging` to `main`).
+2. After the release merge, sync: verify the `main` merge commit, fast-forward `frontend` and `backend` to `main` without force, and record the release here.
+3. Recommended next phase, in order:
+   1. **Inquiry idempotency** (backend): an idempotency key on `POST /api/v1/inquiries`, so a visitor who retries after an uncertain outcome cannot create a duplicate. Needed before any public activation.
+   2. **Inquiry privacy and operational readiness** (owner decisions above): privacy notice, retention, export and deletion, hosting, production database, CORS origin, who handles inquiries.
+   3. **B3: secure admin authentication and dashboard foundation** (`docs/architecture/admin-dashboard.md`, section 9), then inquiry management inside it.
+   4. Later: visitor analytics after the UU PDP review (`docs/architecture/visitor-analytics.md`); ecosystem services integrate through versioned APIs or events, never a shared database (`docs/architecture/integration-plan.md`).
