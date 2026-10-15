@@ -30,6 +30,9 @@ auth.json
 *.pfx
 # Local MySQL passwords for backend/docker/mysql/compose.yaml
 backend/docker/mysql/secrets/
+# Docker production configuration and secrets (templates: infra/docker/production.env.example)
+*.env
+infra/docker/secrets/
 
 # Local databases, dumps, and backups (schema lives in migrations, never in dumps)
 *.sqlite
