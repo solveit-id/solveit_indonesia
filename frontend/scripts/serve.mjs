@@ -10,7 +10,7 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
 const root = join(
   new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"),
-  "build",
+  process.env.BUILD_DIR || "build",
   "client",
 );
 const port = Number(process.env.PORT ?? 4173);
@@ -69,4 +69,4 @@ createServer(async (req, res) => {
   }
   res.writeHead(file ? 200 : 404, headers);
   res.end(req.method === "HEAD" ? undefined : body);
-}).listen(port, () => console.log(`Serving build/client at http://localhost:${port}`));
+}).listen(port, () => console.log(`Serving ${root} at http://localhost:${port}`));

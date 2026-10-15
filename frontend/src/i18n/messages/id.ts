@@ -355,12 +355,52 @@ export const id = {
     },
     errors: {
       name: "Tulis nama Anda, minimal 2 karakter.",
+      nameTooLong: "Nama terlalu panjang, maksimal 120 karakter.",
+      organizationTooLong: "Nama bisnis atau organisasi terlalu panjang, maksimal 160 karakter.",
       contactMissing: "Tulis email atau nomor WhatsApp agar kami bisa membalas.",
       contactInvalid:
         "Gunakan alamat email yang valid atau nomor telepon, misalnya 0812 3456 7890.",
+      contactTooLong: "Kontak terlalu panjang, maksimal 254 karakter.",
       service: "Pilih jenis layanan yang paling mendekati kebutuhan Anda.",
+      budget: "Pilih perkiraan anggaran dari daftar.",
+      timeline: "Pilih target waktu dari daftar.",
       message:
         "Ceritakan kebutuhan Anda minimal dalam 20 karakter, agar kami bisa menyiapkan konsultasi.",
+      messageTooLong: "Pesan terlalu panjang, maksimal 5.000 karakter. Persingkat sedikit.",
+      server: "Isian ini belum dapat diterima website. Periksa kembali isinya.",
+    },
+    /** The website channel, shown only when the inquiry API is enabled. */
+    api: {
+      intro:
+        "Kolom bertanda bintang (*) wajib diisi. Bila Anda memilih Kirim melalui website, isian formulir dikirim ke server Solveit untuk diproses. Bila memilih WhatsApp atau email, pesan disusun di perangkat Anda, lalu Anda kirim sendiri.",
+      send: "Kirim melalui website",
+      sending: "Mengirim...",
+      hint: "Isian formulir dikirim langsung ke Solveit dan Anda mendapat nomor referensi.",
+      manualTitle: "Atau kirim sendiri lewat WhatsApp atau email",
+      recipientHint:
+        "Hanya untuk kirim lewat WhatsApp. Pilih salah satu; pesan Anda tetap sama saat nomor diganti.",
+      submitting: "Mengirim permintaan Anda ke website.",
+      received: "Permintaan konsultasi Anda sudah diterima dan dicatat oleh website.",
+      reference: "Nomor referensi",
+      receivedNext:
+        "Simpan nomor ini bila Anda ingin menanyakan permintaan ini. Kami membalas lewat kontak yang Anda tulis.",
+      stale:
+        "Perubahan setelah pengiriman ini belum terkirim. Kirim lagi bila Anda ingin mengirim versi barunya.",
+      invalid: (count: number) =>
+        `Website belum dapat menerima ${count} kolom. Periksa isian yang ditandai.`,
+      blocked:
+        "Permintaan ini tidak dapat diterima website. Silakan kirim lewat WhatsApp atau email.",
+      tooLarge: "Permintaan terlalu besar untuk dikirim. Persingkat pesan Anda, lalu coba lagi.",
+      rateLimited: (minutes: number | null) =>
+        `Terlalu banyak percobaan dalam waktu singkat. ${minutes ? `Coba lagi dalam sekitar ${minutes} menit` : "Coba lagi beberapa saat lagi"}, atau kirim lewat WhatsApp atau email.`,
+      unavailable:
+        "Website sedang tidak dapat menyimpan permintaan, jadi permintaan ini belum tercatat. Coba lagi nanti, atau kirim lewat WhatsApp atau email.",
+      failed:
+        "Permintaan tidak dapat dikirim melalui website. Silakan kirim lewat WhatsApp atau email.",
+      uncertain: "Website belum memberi konfirmasi.",
+      uncertainDetail:
+        "Permintaan Anda mungkin sudah sampai ke server, tetapi kami tidak dapat memastikannya. Agar tidak terkirim dua kali, hubungi kami lewat WhatsApp atau email untuk memastikan sebelum mengirim lagi.",
+      kept: "Isian Anda tetap tersimpan di formulir ini.",
     },
     composed: {
       greeting: (company: string) => `Halo ${company}, saya ingin berkonsultasi.`,

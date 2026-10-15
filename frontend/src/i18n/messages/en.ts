@@ -353,11 +353,51 @@ export const en: Messages = {
     },
     errors: {
       name: "Enter your name, at least 2 characters.",
+      nameTooLong: "Your name is too long; use at most 120 characters.",
+      organizationTooLong:
+        "The business or organisation name is too long; use at most 160 characters.",
       contactMissing: "Enter an email address or WhatsApp number so we can reply.",
       contactInvalid: "Use a valid email address or a phone number, for example +62 812 3456 7890.",
+      contactTooLong: "The contact is too long; use at most 254 characters.",
       service: "Choose the service closest to what you need.",
+      budget: "Choose an estimated budget from the list.",
+      timeline: "Choose a timeline from the list.",
       message:
         "Describe what you need in at least 20 characters, so we can prepare for the consultation.",
+      messageTooLong: "Your message is too long; use at most 5,000 characters.",
+      server: "The website could not accept this entry. Please check it.",
+    },
+    api: {
+      intro:
+        "Fields marked with an asterisk (*) are required. If you choose Send through website, the form details are sent to the Solveit server for processing. If you choose WhatsApp or email, your message is composed on your device, and you send it yourself.",
+      send: "Send through website",
+      sending: "Sending...",
+      hint: "Your details go straight to Solveit, and you get a reference number.",
+      manualTitle: "Or send it yourself by WhatsApp or email",
+      recipientHint:
+        "Only for sending by WhatsApp. Pick any of them; your message stays the same when you switch numbers.",
+      submitting: "Sending your request through the website.",
+      received: "Your consultation request was received and recorded by the website.",
+      reference: "Reference number",
+      receivedNext:
+        "Keep this number if you want to ask about this request. We will reply through the contact you entered.",
+      stale: "Changes made after sending have not been sent. Send again to submit the new version.",
+      invalid: (count: number) =>
+        count === 1
+          ? "The website could not accept 1 field. Please check the marked entry."
+          : `The website could not accept ${count} fields. Please check the marked entries.`,
+      blocked: "The website could not accept this request. Please send it by WhatsApp or email.",
+      tooLarge: "This request is too large to send. Shorten your message, then try again.",
+      rateLimited: (minutes: number | null) =>
+        `Too many attempts in a short time. ${minutes ? `Try again in about ${minutes === 1 ? "1 minute" : `${minutes} minutes`}` : "Try again in a little while"}, or send it by WhatsApp or email.`,
+      unavailable:
+        "The website cannot save requests right now, so this request was not recorded. Try again later, or send it by WhatsApp or email.",
+      failed:
+        "The request could not be sent through the website. Please send it by WhatsApp or email.",
+      uncertain: "The website has not confirmed your request.",
+      uncertainDetail:
+        "Your request may already have reached the server, but we cannot confirm it. To avoid sending it twice, contact us by WhatsApp or email to check before sending again.",
+      kept: "Your details are still in this form.",
     },
     composed: {
       greeting: (company: string) => `Hello ${company}, I would like to discuss a project.`,

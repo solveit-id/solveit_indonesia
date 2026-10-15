@@ -39,6 +39,8 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # Separate build with the inquiry API channel enabled; responses are mocked.
+      - run: npm run test:e2e:api
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
