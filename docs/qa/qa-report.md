@@ -2,6 +2,24 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Backend B0 dan B1: integrasi `staging` ke `main` (2026-10-15)
+
+Cakupan: audit setelah PR #16 (`backend` ke `staging`) di-merge pemilik sebagai `09d05a4`, dan satu perbaikan kecil sebelum PR `staging` ke `main`.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Isi `origin/staging` | Tree `09d05a4` identik dengan tree `origin/backend` `079ee88` (`0bed1cc`); `origin/main` adalah ancestor `origin/staging` (tidak ada commit `main` yang hilang, tidak ada konflik) |
+| Artefak | Backend Laravel 13, `laravel/boost` di `require-dev`, `boost.json`, `AGENTS.md`/`CLAUDE.md` backend, `config/boost.php`, guideline Solveit, API inquiry, migrasi, tes, Backend CI, `.mcp.json`/`.codex`/`.cursor`, `.claude/settings.json`, dokumen, dan `.ai/` ada di `origin/staging`. Salinan skill per agent sengaja tidak di-commit (dibuat `boost:update`) |
+| Frontend | Tidak ada file `frontend/` yang berbeda dari `main`; logo di `frontend/public/brand/` identik; Frontend CI dan Cross-browser QA tidak berubah |
+
+### Perbaikan: log setelah penyimpanan
+
+Risiko: `SubmitInquiry` memanggil `Log::info()` setelah `save()` tanpa pengaman. Bila channel log gagal (Monolog melempar `UnexpectedValueException` saat file log tidak dapat dibuka), inquiry yang sudah tersimpan menjadi respons 500, dan pengunjung yang mengulang kiriman membuat duplikat.
+
+- Tes regresi `test_failing_log_channel_still_returns_201_for_a_stored_inquiry` ditulis lebih dulu dan **gagal** sebelum perbaikan (exception keluar dari action sampai ke exception handler).
+- Perbaikan satu baris: log dibungkus `rescue(..., report: false)` (tidak dilaporkan, karena pelaporan menulis ke log yang sama). Tes yang memastikan log hanya berisi nomor referensi tetap lulus.
+- `php artisan test`: 90 lulus, 230 assertion. Pint lulus. Hasil Backend CI untuk perbaikan ini ada di PR-nya dan di `.ai/project-status.md`.
+
 ## Backend B0 dan B1: fondasi Laravel 13, Laravel Boost, API inquiry (2026-10-15)
 
 Cakupan: fondasi backend di branch `backend` (fast-forward dari `main` `7e37a77`). Tanpa perubahan kode frontend, desain, atau konten. Mesin: Windows 11, PHP 8.5.7 (ZTS, XAMPP), Composer 2.8.12, Node 22.23.1, Claude Code CLI, Codex CLI 0.160.0. Cursor tidak terpasang.
