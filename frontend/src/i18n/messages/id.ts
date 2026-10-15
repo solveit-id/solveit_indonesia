@@ -9,7 +9,7 @@ export const id = {
       "Solveit Indonesia adalah software house yang membangun website, aplikasi web, sistem informasi, dan custom software untuk UMKM, startup, dan perusahaan di Indonesia.",
     aboutTitle: "Tentang Kami",
     aboutDescription:
-      "Kenali Solveit Indonesia: startup teknologi dan software house dengan visi membangun ekosistem layanan digital terintegrasi melalui Solveit OpsHub.",
+      "Kenali Solveit Indonesia: startup teknologi dan software house dengan visi membangun ekosistem layanan digital yang saling terhubung.",
     servicesTitle: "Layanan Pembuatan Website, Aplikasi Web, dan Custom Software",
     servicesDescription:
       "Jasa pembuatan website, aplikasi web, sistem informasi, custom software, serta dukungan teknis dan pemeliharaan dari Solveit Indonesia.",
@@ -34,7 +34,7 @@ export const id = {
     description:
       "Solveit Indonesia adalah startup teknologi dan software house yang membangun website, aplikasi web, sistem informasi, dan custom software sesuai kebutuhan bisnis.",
     vision:
-      "Membangun ekosistem layanan digital terintegrasi yang menemani pelanggan dari konsultasi, pemesanan, proposal, kontrak, dan invoice, hingga pengembangan, pelacakan progres dan revisi, serta pemeliharaan melalui Solveit OpsHub.",
+      "Membangun ekosistem layanan digital yang saling terhubung untuk mendampingi pelanggan dari konsultasi dan perencanaan hingga pengembangan, pengelolaan proyek, serta pemeliharaan berkelanjutan.",
   },
   common: {
     skipLink: "Lewati ke konten utama",

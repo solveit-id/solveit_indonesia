@@ -22,7 +22,11 @@ Hubungan Orbit dan OpsHub: Orbit adalah nama ekosistemnya, OpsHub adalah pusat o
 
 - Repository `solveit_opshub`, identifier paket, kunci integrasi, dan path sistem operasi **tidak** diganti nama.
 - Nama resmi perusahaan, tagline, kontak, deskripsi layanan, dan klaim faktual tidak berubah.
-- Pernyataan visi perusahaan (`company.vision` di `frontend/src/i18n/messages/*.ts`) masih menyebut "melalui Solveit OpsHub". Teks itu sengaja tidak diubah karena merupakan pernyataan resmi; bila arsitektur nama ini disetujui, visi perlu ditinjau pemilik agar sejalan (OpsHub menjadi pusat operasional, Orbit nama ekosistemnya).
+- Pernyataan visi perusahaan (`company.vision` di `frontend/src/i18n/messages/*.ts`) diperbarui pemilik pada 2026-10-15 dan tidak lagi menyebut nama produk:
+  - ID: "Membangun ekosistem layanan digital yang saling terhubung untuk mendampingi pelanggan dari konsultasi dan perencanaan hingga pengembangan, pengelolaan proyek, serta pemeliharaan berkelanjutan."
+  - EN: "To build a connected ecosystem of digital services that supports clients from consultation and planning through development, project management, and ongoing maintenance."
+
+  Visi lama menyebut seluruh perjalanan berjalan "melalui Solveit OpsHub", padahal OpsHub adalah sistem operasional internal dan Orbit masih usulan. Visi baru menjelaskan arah ekosistem tanpa mengikat ke nama mana pun, sehingga tetap berlaku apa pun keputusan akhir soal nama. Deskripsi meta halaman Tentang Kami (`meta.aboutDescription`) yang mengulang visi lama ikut diselaraskan.
 
 ## Di mana nama dipakai di website
 
@@ -54,5 +58,5 @@ Catatan pembeda: Connect, Care (sama-sama berawalan C) dan Scope, Pulse (kata pe
 1. Penelusuran merek di PDKI (DJKI, Indonesia) untuk kelas 9 dan 42, dan WIPO Global Brand Database bila ada rencana di luar Indonesia.
 2. Ketersediaan domain atau subdomain dan akun media sosial.
 3. Keputusan lingkup: mana yang menjadi aplikasi terpisah dan mana yang modul.
-4. Peninjauan ulang visi perusahaan (lihat di atas).
+4. Visi perusahaan sudah netral terhadap nama produk (lihat di atas); tidak perlu diubah bila nama disetujui.
 5. Setelah disetujui, ubah status kolom "Status nama" di dokumen ini dan label "usulan" di website.

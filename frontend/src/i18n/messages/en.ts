@@ -9,7 +9,7 @@ export const en: Messages = {
       "Solveit Indonesia is a software house that builds websites, web applications, information systems, and custom software for small businesses, startups, and companies in Indonesia.",
     aboutTitle: "About Us",
     aboutDescription:
-      "Meet Solveit Indonesia: a technology startup and software house working toward an integrated digital service ecosystem through Solveit OpsHub.",
+      "Meet Solveit Indonesia: a technology startup and software house working toward a connected ecosystem of digital services.",
     servicesTitle: "Website, Web Application, and Custom Software Development",
     servicesDescription:
       "Website development, web applications, information systems, custom software, and technical support and maintenance from Solveit Indonesia.",
@@ -35,7 +35,7 @@ export const en: Messages = {
     description:
       "Solveit Indonesia is a technology startup and software house that builds websites, web applications, information systems, and custom software around the needs of each business.",
     vision:
-      "To build an integrated digital service ecosystem that supports clients from consultation, ordering, proposals, contracts, and invoices through development, progress and revision tracking, and maintenance, all through Solveit OpsHub.",
+      "To build a connected ecosystem of digital services that supports clients from consultation and planning through development, project management, and ongoing maintenance.",
   },
   common: {
     skipLink: "Skip to main content",

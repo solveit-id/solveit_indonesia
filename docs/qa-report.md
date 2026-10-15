@@ -81,7 +81,7 @@ Tidak ada error konsol pada sesi screenshot.
 
 - **Lulus terverifikasi**: format, lint, typecheck, unit 69/69, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse lima halaman sebelum/sesudah, bukti visual.
 - **Lulus terverifikasi (lintas browser)**: suite penuh WebKit desktop dan WebKit iPhone 14 di GitHub Actions. Run pertama pada `ebc9a97` gagal di satu tes baru di kedua project: tes "muat ulang di tengah scroll" bergantung pada kapan router menyimpan posisi scroll sebelum reload, dan di runner WebKit halaman kembali di atas. Lokal (WebKit dan Chromium) posisi pulih dan header benar. Tes diganti dengan deep link yang discroll browser sebelum hydration di semua engine, dan kini juga memastikan tidak ada transisi lockup yang berjalan; tidak ada perubahan kode produk.
-- **Keputusan pemilik**: teks visi resmi masih menyebut "melalui Solveit OpsHub"; lihat `docs/product-naming.md`.
+- **Keputusan pemilik** (diselesaikan 2026-10-15): visi resmi diganti dengan redaksi pemilik yang tidak lagi menyebut "melalui Solveit OpsHub"; lihat `docs/product-naming.md`.
 - **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
 
 ## Putaran 5 (2026-10-14): navbar compact, label demo, bab studi kasus, motion bab, Principles, CTA slice

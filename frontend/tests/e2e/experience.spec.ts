@@ -168,12 +168,16 @@ test.describe("about storytelling", () => {
     await page.goto("/tentang");
     const vision = page.locator(".vision-text");
     await expect(vision).toHaveText(
-      "Membangun ekosistem layanan digital terintegrasi yang menemani pelanggan dari konsultasi, pemesanan, proposal, kontrak, dan invoice, hingga pengembangan, pelacakan progres dan revisi, serta pemeliharaan melalui Solveit OpsHub.",
+      "Membangun ekosistem layanan digital yang saling terhubung untuk mendampingi pelanggan dari konsultasi dan perencanaan hingga pengembangan, pengelolaan proyek, serta pemeliharaan berkelanjutan.",
     );
     await expect(page.locator(".values .value-row dt")).toHaveCount(4);
     await expect(page.locator(".values .value-row dd")).toHaveCount(4);
     // Statements, not controls.
     await expect(page.locator(".values button, .values a")).toHaveCount(0);
+    await page.goto("/en/about");
+    await expect(page.locator(".vision-text")).toHaveText(
+      "To build a connected ecosystem of digital services that supports clients from consultation and planning through development, project management, and ongoing maintenance.",
+    );
   });
 
   test("vision and values run forward and back with the scroll, never hiding text", async ({
