@@ -41,6 +41,10 @@ Tes regresi baru `tests/Feature/Support/TestDatabaseGuardTest.php` (15 kasus): k
 | `boost:update --no-discover` | Berhasil; `backend/AGENTS.md` berubah satu baris di blok Solveit |
 | MCP | `claude mcp list`: `laravel-boost` Connected. `playwright` kali ini timeout 30 detik (cold start `npx` di Windows, dicatat di `CLAUDE.md`; tidak terkait perubahan ini). `application-info`: Laravel 13.36.0, PHP 8.5, `database_engine sqlite`, karena server MCP membaca `backend/.env` lokal pemilik yang belum dipindah ke MySQL |
 
+### CI
+
+Pada `856c6f3`: Backend CI run 38713920726 (pull_request) dan 38713906937 (push) lulus, `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, `109 passed (275 assertions)`; pengguna tes CI dengan grant yang di-escape diterima pengaman. Frontend CI run 38713920741 lulus.
+
 ### Diff PR #20
 
 Terhadap `origin/staging`: 0 file `frontend/`; gitleaks pada 37 file yang berubah tidak menemukan kebocoran; tidak ada `.env` selain `.env.example`, kunci, file database, log, cache, atau salinan agent lokal (`backend/.claude/`, `.agents/`, `.codex/`, `.mcp.json`). Satu-satunya nama yang cocok dengan pola sensitif adalah penghapusan `.cursor/mcp.json`. Teks mirip kata sandi hanya root kosong service container CI sekali pakai dan placeholder `<kata-sandi-root-lokal>` di README.

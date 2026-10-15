@@ -35,9 +35,9 @@ Status key: Implemented and Verified unless stated otherwise. Evidence: `docs/qa
 
 - `main`: `7729d17` (release B0 and B1, PR #18).
 - `staging`: `7e936b5` (merge of PR #19, handoff docs).
-- `backend`: `8991ebd`, three B1.1 commits on top of `7e936b5` (`f19be27` feat, `7b27794` chore, `8991ebd` docs) plus this status update; PR #20 to `staging`.
-- `frontend`: `7729d17`; no frontend application file changed in B1.1.
-- CI for `8991ebd` (PR #20 and push): **green**. Backend CI runs 38709084941 (PR) and 38709043589 (push): `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, 94 tests and 249 assertions passed, migrations up/down/up, HTTP smoke test, no audit advisories, `--no-dev` boot without Boost. Frontend CI run 38709084923 (triggered by the workflow permission change): pass. PR #20 mergeable, no review yet. On `fb2e434` (CI results recorded) both workflows ran again, because `pull_request` path filters look at the whole PR diff: Backend CI run 38710263746 and Frontend CI run 38710263734 pass (same PHP 8.5.11, MySQL 8.4.11, 94 tests).
+- `backend`: B1.1 commits on top of `7e936b5`: `f19be27` feat, `7b27794` chore, `8991ebd` docs, `fb2e434` and `258dae4` handoff, then the review follow-up `431a902` (test database guard) and `856c6f3` (backend-verify skill, agent docs), plus this status update. PR #20 to `staging`.
+- `frontend`: `7729d17`; no frontend file changed in B1.1 (0 files under `frontend/` in the PR diff).
+- CI for `856c6f3` (PR #20 head before this status update): **green**. Backend CI runs 38713920726 (pull_request) and 38713906937 (push): `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, 109 tests and 275 assertions passed with the CI test user's escaped grant accepted by the guard, no audit advisories. Frontend CI run 38713920741: pass. Earlier heads `8991ebd`, `fb2e434`, `258dae4` were green as well. PR #20: mergeable, clean, no review yet; not merged. Checks re-run for every push because `pull_request` path filters look at the whole PR diff.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
