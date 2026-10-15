@@ -2,6 +2,46 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B2.2 idempotensi inquiry di frontend dan percobaan ulang yang aman (2026-10-16)
+
+Cakupan: klien website mengirim `Idempotency-Key` per kiriman logis, memeriksa hasil yang tidak pasti dengan kunci yang sama, dan menangani `400`, `409`, `429`, serta `503` dari gateway (kontrak: `docs/api/inquiries.md`, Penerapan di frontend). Kanal **Kirim melalui website** tetap **nonaktif secara default**; build yang dirilis tidak memanggil API. Baseline yang diverifikasi: `origin/main`, `origin/frontend`, `origin/backend` = `cf55c2f`, `origin/staging` `b6b429b` (tree sama); B2.1 dirilis sebagai `d22a079`; working tree bersih, tanpa stash, worktree lain, PR terbuka, atau proteksi branch. Backend, Docker, dan konfigurasi CORS tidak diubah.
+
+### Pemeriksaan otomatis (lokal, Windows 11, Node 22.23.1, Playwright 1.64)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run format:check`, `lint`, `typecheck`, `build` | Lulus (satu-satunya peringatan Prettier adalah cache alat lokal `.impeccable/hook.cache.json`, dikecualikan lewat `.git/info/exclude` dan tidak ada di CI) |
+| `npm test` | **178 tes lulus** (125 sebelumnya): kunci UUID v4 dari `crypto.randomUUID`, tanpa cadangan lemah, kanonisasi, kunci sama untuk isi sama dan baru untuk isi lain, snapshot tidak berubah oleh edit, pelepasan kunci per hasil, `201` dengan dan tanpa replay, `400`, `409`, `429` dan `Retry-After`, `503` Laravel lawan `503` gateway atau maintenance atau tak terbaca, `502` dan `504`, `201` rusak, tanpa retry otomatis, klik ganda, abort dan unmount, WhatsApp dan email tanpa kunci, flag mati tanpa request, teks ID dan EN, kunci dan isian tidak masuk URL, konsol, storage, atau cookie |
+| Uji mutasi | Formulir dipaksa membuat kunci baru setiap kirim: 5 tes gagal. Kunci tidak dilepas setelah `400` atau `409`: 2 tes gagal. Kode dipulihkan |
+| E2E bawaan (kanal nonaktif), `--workers=1` | desktop 180 lulus, tablet 161 lulus (24 dilewati), mobile 147 lulus (38 dilewati): **488**, sama dengan B2 |
+| E2E build API (`npm run test:e2e:api`, mock berstatus yang meniru B2.1) | **15 lulus** di desktop, tablet, mobile, dan Firefox (9 sebelumnya): respons hilang setelah tersimpan lalu dipulihkan dengan kunci sama (ID dan EN, axe tanpa pelanggaran di keadaan tidak pasti dan tanda terima), isi berubah mendapat kunci baru, kiriman terpisah mendapat kunci terpisah, klik ganda pada tombol ulang tetap satu `POST`, `409` tanpa teks server dan tanpa retry otomatis, `503` gateway sebagai hasil tidak pasti |
+| Ukuran bundle (gzip -9, build bawaan) | Chunk `contact` 6.947 menjadi 7.421 byte (+474), chunk `i18n` 13.168 menjadi 13.659 byte (+491, teks baru dalam dua bahasa), seluruh JS 259.967 menjadi 260.833 byte (+866, +0,3%). Tanpa dependensi baru |
+| Tampilan (390, 820, 1440 px; terang dan gelap; ID dan EN) | Keadaan tidak pasti, isian berubah, dan replay memakai token dan tombol kapsul yang ada; tanpa overflow horizontal; tombol ulang 44 px; kotak status yang difokus tidak tertutup header |
+
+### Integrasi nyata browser ke Laravel ke MySQL 8.4 (tanpa mock pada percobaan ulang)
+
+Build varian `VITE_INQUIRY_API_ENABLED=true`, `VITE_API_BASE_URL=http://127.0.0.1:8000` di `http://localhost:4174`; `php artisan serve` (PHP 8.5.7) di `127.0.0.1:8000`; database pengembangan `solveit_indonesia` di container `solveit-mysql` (MySQL 8.4.11, tidak diubah). Data sintetis saja; awalnya 0 baris.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Membuka `/kontak` | 0 request ke API |
+| Percobaan pertama (Chromium): diteruskan ke Laravel, lalu respons diputus | Server `201` `INQ-AEEX-D7T8-PP9W` (tersimpan); halaman menampilkan "Website belum memberi konfirmasi" tanpa nomor referensi; kunci UUID v4 |
+| 3 detik tanpa tindakan | Tetap 1 `POST` (tidak ada retry otomatis) |
+| **Kirim ulang permintaan yang sama**, langsung ke Laravel (preflight CORS nyata) | `201`, `Idempotent-Replayed: true`, kunci dan body sama persis; referensi yang tampil `INQ-AEEX-D7T8-PP9W` = yang tersimpan; kalimat replay tampil (header terbaca lewat CORS) |
+| Privasi di browser | Kunci tidak ada di URL; 0 `window.open`; tidak ada kunci atau isian di `localStorage` atau `sessionStorage` (satu-satunya entri `solveit-boot-seen`, flag animasi pembuka yang sudah ada); satu pesan konsol adalah log jaringan Chromium sendiri untuk koneksi yang diputus (`net::ERR_CONNECTION_RESET`), tanpa URL, kunci, atau isian |
+| HTTP dengan `Origin: http://localhost:4174` | Kunci baru `201` `INQ-PN6T-13SQ-K7KN`; kunci sama dengan spasi tambahan `201` referensi sama, `Idempotent-Replayed: true`; kunci sama dengan pesan lain `409` tanpa `id`; kunci terpisah dengan isi identik `201` `INQ-AJZ7-Y72E-06K3`; kunci rusak `400` |
+| Preflight dari `http://localhost:4174` | `204`, `Access-Control-Allow-Origin: http://localhost:4174`, `Access-Control-Allow-Headers` memuat `idempotency-key`; `Access-Control-Expose-Headers: Idempotent-Replayed, Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining` |
+| Preflight dari `http://evil.example` | `204` tanpa `Access-Control-Allow-Origin` (browser menolak) |
+| Database | Tepat **3 baris untuk 7 `POST`**, semuanya dengan hash kunci; pesan yang memicu `409` tidak tersimpan |
+| Pembersihan | Hanya baris dengan kontak sintetis **dan** tiga referensi di atas dihapus (`deleted=3`); kembali 0 baris. Penghitung rate limit di tabel `cache` kedaluwarsa sendiri |
+
+### Belum diverifikasi
+
+- WebKit (desktop dan iPhone 14): lewat workflow **Cross-browser QA** pada head PR (lihat `.ai/project-status.md`).
+- `429` nyata dari Laravel tidak dipicu (dibuktikan dengan respons tiruan di tes komponen).
+- Uji nyata hanya di Chromium; tidak ada deployment, domain, atau HTTPS publik.
+- Lighthouse tidak diulang: perubahan menambah kurang dari 1 KB gzip dan hanya menyentuh formulir di `/kontak`.
+
 ## B2.1 idempotensi inquiry dan lingkungan Docker (2026-10-16)
 
 Cakupan: header `Idempotency-Key` pada `POST /api/v1/inquiries` (backend saja; frontend B2.2 belum), lingkungan pengembangan Docker penuh, konfigurasi Docker produksi (disiapkan dan divalidasi, **tidak di-deploy**), dan Docker CI. Baseline yang diverifikasi: `origin/main`, `origin/frontend`, `origin/backend` = `6474647` (rilis PR #24), `origin/staging` `966ddf0` (PR #25) dengan tree yang sama (`5205258`); working tree bersih, tanpa stash atau worktree lain; tidak ada proteksi branch atau ruleset di GitHub.
@@ -74,7 +114,7 @@ Pada PR #26 (head `3202aab`) dan rilis PR #27 semua check lulus: Backend CI (151
 - Docker di macOS dan Linux desktop secara langsung (Linux hanya lewat runner GitHub Actions).
 - Playwright e2e di dalam container (tidak didukung image Node slim; tetap di host dan CI).
 - Server MCP Laravel Boost lewat `docker compose exec` untuk kontributor tanpa PHP di host.
-- Klien frontend dengan `Idempotency-Key` (B2.2).
+- Klien frontend dengan `Idempotency-Key`: selesai di B2.2 (bagian di atas).
 
 ## MySQL 8.4 lokal permanen dan uji integrasi nyata B2 (2026-10-16)
 

@@ -19,14 +19,28 @@ import {
   emptyInquiry,
   inquiryFields,
   inquiryHref,
+  sameInquiry,
   timelineValues,
   validateInquiry,
   whatsappUrl,
 } from "~/services/inquiry";
-import { submitInquiry } from "~/services/inquiry-api";
+import {
+  keepsSubmission,
+  type LogicalSubmission,
+  nextSubmission,
+  submitInquiry,
+} from "~/services/inquiry-api";
 import type { InquiryErrors, InquiryPayload } from "~/types/inquiry";
 
-type NotSentReason = "blocked" | "too-large" | "rate-limited" | "unavailable" | "failed";
+type NotSentReason =
+  | "blocked"
+  | "too-large"
+  | "rate-limited"
+  | "unavailable"
+  | "key-rejected"
+  | "conflict"
+  | "no-key"
+  | "failed";
 
 type Status =
   | { kind: "idle" }
@@ -35,12 +49,15 @@ type Status =
   /** The previous feedback stays (dimmed) while sending, so nothing jumps. */
   | { kind: "submitting"; previous: Status }
   /** `sent` is what the server stored, so later edits can be flagged as unsent. */
-  | { kind: "received"; reference: string; sent: InquiryPayload }
+  | { kind: "received"; reference: string; sent: InquiryPayload; replayed: boolean }
   | { kind: "not-sent"; reason: NotSentReason; minutes: number | null }
-  | { kind: "uncertain" };
+  /** `sent` is what the unconfirmed attempt carried; only that content may retry with its key. */
+  | { kind: "uncertain"; sent: InquiryPayload };
 
-const sameInquiry = (a: InquiryPayload, b: InquiryPayload) =>
-  inquiryFields.every((key) => a[key] === b[key]);
+const minutesFrom = (seconds: number) => Math.max(1, Math.ceil(seconds / 60));
+/** Clock reads for the Retry-After wait; only called from event handlers. */
+const timestampAfter = (seconds: number) => Date.now() + seconds * 1000;
+const secondsUntil = (timestamp: number) => (timestamp - Date.now()) / 1000;
 
 /** A titled block of related fields; the index capsule echoes the process rail. */
 function FormGroup({
@@ -103,6 +120,11 @@ export function InquiryForm() {
   // start another POST; the request is aborted if the form unmounts.
   const pending = useRef(false);
   const request = useRef<AbortController | null>(null);
+  // The logical website submission (idempotency key and the values sent with
+  // it). Memory only: never stored in the browser, logged, or put in a URL.
+  const submission = useRef<LogicalSubmission | null>(null);
+  // Until when the server asked us to wait (Retry-After), as a timestamp.
+  const waitUntil = useRef(0);
   const services = getServices(locale);
 
   // Prefill the service chosen in the hero or on the services page. Only after
@@ -142,13 +164,38 @@ export function InquiryForm() {
     if (errors[key]) setErrors((current) => ({ ...current, [key]: undefined }));
   };
 
+  const notSentText: Record<Exclude<NotSentReason, "rate-limited">, string> = {
+    blocked: api.blocked,
+    "too-large": api.tooLarge,
+    unavailable: api.unavailable,
+    "key-rejected": api.keyRejected,
+    conflict: api.conflict,
+    "no-key": api.unsupported,
+    failed: api.failed,
+  };
+
   const submitting = status.kind === "submitting";
   // After a confirmed receipt the same details cannot be sent again by
   // accident; any edit makes the form sendable (and the receipt says so).
   const unchangedSinceReceipt = status.kind === "received" && sameInquiry(payload, status.sent);
   const shown = status.kind === "submitting" ? status.previous : status;
 
-  const sendThroughWebsite = async (endpoint: string, sent: InquiryPayload) => {
+  const sendThroughWebsite = async (endpoint: string, values: InquiryPayload) => {
+    const wait = secondsUntil(waitUntil.current);
+    if (wait > 0) {
+      // Repeat the server's answer instead of asking again too early.
+      setStatus({ kind: "not-sent", reason: "rate-limited", minutes: minutesFrom(wait) });
+      return;
+    }
+    // Same content as the held submission: a retry with its key. Otherwise a
+    // new logical submission with a new key.
+    const current = nextSubmission(submission.current, values);
+    if (!current) {
+      setStatus({ kind: "not-sent", reason: "no-key", minutes: null });
+      return;
+    }
+    submission.current = current;
+    const { sent } = current;
     pending.current = true;
     const controller = new AbortController();
     request.current = controller;
@@ -158,14 +205,22 @@ export function InquiryForm() {
       previous: previous.kind === "invalid" ? { kind: "idle" } : previous,
     }));
     const homepage = String(new FormData(formRef.current ?? undefined).get("homepage") ?? "");
-    const result = await submitInquiry(endpoint, sent, homepage, { signal: controller.signal });
+    const result = await submitInquiry(endpoint, current, homepage, {
+      signal: controller.signal,
+    });
     // Unmounted, or superseded: drop the answer.
     if (request.current !== controller || controller.signal.aborted) return;
     request.current = null;
     pending.current = false;
+    if (!keepsSubmission(result) && submission.current === current) submission.current = null;
     switch (result.kind) {
       case "accepted":
-        setStatus({ kind: "received", reference: result.reference, sent });
+        setStatus({
+          kind: "received",
+          reference: result.reference,
+          sent,
+          replayed: result.replayed,
+        });
         return;
       case "invalid": {
         // Localized text for each field the server named; the visitor's
@@ -178,11 +233,12 @@ export function InquiryForm() {
         return;
       }
       case "uncertain":
-        setStatus({ kind: "uncertain" });
+        setStatus({ kind: "uncertain", sent });
         return;
       case "rate-limited": {
         const seconds = result.retryAfterSeconds;
-        const minutes = seconds === null ? null : Math.max(1, Math.ceil(seconds / 60));
+        if (seconds !== null) waitUntil.current = timestampAfter(seconds);
+        const minutes = seconds === null ? null : minutesFrom(seconds);
         setStatus({ kind: "not-sent", reason: "rate-limited", minutes });
         return;
       }
@@ -315,6 +371,7 @@ export function InquiryForm() {
                   {shown.reference}
                 </dd>
               </dl>
+              {shown.replayed && <p className="mt-3 text-ink-muted">{api.replayed}</p>}
               <p className="mt-3 text-ink-muted">{api.receivedNext}</p>
               {!sameInquiry(payload, shown.sent) && <p className="mt-3 font-medium">{api.stale}</p>}
             </>
@@ -323,13 +380,7 @@ export function InquiryForm() {
               <p className="font-semibold">
                 {shown.reason === "rate-limited"
                   ? api.rateLimited(shown.minutes)
-                  : shown.reason === "too-large"
-                    ? api.tooLarge
-                    : shown.reason === "unavailable"
-                      ? api.unavailable
-                      : shown.reason === "blocked"
-                        ? api.blocked
-                        : api.failed}
+                  : notSentText[shown.reason]}
               </p>
               <p className="mt-2 text-ink-muted">{api.kept}</p>
             </>
@@ -338,6 +389,24 @@ export function InquiryForm() {
               <p className="font-semibold">{api.uncertain}</p>
               <p className="mt-2 text-ink-muted">{api.uncertainDetail}</p>
               <p className="mt-2 text-ink-muted">{api.kept}</p>
+              {sameInquiry(payload, shown.sent) ? (
+                // Same content, so the same key: the server answers with the
+                // stored reference if the first attempt got through.
+                <div className="mt-4">
+                  <button
+                    type="submit"
+                    name="channel"
+                    value="api"
+                    disabled={!hydrated}
+                    aria-disabled={submitting || undefined}
+                    className="btn btn-secondary min-h-11"
+                  >
+                    {api.retry}
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-3 font-medium">{api.uncertainChanged}</p>
+              )}
             </>
           ) : (
             <>

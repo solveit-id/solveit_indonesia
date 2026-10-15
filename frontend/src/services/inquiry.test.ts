@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { company, primaryWhatsApp } from "~/data/company";
 import type { InquiryPayload } from "~/types/inquiry";
-import { composeInquiryMessage, emptyInquiry, inquiryHref, validateInquiry } from "./inquiry";
+import {
+  canonicalInquiry,
+  composeInquiryMessage,
+  emptyInquiry,
+  inquiryHref,
+  sameInquiry,
+  validateInquiry,
+} from "./inquiry";
 
 const valid: InquiryPayload = {
   ...emptyInquiry,
@@ -113,5 +120,30 @@ describe("inquiry delivery", () => {
     expect(inquiryHref("whatsapp", valid, { recipient: "6280000000000" })).toContain(
       `https://wa.me/${primaryWhatsApp.e164}?`,
     );
+  });
+});
+
+describe("canonicalInquiry and sameInquiry", () => {
+  it("trims strings like the API and keeps enum values and an empty organization", () => {
+    expect(
+      canonicalInquiry({
+        ...valid,
+        name: "  Rina Wulandari\t",
+        organization: "   ",
+        message: `\n${valid.message} `,
+      }),
+    ).toEqual({ ...valid, organization: "" });
+  });
+
+  it("returns a new object, never the one it was given", () => {
+    expect(canonicalInquiry(valid)).not.toBe(valid);
+  });
+
+  it("compares canonical values field by field", () => {
+    expect(sameInquiry(valid, { ...valid, name: ` ${valid.name} ` })).toBe(true);
+    expect(sameInquiry(valid, { ...valid, name: valid.name.toUpperCase() })).toBe(false);
+    expect(sameInquiry(valid, { ...valid, organization: "" })).toBe(false);
+    expect(sameInquiry(valid, { ...valid, budget: "50-150jt" })).toBe(false);
+    expect(sameInquiry(valid, { ...valid, message: `${valid.message}.` })).toBe(false);
   });
 });

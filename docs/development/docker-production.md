@@ -52,7 +52,7 @@ Semua service: `restart: unless-stopped` (kecuali `migrate`), `no-new-privileges
 
 - Default **satu origin**: gateway menyajikan situs dan `/api`, sehingga browser tidak butuh CORS (`CORS_ALLOWED_ORIGINS` kosong).
 - **Origin terpisah** (misalnya `api.<domain>`): jalankan gateway kedua atau server block lain untuk API, isi `CORS_ALLOWED_ORIGINS` dengan origin website yang persis (tanpa `*`), dan bangun frontend dengan `SOLVEIT_API_BASE_URL=https://api.<domain>`.
-- `VITE_*` adalah konfigurasi publik saat build, bukan rahasia. `compose.prod.yaml` mengunci `VITE_INQUIRY_API_ENABLED: "false"`: build Docker tidak dapat mengaktifkan kanal **Kirim melalui website** secara tidak sengaja. Mengubahnya butuh persetujuan pemilik (privasi, retensi, hosting, database, penanganan inquiry), lalu B2.2 (idempotensi di frontend) sebaiknya selesai lebih dulu.
+- `VITE_*` adalah konfigurasi publik saat build, bukan rahasia. `compose.prod.yaml` mengunci `VITE_INQUIRY_API_ENABLED: "false"`: build Docker tidak dapat mengaktifkan kanal **Kirim melalui website** secara tidak sengaja. Mengubahnya butuh persetujuan pemilik (privasi, retensi, hosting, database, penanganan inquiry). B2.2 (idempotensi di frontend) sudah selesai, jadi syarat teknis dari sisi klien terpenuhi.
 - Galat `502` atau `504` yang dibuat gateway (backend tidak terjangkau, timeout) berarti hasil **tidak pasti** bagi klien; hanya `503` dengan body JSON dari Laravel berarti pasti tidak tersimpan (`docs/api/inquiries.md`).
 
 ## File konfigurasi dan rahasia
