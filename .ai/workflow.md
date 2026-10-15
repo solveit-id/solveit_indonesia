@@ -50,8 +50,9 @@ Run in `frontend/`, stop at the first failure, and report real output:
 4. `npm test`
 5. `npm run build` (without `VITE_SITE_URL` it warns that the sitemap is skipped; expected)
 6. `npx playwright test --project=desktop --workers=1`, then `tablet`, then `mobile` (axe is part of the suite). Add `PW_ALL_BROWSERS=1 ... --project=firefox` for Firefox.
-7. WebKit: push the branch, then `gh workflow run cross-browser-qa.yml -f ref=<full 40-character sha>` and read the run's summary.
-8. Performance, when a change can affect it: `npm run preview`, then Lighthouse mobile against `http://localhost:4173/`, median of 3, stating the preset.
+7. Inquiry API mode: `npm run test:e2e:api` (a second build with `VITE_INQUIRY_API_ENABLED=true` in `build/inquiry-api`, port 4174, mocked API responses). Add `--project=<desktop|tablet|mobile>` to run one at a time.
+8. WebKit: push the branch, then `gh workflow run cross-browser-qa.yml -f ref=<full 40-character sha>` and read the run's summary (it runs both builds).
+9. Performance, when a change can affect it: `npm run preview`, then Lighthouse mobile against `http://localhost:4173/`, median of 3, stating the preset.
 
 Design review without the `impeccable` skill: compare screenshots at 1440, 820, and 390 px in light and dark themes and both languages against `docs/DESIGN.md`, and record findings in `docs/qa/qa-report.md`.
 
