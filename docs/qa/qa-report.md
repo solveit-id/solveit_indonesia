@@ -66,7 +66,7 @@ Temuan yang diperbaiki selama QA:
 | 38805322828 (`73c2a1e`) | Compose dan skrip lulus. Produksi gagal di langkah secret (glob pada folder yang baru dikunci). Pengembangan gagal: `[1130]`, karena izin secret MySQL (di atas) |
 | 38805741991 (`a126fbe`) | Compose dan skrip lulus. **Produksi lulus** (build, migrasi eksplisit, 33 pemeriksaan smoke di Linux). Pengembangan: onboarding dari clone baru lulus (PHP 8.5.11, Node v22.23.1, Laravel 13.36.0), lalu gagal hanya pada regex baris versi MySQL (`db:show` memakai titik, bukan spasi); diperbaiki di `fc12e92` |
 
-Hasil run pada PR dicatat di `.ai/project-status.md` dan di PR.
+Pada PR #26 (head `3202aab`) dan rilis PR #27 semua check lulus: Backend CI (151 tes, 466 assertion, PHP 8.5.11, MySQL 8.4.11, tanpa advisory), Frontend CI (125 unit, E2E bawaan 488 lulus, E2E build API 24 lulus), dan Docker CI (ketiga job). Run: 38806467946, 38806468013, 38806467997 (PR #26); 38807594540, 38807594554, 38807594773 (PR #27). Rilis di `main`: `d22a079`.
 
 ### Belum diverifikasi
 
