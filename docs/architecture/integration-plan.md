@@ -22,7 +22,7 @@ Status (2026-10-16): **inquiry dibangun (B1), klien frontend dibangun di balik f
 | Kebutuhan | Saat ini | Setelah API tersedia |
 |---|---|---|
 | Daftar dan detail proyek | `src/services/projects.ts` membaca `src/data/projects.ts` | Fungsi yang sama memanggil API; halaman memakai `clientLoader`; route studi kasus kembali ke `portofolio/:slug` |
-| Inquiry konsultasi | `src/services/inquiry.ts` menyusun pesan WhatsApp/email; kanal `api` (`src/services/inquiry-api.ts`, B2) sudah dibangun tetapi nonaktif secara default | Kirim `Idempotency-Key` per kiriman logis (B2.2, panduan di `docs/api/inquiries.md`), lalu aktifkan flag pada build lingkungan yang API-nya sudah di-deploy dan disetujui pemilik. Klien mengirim honeypot `homepage`, menampilkan nomor referensi hanya dari `201` yang valid, memetakan `422` ke `InquiryErrors`, dan menawarkan WhatsApp/email (tanpa membukanya otomatis) pada `429`, `503`, atau hasil tidak pasti |
+| Inquiry konsultasi | `src/services/inquiry.ts` menyusun pesan WhatsApp/email; kanal `api` (`src/services/inquiry-api.ts`, B2) sudah dibangun tetapi nonaktif secara default | Sejak B2.2 klien mengirim `Idempotency-Key` per kiriman logis dan menawarkan percobaan ulang dengan kunci yang sama bila hasilnya tidak pasti (`docs/api/inquiries.md`). Berikutnya: aktifkan flag pada build lingkungan yang API-nya sudah di-deploy dan disetujui pemilik. Klien mengirim honeypot `homepage`, menampilkan nomor referensi hanya dari `201` yang valid, memetakan `422` ke `InquiryErrors`, dan menawarkan WhatsApp/email (tanpa membukanya otomatis) pada `429`, `503`, atau hasil tidak pasti |
 | Konfigurasi | `src/config/site.ts` memvalidasi `VITE_API_BASE_URL` (origin saja, HTTPS kecuali loopback) dan `VITE_INQUIRY_API_ENABLED` (default `false`) | Diisi per lingkungan; tidak ada rahasia di `VITE_*` |
 
 ## Kontrak
@@ -47,7 +47,7 @@ Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dib
 
 | Tahap | Fitur (di sistem ekosistem, bukan website ini) | Dampak ke website ini |
 |---|---|---|
-| 1 | Inquiry via API website, panel admin website | Endpoint inquiry sudah dibangun (B1); kanal `api` di form kontak dibangun di balik flag yang nonaktif (B2); idempotensi backend dibangun (B2.1). Berikutnya: idempotensi di frontend (B2.2), deployment dan aktivasi setelah keputusan pemilik, panel admin website, lalu penerusan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
+| 1 | Inquiry via API website, panel admin website | Endpoint inquiry sudah dibangun (B1); kanal `api` di form kontak dibangun di balik flag yang nonaktif (B2); idempotensi backend (B2.1) dan frontend (B2.2) dibangun. Berikutnya: deployment dan aktivasi setelah keputusan pemilik, panel admin website, lalu penerusan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
 | 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain sistem klien; tidak ada route `/portal/*` di website ini |
 | 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di sistem ekosistem |
 | 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di sistem ekosistem |

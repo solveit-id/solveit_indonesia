@@ -397,9 +397,20 @@ export const id = {
         "Website sedang tidak dapat menyimpan permintaan, jadi permintaan ini belum tercatat. Coba lagi nanti, atau kirim lewat WhatsApp atau email.",
       failed:
         "Permintaan tidak dapat dikirim melalui website. Silakan kirim lewat WhatsApp atau email.",
+      replayed:
+        "Percobaan sebelumnya ternyata sudah tercatat, jadi tidak ada permintaan kedua yang dibuat.",
+      keyRejected:
+        "Website tidak dapat memproses kiriman ini, jadi belum ada yang tercatat. Coba kirim lagi, atau kirim lewat WhatsApp atau email.",
+      conflict:
+        "Website tidak mencatat kiriman ini karena bertabrakan dengan permintaan yang tercatat sebelumnya. Tekan Kirim melalui website lagi untuk mengirimnya sebagai permintaan baru, atau kirim lewat WhatsApp atau email.",
+      unsupported:
+        "Browser ini tidak dapat mengirim dengan aman melalui website, jadi tidak ada yang dikirim. Silakan kirim lewat WhatsApp atau email.",
       uncertain: "Website belum memberi konfirmasi.",
       uncertainDetail:
-        "Permintaan Anda mungkin sudah sampai ke server, tetapi kami tidak dapat memastikannya. Agar tidak terkirim dua kali, hubungi kami lewat WhatsApp atau email untuk memastikan sebelum mengirim lagi.",
+        "Permintaan Anda mungkin sudah sampai ke server, tetapi kami tidak dapat memastikannya. Kirim ulang untuk memeriksanya: bila permintaan tadi sudah tercatat, website menampilkan nomor referensinya tanpa mencatatnya dua kali. Anda juga dapat menanyakannya lewat WhatsApp atau email.",
+      uncertainChanged:
+        "Isian sudah berubah sejak percobaan tadi. Kembalikan isian seperti semula untuk memeriksa percobaan tadi. Bila Anda mengirim isian yang baru, website mencatatnya sebagai permintaan terpisah.",
+      retry: "Kirim ulang permintaan yang sama",
       kept: "Isian Anda tetap tersimpan di formulir ini.",
     },
     composed: {

@@ -394,9 +394,19 @@ export const en: Messages = {
         "The website cannot save requests right now, so this request was not recorded. Try again later, or send it by WhatsApp or email.",
       failed:
         "The request could not be sent through the website. Please send it by WhatsApp or email.",
+      replayed: "Your earlier attempt had already been recorded, so no second request was created.",
+      keyRejected:
+        "The website could not process this submission, so nothing was recorded. Try sending it again, or send it by WhatsApp or email.",
+      conflict:
+        "The website did not record this submission because it conflicts with a request recorded earlier. Press Send through website again to send it as a new request, or send it by WhatsApp or email.",
+      unsupported:
+        "This browser cannot send securely through the website, so nothing was sent. Please send it by WhatsApp or email.",
       uncertain: "The website has not confirmed your request.",
       uncertainDetail:
-        "Your request may already have reached the server, but we cannot confirm it. To avoid sending it twice, contact us by WhatsApp or email to check before sending again.",
+        "Your request may already have reached the server, but we cannot confirm it. Retry to check: if it was recorded, the website shows its reference number without recording it twice. You can also ask us by WhatsApp or email.",
+      uncertainChanged:
+        "The form has changed since that attempt. Restore the previous details to check that attempt. If you send the new details, the website records them as a separate request.",
+      retry: "Retry the same request",
       kept: "Your details are still in this form.",
     },
     composed: {
