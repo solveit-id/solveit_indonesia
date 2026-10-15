@@ -80,7 +80,10 @@ Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-rep
     - API build: 7 passed per project, with the email test skipped on WebKit.
   - Last PR #22 head `1ef187c`: Frontend CI run 38738309596 green. Pushes to `staging` run no workflow, so the merge commit `5449bcc` has no run of its own; its tree is identical to `1ef187c`.
 - CI for PR #23: Backend CI run 38783110473 on the final head `b490185` green (PHP 8.5.11, MySQL 8.4.11, 109 tests, 275 assertions, no advisories). The tree of `staging` `f277caf` is identical to `b490185`, and `frontend/` and `.github/` are identical to `1ef187c`.
-- Release PR #24: Frontend CI and Backend CI run on the PR head; Cross-browser QA run 38784441899 dispatched on `f277caf`.
+- Release PR #24, head `f277caf` (all green, no retries):
+  - Frontend CI 38784609468: 125 unit and component tests, default E2E 488 passed, API-build E2E 24 passed.
+  - Backend CI 38784609456: 109 tests, 275 assertions on PHP 8.5.11 and MySQL 8.4.11.
+  - Cross-browser QA 38786723379, dispatched with the workflow from `staging` so the API-build step runs: WebKit 177 passed, WebKit iPhone 14 145 passed, API build 7 passed and 1 skipped per project, 0 failed, 0 flaky. Run 38784441899 used `main`'s older workflow file and covered the default build only.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
