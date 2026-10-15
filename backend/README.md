@@ -16,4 +16,4 @@ composer create-project laravel/laravel backend   # di root repo, folder ini mas
 cd backend && php artisan install:api
 ```
 
-Kontrak API awal (inquiry, proyek, layanan), batas sistem, dan peta jalan integrasi dengan Solveit OpsHub ada di [`docs/integration-plan.md`](../docs/integration-plan.md). Simpan rahasia di `backend/.env` (diabaikan Git) dan dokumentasikan variabel di `.env.example`.
+Kontrak API awal (inquiry, proyek, layanan), batas sistem, dan peta jalan integrasi dengan Solveit OpsHub ada di [`docs/architecture/integration-plan.md`](../docs/architecture/integration-plan.md). Simpan rahasia di `backend/.env` (diabaikan Git) dan dokumentasikan variabel di `.env.example`.

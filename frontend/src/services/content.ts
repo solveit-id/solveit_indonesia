@@ -15,7 +15,7 @@ import type {
 /**
  * Localized content access. Reads the typed local dataset today; when the
  * Laravel API exists these become API calls with the same signatures
- * (docs/integration-plan.md).
+ * (docs/architecture/integration-plan.md).
  */
 export const getServices = (locale: Locale): Service[] =>
   serviceIds.map((id) => ({ id, ...content[locale].services[id] }));

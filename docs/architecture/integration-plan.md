@@ -51,7 +51,7 @@ Bentuk data mengikuti tipe `Service`.
 
 ## Peta jalan integrasi dengan ekosistem
 
-Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dibangun di repository-nya sendiri. Nama bagian untuk klien (Connect, Scope, Accord, Ledger, Pulse, Care) dan nama payung Solveit Orbit masih usulan (`product-naming.md`); apakah tiap bagian menjadi aplikasi sendiri atau modul belum diputuskan, sehingga kolom tengah menyebut fungsinya. Kolom kanan hanya mencatat apa yang berubah **di website ini** pada setiap tahap.
+Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dibangun di repository-nya sendiri. Nama bagian untuk klien (Connect, Scope, Accord, Ledger, Pulse, Care) dan nama payung Solveit Orbit masih usulan (`docs/product/product-naming.md`); apakah tiap bagian menjadi aplikasi sendiri atau modul belum diputuskan, sehingga kolom tengah menyebut fungsinya. Kolom kanan hanya mencatat apa yang berubah **di website ini** pada setiap tahap.
 
 | Tahap | Fitur (di sistem ekosistem, bukan website ini) | Dampak ke website ini |
 |---|---|---|

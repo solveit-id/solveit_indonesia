@@ -6,7 +6,7 @@ import type { Project, ProjectBase, ProjectCategory } from "~/types/content";
 
 /**
  * Portfolio data access. Reads the typed local dataset today; when the Laravel
- * API exists, swap these bodies for API calls (see docs/integration-plan.md)
+ * API exists, swap these bodies for API calls (see docs/architecture/integration-plan.md)
  * and move callers to route `clientLoader`s. Signatures stay stable.
  */
 const localize = (base: ProjectBase, locale: Locale): Project => ({

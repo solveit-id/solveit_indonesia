@@ -5,18 +5,20 @@
 ```text
 solveit_indonesia/
 ├── frontend/   React 19 + TypeScript (strict) + Vite 8 + React Router 7 (framework mode, prerender statis)
+│               Logo asli: frontend/public/brand/solveit-logo-{full,icon}.svg (jangan diubah bentuknya)
 ├── backend/    Disiapkan untuk Laravel 13 (PHP 8.5). Belum berisi kode; lihat backend/README.md
-├── brand/      Aset merek asli logo-solveit-*.svg (sumber identitas visual, jangan diubah bentuknya)
-├── docs/       Dokumentasi proyek (file ini, desain, SEO/GEO, integrasi, QA, penamaan produk)
-├── PRODUCT.md  Fakta produk yang sudah dikonfirmasi (sumber kebenaran konten)
-└── DESIGN.md   Spesifikasi desain yang diturunkan dari kode (dibaca skill impeccable dari root)
+├── docs/       Dokumentasi. PRODUCT.md (fakta produk) dan DESIGN.md (spesifikasi desain) di tingkat atas,
+│               sisanya per kelompok. Peta: docs/README.md; aturan struktur: docs/project-structure.md
+├── .ai/        Handoff untuk agent lain (status proyek dan alur kerja tanpa Claude Code)
+├── AGENTS.md   Instruksi bersama untuk semua coding agent
+└── CLAUDE.md   Memuat AGENTS.md ditambah catatan khusus Claude Code
 ```
 
 Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau endpoint. Formulir konsultasi menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email.
 
 ### Batas sistem
 
-Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend/API yang menjadi tanggung jawab website (inquiry, konten, admin website). Solveit OpsHub (pusat operasional internal) dan bagian ekosistem lain yang direncanakan untuk klien (pemesanan, proposal, kontrak, invoice, progres, revisi, pemeliharaan; nama usulan di `product-naming.md`, payung "Solveit Orbit") adalah proyek terpisah dengan repository, deployment, dependensi, dan siklus rilis sendiri. Website terhubung ke sistem itu lewat REST API berversi, event/webhook, atau tautan antar-domain, bukan database bersama dan bukan route di dalam aplikasi ini. Rinciannya di `integration-plan.md`.
+Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend/API yang menjadi tanggung jawab website (inquiry, konten, admin website). Solveit OpsHub (pusat operasional internal) dan bagian ekosistem lain yang direncanakan untuk klien (pemesanan, proposal, kontrak, invoice, progres, revisi, pemeliharaan; nama usulan di `docs/product/product-naming.md`, payung "Solveit Orbit") adalah proyek terpisah dengan repository, deployment, dependensi, dan siklus rilis sendiri. Website terhubung ke sistem itu lewat REST API berversi, event/webhook, atau tautan antar-domain, bukan database bersama dan bukan route di dalam aplikasi ini. Rinciannya di `docs/architecture/integration-plan.md`.
 
 ## Frontend
 
@@ -38,7 +40,7 @@ Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend
 
 - `react-router.config.ts`: `ssr: false` + `prerender`. Setiap halaman publik dalam kedua bahasa (termasuk tiap studi kasus) di-build menjadi HTML statis lengkap dengan metadata dan JSON-LD, lalu di-hydrate di browser.
 - Bahasa ditentukan oleh URL saja: Indonesia di root (URL lama tetap), Inggris di bawah `/en` dengan path terjemahan (`/en/services`, `/en/portfolio/<slug-inggris>`). Satu modul halaman melayani dua route ber-id berbeda (`services-id`, `services-en`); komponen membaca bahasa dari `useLocation()`, sehingga prerender, hydration, dan `<html lang>` selalu sama.
-- Studi kasus didaftarkan sebagai route eksplisit per slug dan per bahasa (`src/routes.ts`). URL yang tidak dikenal jatuh ke route `*` atau `en/*`, sehingga `404.html` dan `en/404.html` di-hydrate pada route yang sama dengan saat dirender. Rute dinamis `:slug` akan dipakai lagi saat data berasal dari API (lihat `integration-plan.md`).
+- Studi kasus didaftarkan sebagai route eksplisit per slug dan per bahasa (`src/routes.ts`). URL yang tidak dikenal jatuh ke route `*` atau `en/*`, sehingga `404.html` dan `en/404.html` di-hydrate pada route yang sama dengan saat dirender. Rute dinamis `:slug` akan dipakai lagi saat data berasal dari API (lihat `docs/architecture/integration-plan.md`).
 - `scripts/postbuild.mjs` menghasilkan `404.html` per bahasa, `robots.txt`, dan `sitemap.xml` dengan alternatif hreflang (hanya jika `VITE_SITE_URL` diisi) dari HTML yang benar-benar di-prerender, melewati halaman `noindex`. Langkah yang sama memindahkan bootstrap JavaScript ke belakang first paint (lihat Performa).
 - Preferensi pengunjung: tema dan bahasa disimpan di `localStorage`. Skrip kecil di `<head>` (`root.tsx`) memulihkan tema gelap sebelum paint, dan hanya mengarahkan pengunjung yang pernah memilih Inggris dari `/` (tanpa referrer situs ini) ke `/en`. Crawler tidak menyimpan preferensi, jadi tidak pernah dialihkan.
 
@@ -97,7 +99,7 @@ Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend
 | GSAP dimuat lazily | Mengurangi JS sebelum first paint; skor Lighthouse mobile naik signifikan |
 | Font Archivo di-subset sendiri | 90 KB menjadi 29 KB; sumbu lebar dan berat dibatasi ke yang dipakai |
 | Tanpa WebGL/Three.js | Identitas visual cukup dibawa SVG + transform; biaya performa tidak sebanding |
-| Tanpa custom smooth scroll (Lenis dievaluasi, ditolak) | Prototipe Lenis 1.3 pada build produksi: waktu main thread saat scroll naik sekitar 18 persen, frame di atas 25 ms hampir dua kali lipat, scroll roda di panel asisten dibajak ke halaman, dan scroll masih bergerak sekitar 75 px setelah input berhenti; pengguna sentuh (mayoritas audiens) tidak mendapat manfaat karena Lenis tidak menghaluskan sentuhan secara default. Data di `qa-report.md` |
+| Tanpa custom smooth scroll (Lenis dievaluasi, ditolak) | Prototipe Lenis 1.3 pada build produksi: waktu main thread saat scroll naik sekitar 18 persen, frame di atas 25 ms hampir dua kali lipat, scroll roda di panel asisten dibajak ke halaman, dan scroll masih bergerak sekitar 75 px setelah input berhenti; pengguna sentuh (mayoritas audiens) tidak mendapat manfaat karena Lenis tidak menghaluskan sentuhan secara default. Data di `docs/qa/qa-report.md` |
 | Layar pemuatan bermerek hanya untuk muatan dokumen, berbasis CSS | Diminta pengguna setelah evaluasi langsung (putaran 4 membatalkan penolakan putaran 3). Dibangun agar tidak menunda apa pun: CSS/SVG statis di HTML, tanpa progres palsu, keluar saat halaman siap, batas 2,6 s, tanpa JS tidak tampil. Navigasi klien tetap memakai runner dan chip yang diskalakan ke lama tunggu sebenarnya |
 | Asisten berbasis panduan, bukan AI | Belum ada backend; jawaban hanya dari konten terverifikasi, identitas jujur, antarmuka mesin siap ditukar |
 | Formulir via WhatsApp/email | Kanal resmi yang sudah dikonfirmasi; tidak ada klaim "terkirim" tanpa backend |
