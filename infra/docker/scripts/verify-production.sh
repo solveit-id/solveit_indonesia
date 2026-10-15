@@ -8,6 +8,8 @@
 #   SOLVEIT_SECRETS_DIR   secrets folder used by the stack (to read the MySQL root password)
 #
 # Exits non-zero on the first failed check.
+# SC2016: single-quoted $ is intended; it must expand inside the containers, not on the host.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

@@ -57,9 +57,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Container user matches the runner user (bind-mounted source stays writable)
         run: |
-          echo "SOLVEIT_UID=$(id -u)" >> "$GITHUB_ENV"
-          echo "SOLVEIT_GID=$(id -g)" >> "$GITHUB_ENV"
-          echo "SOLVEIT_WATCH_POLLING=false" >> "$GITHUB_ENV"
+          {
+            echo "SOLVEIT_UID=$(id -u)"
+            echo "SOLVEIT_GID=$(id -g)"
+            echo "SOLVEIT_WATCH_POLLING=false"
+          } >> "$GITHUB_ENV"
       - name: Onboarding script (secrets, .env files, build, start, migrate)
         run: bash infra/docker/scripts/setup-dev.sh
       - name: Runtime versions
@@ -98,12 +100,13 @@ jobs:
     timeout-minutes: 30
     env:
       SOLVEIT_PROD_PROJECT: solveit-ci-prod
-      SOLVEIT_SECRETS_DIR: ${{ runner.temp }}/prod-secrets
       SOLVEIT_ENV_FILE: ./production.env.example
     steps:
       - uses: actions/checkout@v4
       - name: Disposable secrets (random per run, never printed)
         run: |
+          SOLVEIT_SECRETS_DIR="$RUNNER_TEMP/prod-secrets"
+          echo "SOLVEIT_SECRETS_DIR=$SOLVEIT_SECRETS_DIR" >> "$GITHUB_ENV"
           mkdir -p "$SOLVEIT_SECRETS_DIR"
           printf 'base64:%s' "$(openssl rand -base64 32)" > "$SOLVEIT_SECRETS_DIR/app_key"
           for name in db_app_password db_migrator_password mysql_root_password; do openssl rand -hex 24 > "$SOLVEIT_SECRETS_DIR/$name"; done
