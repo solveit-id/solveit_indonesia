@@ -11,9 +11,30 @@
       "Bash(npm run format:check)",
       "Bash(git status)",
       "Bash(git diff:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(php artisan test:*)",
+      "Bash(php artisan route:list:*)",
+      "Bash(vendor/bin/pint:*)",
+      "Bash(composer validate:*)",
+      "Bash(composer audit:*)"
     ],
-    "deny": ["Bash(git push --force:*)", "Bash(git push -f:*)", "Read(./**/.env)", "Read(./**/.env.*)"]
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Read(./**/.env.*.local)",
+      "Read(./**/.env.backup)",
+      "Read(./**/.env.bak)",
+      "Read(./**/.env.dev)",
+      "Read(./**/.env.development)",
+      "Read(./**/.env.prod)",
+      "Read(./**/.env.production)",
+      "Read(./**/.env.staging)",
+      "Read(./**/.env.test)",
+      "Read(./**/.env.testing)",
+      "Read(./**/auth.json)"
+    ]
   },
-  "enabledMcpjsonServers": ["playwright"]
+  "enabledMcpjsonServers": ["playwright", "laravel-boost"]
 }

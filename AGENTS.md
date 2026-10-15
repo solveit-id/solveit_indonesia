@@ -7,7 +7,7 @@ Shared instructions for every coding agent working in this repository (Claude Co
 Solveit Indonesia company profile and portfolio. This repository holds only the website and its own backend; Solveit OpsHub and other Solveit systems live in separate repositories and integrate through API contracts or events, never a shared database (see `docs/architecture/integration-plan.md`).
 
 - `frontend/`: React 19, TypeScript strict, Vite 8, React Router 7 (framework mode, static prerender), Tailwind CSS v4, GSAP. Built and released.
-- `backend/`: reserved for Laravel 13 on PHP 8.5 (next phase, `backend` branch). Holds only a README; do not add fake endpoints.
+- `backend/`: Laravel 13 JSON API (PHP ^8.3, developed on 8.5), `backend` branch. Built: `POST /api/v1/inquiries` and `GET /up` (contracts in `docs/api/`). Not deployed and not called by the frontend yet. Add only endpoints that really work, never fake ones.
 
 ## Read first
 
@@ -18,6 +18,8 @@ Solveit Indonesia company profile and portfolio. This repository holds only the 
 | `docs/design/design-system.md` | Tokens, components, motion rules |
 | `docs/project-structure.md` | Where every folder and file belongs, and naming rules |
 | `.ai/project-status.md` | What is done, what is next, open decisions |
+| `backend/AGENTS.md` | Laravel Boost guidelines for backend work (generated; read before touching `backend/`) |
+| `docs/api/` | Contracts of the endpoints that exist |
 
 `docs/PRODUCT.md` and `docs/DESIGN.md` stay at the top of `docs/` (design tooling resolves them there); every other document lives in a topic folder. The map is `docs/README.md`.
 
@@ -27,14 +29,24 @@ Solveit Indonesia company profile and portfolio. This repository holds only the 
 - Git normalises text files to LF (`.gitattributes`); Windows working copies may show CRLF. Match the existing line ending when editing a file with scripts.
 - Memory is limited: run Playwright one project at a time with `--workers=1`. WebKit (desktop and iPhone 14) runs on GitHub Actions through the **Cross-browser QA** workflow (`gh workflow run cross-browser-qa.yml -f ref=<full sha>`).
 
-## Commands (run in `frontend/`)
+## Commands
 
-`npm run dev` · `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` · `npm run test:e2e` · `npm run format` / `format:check` · `npm run check` (lint + typecheck + test + build).
+Frontend (run in `frontend/`): `npm run dev` · `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` · `npm run test:e2e` · `npm run format` / `format:check` · `npm run check` (lint + typecheck + test + build).
+
+Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix with `vendor/bin/pint`) · `composer validate --strict` · `composer audit` · `php artisan route:list --except-vendor` · `php artisan migrate` · `php artisan boost:update --no-discover`. Setup from a fresh clone: `backend/README.md`.
+
+## Laravel backend and Laravel Boost
+
+- **The official Laravel Boost package (`laravel/boost`, in `require-dev`) is mandatory for any work on the Laravel backend.** Read `backend/AGENTS.md` (Boost guidelines plus Solveit backend rules) and use the `laravel-boost` MCP tools, above all `search-docs` for Laravel 13 APIs and `application-info`, before writing framework-dependent code. Activate the Boost skills (`laravel-best-practices`, `testing-best-practices`) when they apply.
+- MCP from the repository root: `php backend/artisan boost:mcp`, registered in `.mcp.json` (Claude Code), `.codex/config.toml` (Codex, after trusting the repository), and `.cursor/mcp.json` (Cursor). Start agent sessions at the repository root or in `backend/`. If the server does not appear, restart the session; never report MCP tools that did not respond.
+- Use Boost database and log tools only on the local SQLite database. Never print `.env` values, tokens, or inquiry contents (names, contacts, messages).
+- `backend/.ai/` holds Boost sources (guidelines, skills, rules) for the Laravel app; the root `.ai/` holds repository handoff. Do not mix them. Full standard: `docs/project-structure.md` section 9.
+- Endpoints never return success unless the data is stored, and inquiries never get a public read, update, or delete endpoint. Out of scope for this repository: OpsHub, client portal, proposals, contracts, invoices, payments, project tracking.
 
 ## Verification before a commit
 
-1. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
-2. UI changes: `npx playwright test --project=<desktop|tablet|mobile> --workers=1` (axe runs inside the suite). `PW_ALL_BROWSERS=1` adds `firefox`.
+1. Frontend changes: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. UI changes also: `npx playwright test --project=<desktop|tablet|mobile> --workers=1` (axe runs inside the suite). `PW_ALL_BROWSERS=1` adds `firefox`.
+2. Backend changes: `vendor/bin/pint --test`, `php artisan test`, `composer validate --strict`, `composer audit`; after dependency or guideline changes, `php artisan boost:update --no-discover` and commit the resulting `backend/AGENTS.md`.
 3. Report real output. Never weaken a test to make it pass.
 
 ## Rules
