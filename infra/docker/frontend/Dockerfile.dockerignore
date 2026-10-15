@@ -1,0 +1,26 @@
+# Build context is the repository root; this allowlist keeps only what the frontend image needs.
+# BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile before the root .dockerignore.
+*
+!frontend/
+!infra/docker/frontend/
+!infra/docker/nginx/frontend.conf
+
+# Local environments (VITE_* comes from build arguments only), host dependencies, build output,
+# test artifacts, and agent caches.
+frontend/.env
+frontend/.env.*
+frontend/node_modules/
+frontend/build/
+frontend/.react-router/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/coverage/
+frontend/.impeccable/
+frontend/*.tsbuildinfo
+frontend/.eslintcache
+**/*.log
+**/*.pem
+**/*.key
+**/.DS_Store
+**/Thumbs.db

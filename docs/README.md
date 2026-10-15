@@ -8,7 +8,7 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 |---|---|
 | [PRODUCT.md](PRODUCT.md) | Fakta produk yang sudah dikonfirmasi: pengguna, layanan, batasan, komitmen merek. Sumber kebenaran konten |
 | [DESIGN.md](DESIGN.md) | Spesifikasi desain yang diturunkan dari kode yang sudah dirilis (token, tipografi, komponen, motion) |
-| [project-structure.md](project-structure.md) | Aturan struktur folder dan file yang dapat dipakai ulang di proyek lain, termasuk standar Laravel Boost dan coding agent (bagian 9) |
+| [project-structure.md](project-structure.md) | Aturan struktur folder dan file yang dapat dipakai ulang di proyek lain, termasuk standar Laravel Boost dan coding agent (bagian 9) serta infrastruktur monorepo dan Docker (bagian 11) |
 
 `PRODUCT.md` dan `DESIGN.md` sengaja berada di tingkat atas `docs/`: skill desain impeccable hanya mencari keduanya di root proyek atau tepat di `docs/`, bukan di subfolder.
 
@@ -24,7 +24,9 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 | | [visitor-analytics.md](architecture/visitor-analytics.md) | Rancangan (Planned) analitik pengunjung first-party: definisi metrik, privasi dan UU PDP, penyimpanan, near-real-time |
 | | [github-integration.md](architecture/github-integration.md) | Rancangan (Planned) integrasi GitHub organisasi `solveit-id`: kepemilikan OpsHub, GitHub App, webhook, tindakan berisiko |
 | [design/](design) | [design-system.md](design/design-system.md) | Prinsip visual, token, komponen, aturan motion dan aksesibilitas |
-| [development/](development) | [development-guide.md](development/development-guide.md) | Prasyarat, perintah, environment, aset, cara mengganti konten, deployment; setup backend dengan MySQL 8.4, CI, MCP Laravel Boost untuk Claude Code dan Codex, pemecahan masalah |
+| [development/](development) | [development-guide.md](development/development-guide.md) | Prasyarat, perintah, environment, aset, cara mengganti konten, deployment statis; setup backend native dengan MySQL 8.4, CI, MCP Laravel Boost untuk Claude Code dan Codex, pemecahan masalah |
+| | [docker-development.md](development/docker-development.md) | Pengembangan penuh di Docker: setup sekali jalan, perintah harian, MySQL yang dipakai bersama, hot reload, pemecahan masalah |
+| | [docker-production.md](development/docker-production.md) | Konfigurasi Docker produksi (disiapkan, belum di-deploy): arsitektur, rahasia, TLS, migrasi, pembaruan dan rollback, backup, uji lokal |
 | [product/](product) | [product-naming.md](product/product-naming.md) | Arsitektur nama ekosistem (Solveit Orbit, OpsHub, usulan nama lain) dan pemeriksaan sebelum peluncuran |
 | [seo/](seo) | [seo-geo.md](seo/seo-geo.md) | Strategi SEO/GEO, kata kunci per halaman, pekerjaan yang menunggu domain |
 | [qa/](qa) | [qa-report.md](qa/qa-report.md) | Laporan QA per putaran: hasil tes, Lighthouse, bukti, keputusan |

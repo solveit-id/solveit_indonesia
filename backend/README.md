@@ -1,6 +1,6 @@
 # Backend: Laravel API website Solveit Indonesia
 
-Laravel 13 REST API milik website company profile Solveit Indonesia. Saat ini berisi fondasi API (B0), endpoint inquiry (B1), dan standardisasi MySQL serta PHP 8.5 (B1.1). Solveit OpsHub, portal klien, proposal, kontrak, invoice, dan sistem Solveit lain **tidak** dibangun di sini; mereka punya repository dan database sendiri (`docs/architecture/integration-plan.md`).
+Laravel 13 REST API milik website company profile Solveit Indonesia. Saat ini berisi fondasi API (B0), endpoint inquiry (B1), standardisasi MySQL serta PHP 8.5 (B1.1), dan idempotensi inquiry (B2.1). Solveit OpsHub, portal klien, proposal, kontrak, invoice, dan sistem Solveit lain **tidak** dibangun di sini; mereka punya repository dan database sendiri (`docs/architecture/integration-plan.md`).
 
 | | |
 |---|---|
@@ -8,13 +8,15 @@ Laravel 13 REST API milik website company profile Solveit Indonesia. Saat ini be
 | PHP | Seri 8.5, minimum **8.5.7** (`"php": "^8.5.7"`). CI memakai patch 8.5 terbaru dan memastikan minimal 8.5.7 |
 | Composer | 2.x |
 | Database | **MySQL 8.4 LTS** (Oracle MySQL, bukan MariaDB) untuk pengembangan, tes, dan target produksi. `utf8mb4`, collation `utf8mb4_unicode_ci`, strict mode, InnoDB |
-| Hosting | Belum ditentukan |
-| Endpoint | `POST /api/v1/inquiries`, `GET /up`. Kontrak: `docs/api/` |
+| Hosting | Belum ditentukan. Konfigurasi Docker produksi yang tidak bergantung penyedia sudah disiapkan dan divalidasi, belum di-deploy (`docs/development/docker-production.md`) |
+| Endpoint | `POST /api/v1/inquiries` (dengan header opsional `Idempotency-Key`), `GET /up`. Kontrak: `docs/api/` |
 | Alat AI wajib | [Laravel Boost](https://laravel.com/docs/13.x/boost) (`laravel/boost`, dev dependency) untuk Claude Code dan Codex |
 
 `composer.json` mengunci `config.platform.php` ke `8.5.7`, sama dengan versi minimum, agar `composer update` di mesin dengan patch 8.5 yang lebih baru tidak memilih paket yang membutuhkan lebih dari minimum. Pemeriksaan platform Composer (`vendor/composer/platform_check.php`) menolak PHP di bawah 8.5.7 saat runtime. Patch keamanan 8.5 yang lebih baru tetap boleh dan dianjurkan; tidak ada penguncian ke satu patch. Paket Symfony tetap di 7.4 LTS: kompatibel dengan PHP 8.5 dan didukung lebih lama daripada 8.x.
 
 ## Mulai dari clone baru
+
+Tanpa PHP 8.5 atau MySQL 8.4 di komputer: pakai lingkungan Docker penuh, `bash infra/docker/scripts/setup-dev.sh` dari root repository (`docs/development/docker-development.md`). Langkah di bawah adalah alur native.
 
 Butuh PHP 8.5.7 atau lebih baru di seri 8.5 dengan ekstensi `pdo_mysql`, `mbstring`, `intl`, `bcmath`, `openssl`, `fileinfo`, Composer 2, dan server MySQL 8.4 dengan dua database (lihat [Database MySQL](#database-mysql)).
 
@@ -54,7 +56,7 @@ Jangan memakai pengguna `root`, database proyek lain, atau database bersama.
 
 ### Server lokal
 
-Cara yang disarankan adalah Docker lewat `docker/mysql/compose.yaml`. Hanya untuk pengembangan: produksi tidak memakai Docker. Server database XAMPP dan milik proyek lain tidak diubah.
+Cara yang disarankan adalah Docker lewat `docker/mysql/compose.yaml`. Hanya untuk pengembangan lokal, baik alur native (PHP di host) maupun Docker penuh: `infra/docker/compose.dev.yaml` menyertakan file ini apa adanya dan memakai container serta volume yang sama, sehingga hanya ada satu MySQL lokal. Deployment produksi berbasis Docker (opsional) memakai definisi dan data terpisah (`infra/docker/compose.prod.yaml`). Server database XAMPP dan milik proyek lain tidak diubah.
 
 | | |
 |---|---|
@@ -100,6 +102,7 @@ Masalah umum:
 - **Port 3307 dipakai proses lain** (`netstat -ano | findstr :3307` di PowerShell): ganti port host di `compose.yaml` (misalnya `127.0.0.1:3308:3306`) serta `DB_PORT` di `.env` dan `.env.testing`. Jangan menghentikan layanan milik proyek lain.
 - **`mysql --version` menampilkan MariaDB**: `mysql` di PATH adalah klien bawaan XAMPP (`C:\xampp\mysql\bin`). Perintah itu hanya menyebut versi klien, bukan server yang dipakai Laravel. Server diperiksa lewat koneksi sungguhan: `php artisan db:show`, atau `SELECT VERSION(), @@version_comment` (hasilnya `8.4.x` dan `MySQL Community Server - GPL`). Pakai konsol di dalam container di atas, bukan klien MariaDB.
 - **Unhealthy saat start pertama**: `docker compose logs mysql`. Script provisioning menolak secret yang kosong atau kurang dari 32 huruf/angka.
+- **`[1130] Host ... is not allowed to connect` di Linux**: image MySQL membaca secret sebagai penggunanya sendiri (uid 999), jadi file secret harus dapat dibaca (`chmod 644`); lindungi foldernya saja (`chmod 700 secrets`). Bila file sempat `600`, start pertama gagal membuat pengguna; perbaiki izin lalu jalankan ulang provisioning (perintah di tabel di atas). Docker Desktop di Windows tidak terpengaruh.
 
 Tanpa Docker: **MySQL Community Server 8.4 LTS** dari dev.mysql.com, di port selain 3306 bila XAMPP berjalan. Buat database dan pengguna sekali sebagai root (kata sandi milik Anda, tidak pernah di-commit):
 
@@ -145,6 +148,7 @@ Diverifikasi terhadap MySQL 8.4: pengguna dengan `ALL ON *.*`, pengguna dengan g
 - `RefreshDatabase`: migrasi sekali per proses, lalu setiap tes berjalan dalam transaksi yang di-rollback.
 - Jangan menjalankan DDL (`Schema::drop`, `ALTER`) di dalam tes. MySQL melakukan commit implisit untuk DDL, sehingga transaksi tes terputus dan Laravel terpaksa menjalankan `migrate:fresh` lagi pada tes berikutnya. Kegagalan penyimpanan disimulasikan dengan membuat MySQL sendiri menolak baris (nilai melebihi panjang kolom, SQLSTATE 22001 karena strict mode).
 - Tabrakan nomor referensi diuji terhadap indeks `UNIQUE` sungguhan (galat 1062), termasuk percobaan ulang dan batas tiga percobaan (`tests/Feature/Actions/SubmitInquiryTest.php`).
+- Idempotensi di bawah konkurensi diuji dengan proses PHP terpisah yang masing-masing punya koneksi MySQL sendiri (`tests/Feature/Actions/SubmitInquiryConcurrencyTest.php` menjalankan `tests/Support/submit-inquiry-worker.php`, yang memakai pengaman database tes yang sama). Kelas ini memakai `DatabaseTruncation` pada tabel `inquiries` karena baris harus di-commit agar terlihat oleh koneksi lain, lalu mengosongkannya lagi.
 - `tests/Feature/Database/MySqlDatabaseTest.php` memastikan server adalah MySQL 8.4 atau lebih baru (bukan MariaDB), strict mode, `utf8mb4`, InnoDB, dan penghitung rate limit di cache store `database`.
 
 ## Environment
@@ -170,9 +174,11 @@ Struktur bawaan Laravel tanpa folder dasar baru. Yang ditambahkan untuk API ini:
 
 ```text
 app/
-├── Actions/SubmitInquiry.php                    Menyimpan inquiry, membuat nomor referensi, menangani galat database
+├── Actions/SubmitInquiry.php                    Menyimpan inquiry, nomor referensi, idempotensi, galat database
 ├── Enums/Inquiry{Service,Budget,Timeline,Status}.php   Nilai yang sama dengan tipe frontend
 ├── Exceptions/InquiryNotStoredException.php     503 tanpa data pribadi di log
+├── Exceptions/InvalidIdempotencyKeyException.php      400 untuk Idempotency-Key yang rusak
+├── Exceptions/InquiryIdempotencyConflictException.php 409 untuk kunci yang dipakai dengan isi lain
 ├── Http/Controllers/Api/V1/InquiryController.php
 ├── Http/Controllers/HealthCheckController.php   GET /up dalam JSON
 ├── Http/Middleware/LimitRequestBodySize.php     413 di atas batas body
@@ -183,7 +189,7 @@ app/
 config/{cors,trustedproxy,inquiries,boost}.php
 docker/mysql/                                    MySQL 8.4 lokal (compose.yaml, initdb/); secrets/ diabaikan Git. Bukan untuk produksi
 routes/api.php                                   /api/v1/...
-tests/TestCase.php, tests/Support/               Pengaman database tes (TestDatabaseGuard)
+tests/TestCase.php, tests/Support/               Pengaman database tes (TestDatabaseGuard), worker uji konkurensi
 tests/Feature/...                                Endpoint, action, health check, konfigurasi MySQL
 tests/Unit/...                                   Aturan kontak, nomor referensi, kontrak enum dengan frontend
 ```
@@ -217,12 +223,14 @@ Boost wajib untuk pengembangan berbantuan AI di backend ini. Aturan lengkap (lok
 
 - Pengembangan dan CI: `composer install` (dengan dev dependency, termasuk Boost).
 - Produksi: `composer install --no-dev --optimize-autoloader`. Boost, PHPUnit, Pint, dan Pail tidak terpasang; aplikasi tetap berjalan (diverifikasi di CI). `config/boost.php` tetap ada tetapi tidak dibaca tanpa paketnya. Tidak ada script Composer yang memanggil perintah Boost, sehingga instalasi `--no-dev` tidak gagal. Boost juga menonaktifkan dirinya di luar environment `local` kecuali `APP_DEBUG=true`.
+- Docker: image produksi `infra/docker/backend/Dockerfile` (target `prod`, PHP-FPM, `--no-dev`, non-root) dan `infra/docker/compose.prod.yaml` sudah dibangun dan diuji dengan smoke test lokal dan di CI, tetapi **belum di-deploy**. Migrasi produksi hanya lewat layanan sekali jalan `migrate`, tidak pernah saat container start (`docs/development/docker-production.md`).
 - Hosting dan domain belum diputuskan; database produksi adalah MySQL 8.4. Document root web server wajib `backend/public/`, tidak pernah `backend/`: di luar `public/` ada `.env`, `storage/logs`, `vendor/`, dan kode sumber. Bila hosting tidak dapat mengarahkan document root ke `public/`, jangan menyalin seluruh aplikasi ke `public_html`; pilih hosting lain atau minta keputusan pemilik. Daftar periksa keamanan saat deployment ada di `docs/api/inquiries.md` (Privasi).
 
 ## Keamanan
 
 - Validasi seluruhnya di server (`StoreInquiryRequest`); mass assignment dibatasi `#[Fillable]`; `public_id` dan `status` diisi server.
 - Rate limit per IP, honeypot, batas body 64 KB, CORS dengan daftar origin, proxy tepercaya lewat konfigurasi.
+- Idempotensi (B2.1): `Idempotency-Key` disimpan hanya sebagai SHA-256 di kolom `UNIQUE`; percobaan ulang dengan isi sama mendapat referensi yang sama, isi lain `409`, tanpa salinan kedua data pribadi. Percobaan ulang tetap dihitung rate limit.
 - Respons galat tanpa detail internal saat `APP_DEBUG=false`; kegagalan penyimpanan menjadi 503, tidak pernah 201.
 - Tidak ada data pribadi di log. Rute penyajian file bawaan disk `local` dimatikan (`config/filesystems.php`).
 - Database: pengguna aplikasi produksi tanpa hak DDL, migrasi dengan pengguna terpisah. Diuji di CI: pengguna dengan `SELECT, INSERT, UPDATE, DELETE` saja menyimpan inquiry lewat HTTP.

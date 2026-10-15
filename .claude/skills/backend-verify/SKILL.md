@@ -15,4 +15,6 @@ Run from `backend/` and report the actual output of each step; stop at the first
 8. After dependency, `config/boost.php`, or `.ai/guidelines/` changes: `php artisan boost:update --no-discover`, then review and commit the `AGENTS.md` diff
 9. MCP: `claude mcp list` from the repository root shows `laravel-boost` Connected; in the session, `application-info` reports Laravel 13 and PHP 8.5
 
+Full-Docker alternative (no PHP on the host): run steps 2 to 7 as `docker compose -f infra/docker/compose.dev.yaml exec backend <command>` from the repository root; the container uses the same `.env.testing` and MySQL server, with `DB_HOST=mysql`. **Docker CI** (`.github/workflows/docker-ci.yml`) runs the suite that way and smoke-tests the production image.
+
 CI (`.github/workflows/backend-ci.yml`) repeats steps 1 to 6 on PHP 8.5 (asserting at least 8.5.7 and recording the patch) with a disposable `mysql:8.4` service container, runs migrations up, down, and up, an HTTP smoke test as a user without DDL rights, and checks a `composer install --no-dev` boot.

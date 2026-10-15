@@ -105,10 +105,10 @@ Mengikuti bahasa visual Solveit (`docs/DESIGN.md`, `docs/design/design-system.md
 
 ## 9. Urutan implementasi yang diusulkan
 
-1. B2: kanal `api` formulir kontak (sudah direncanakan; tidak bergantung pada admin).
+1. B2: kanal `api` formulir kontak (dibangun di balik flag yang nonaktif) dan idempotensinya (B2.1 backend dibangun; B2.2 frontend belum). Tidak bergantung pada admin.
 2. Keputusan pemilik: opsi frontend admin, subdomain, hosting, peran, MFA, masa simpan data.
 3. Admin fondasi: Sanctum, undangan, login, MFA, peran, audit log, keadaan izin.
-4. Modul inquiry (status, catatan, riwayat, penyamaran kontak, ekspor terkendali).
+4. Modul inquiry (status, catatan, riwayat, penyamaran kontak, ekspor terkendali). Field yang dikirim pengunjung tidak diubah, karena idempotensi B2.1 membandingkan percobaan ulang dengan field itu (`docs/api/inquiries.md`, Idempotensi).
 5. Analitik (setelah tinjauan privasi, `visitor-analytics.md`).
 6. Konten dan portofolio (setelah keputusan build statis vs data runtime).
 7. Titik masuk integrasi ke OpsHub (setelah kontrak API OpsHub ada).

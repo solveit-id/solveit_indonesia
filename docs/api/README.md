@@ -2,7 +2,7 @@
 
 Referensi endpoint backend Laravel milik website ini (`backend/`). Hanya kontrak yang benar-benar dibangun dan dites yang ditulis di sini; rencana endpoint lain ada di `docs/architecture/integration-plan.md`.
 
-Status: **dibangun dan dites secara lokal (B1), belum di-deploy.** Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
+Status: **dibangun dan dites secara lokal dan di CI (B1, idempotensi B2.1), belum di-deploy.** Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
 
 ## Endpoint
 
@@ -21,16 +21,18 @@ Tidak ada endpoint publik lain. Tidak ada endpoint untuk membaca, mengubah, atau
 
 | Status | Arti | Isi |
 |---|---|---|
-| `201` | Tersimpan | Bentuk per endpoint |
+| `201` | Tersimpan, atau percobaan ulang idempoten yang dijawab dari data tersimpan (header `Idempotent-Replayed: true`) | Bentuk per endpoint |
+| `400` | Header permintaan tidak valid (misalnya `Idempotency-Key`) | `{"message": "..."}` |
 | `404` | Path tidak ada | `{"message": "..."}` |
 | `405` | Method tidak didukung di path itu | `{"message": "..."}` |
+| `409` | `Idempotency-Key` sudah dipakai untuk isi lain | `{"message": "..."}` |
 | `413` | Body melebihi batas | `{"message": "The request body is too large."}` |
 | `422` | Validasi gagal | `{"message": "...", "errors": {"field": ["..."]}}` (format validasi Laravel) |
 | `429` | Batas laju terlampaui | `{"message": "Too Many Attempts."}` dan header `Retry-After` |
 | `500` | Galat tak terduga | `{"message": "Server Error"}` |
 | `503` | Penyimpanan gagal atau layanan tidak sehat | `{"message": "..."}` atau `{"status": "down"}` |
 
-- **CORS.** Hanya origin di `CORS_ALLOWED_ORIGINS` (daftar dipisah koma, skema, host, dan port persis) yang boleh memanggil `/api/*` dari browser. Kosong berarti tidak ada akses lintas origin. Tanpa cookie (`supports_credentials: false`). Header yang diizinkan: `Accept`, `Content-Type`, `X-Requested-With`. Header yang dapat dibaca frontend: `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. Origin produksi ditambahkan setelah domain diputuskan; jangan memakai `*`.
+- **CORS.** Hanya origin di `CORS_ALLOWED_ORIGINS` (daftar dipisah koma, skema, host, dan port persis) yang boleh memanggil `/api/*` dari browser. Kosong berarti tidak ada akses lintas origin. Tanpa cookie (`supports_credentials: false`). Header yang diizinkan: `Accept`, `Content-Type`, `Idempotency-Key`, `X-Requested-With`. Header yang dapat dibaca frontend: `Idempotent-Replayed`, `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. Origin produksi ditambahkan setelah domain diputuskan; jangan memakai `*`.
 - **Alamat klien.** Batas laju dihitung per alamat IP. Di belakang load balancer atau CDN, isi `TRUSTED_PROXIES` dengan alamat proxy itu; tanpa itu header `X-Forwarded-For` diabaikan (dites: header palsu tidak bisa melewati batas laju).
 - **Autentikasi.** Endpoint publik saat ini tidak memakai autentikasi. Autentikasi admin (misalnya Laravel Sanctum) belum dipasang dan akan ditambahkan pada fase admin; autentikasi klien bukan tanggung jawab backend ini.
 

@@ -7,6 +7,7 @@ solveit_indonesia/
 ├── frontend/   React 19 + TypeScript (strict) + Vite 8 + React Router 7 (framework mode, prerender statis)
 │               Logo asli: frontend/public/brand/solveit-logo-{full,icon}.svg (jangan diubah bentuknya)
 ├── backend/    Laravel 13 API (PHP 8.5 minimal 8.5.7, MySQL 8.4 LTS): POST /api/v1/inquiries dan GET /up; lihat backend/README.md
+├── infra/      Infrastruktur bersama: infra/docker/ (Compose pengembangan dan produksi, Dockerfile, nginx, skrip)
 ├── docs/       Dokumentasi. PRODUCT.md (fakta produk) dan DESIGN.md (spesifikasi desain) di tingkat atas,
 │               sisanya per kelompok. Peta: docs/README.md; aturan struktur: docs/project-structure.md
 ├── .ai/        Handoff untuk agent lain (status proyek dan alur kerja tanpa Claude Code)
@@ -16,7 +17,7 @@ solveit_indonesia/
 
 Rancangan yang belum dibangun (status Planned): dashboard admin website (`admin-dashboard.md`), analitik pengunjung first-party (`visitor-analytics.md`), dan batas integrasi GitHub organisasi (`github-integration.md`, dimiliki OpsHub).
 
-Frontend publik sudah dirilis. Backend berisi fondasi API dan endpoint inquiry (B0 dan B1) yang dites secara lokal dan di CI, tetapi **belum di-deploy dan belum dipanggil frontend**. Sampai integrasi B2 dan deployment, formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email.
+Frontend publik sudah dirilis. Backend berisi fondasi API, endpoint inquiry (B0, B1), dan idempotensinya (B2.1), dites secara lokal dan di CI, tetapi **belum di-deploy**. Klien frontend (B2) sudah dibangun di balik flag yang nonaktif, jadi build yang dirilis tidak memanggil API: formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email. Klien belum mengirim `Idempotency-Key` (B2.2, belum dibangun).
 
 ### Batas sistem
 
@@ -30,12 +31,24 @@ Aplikasi Laravel 13 standar di `backend/`, hanya JSON API tanpa halaman Blade at
 |---|---|---|
 | Routing | `routes/api.php`, `bootstrap/app.php` | `/api` dari Laravel, grup `v1`; `GET /up` di luar grup `web` (tanpa sesi) |
 | Validasi | `app/Http/Requests/Api/V1/` | Form Request per endpoint; enum di `app/Enums/` sama dengan tipe frontend |
-| Operasi | `app/Actions/` | `SubmitInquiry`: nomor referensi acak, status `received`, galat database menjadi 503 |
+| Operasi | `app/Actions/` | `SubmitInquiry`: nomor referensi acak, status `received`, idempotensi lewat indeks `UNIQUE` pada hash `Idempotency-Key`, galat database menjadi 503 |
 | Respons | `app/Http/Resources/` | `InquiryResource` hanya `{ id, status }`, tanpa data pribadi |
 | Perlindungan | `AppServiceProvider` (rate limiter), `LimitRequestBodySize`, `config/cors.php`, `config/trustedproxy.php` | Batas laju per IP, batas body 64 KB, CORS dengan daftar origin, proxy tepercaya lewat environment |
 | Data | `database/migrations/`, `app/Models/` | Tabel `inquiries` di MySQL 8.4 (`utf8mb4`, strict mode, InnoDB); database pengembangan dan database tes `_testing` terpisah, produksi juga MySQL 8.4 |
 
-Alur `POST /api/v1/inquiries`: CORS dan proxy (middleware global) → rate limiter `inquiries` → batas body → `StoreInquiryRequest` (422 bila gagal) → `SubmitInquiry` menyimpan baris → `201 { id, status }`. Bila database gagal: `503` tanpa nomor referensi, dan log hanya berisi kode SQLSTATE.
+Alur `POST /api/v1/inquiries`: CORS dan proxy (middleware global) → rate limiter `inquiries` → batas body → `StoreInquiryRequest` (`400` untuk `Idempotency-Key` rusak, `422` bila validasi gagal) → `SubmitInquiry` menyimpan baris → `201 { id, status }`. Dengan kunci yang sudah tersimpan: `201` dengan referensi yang sama (`Idempotent-Replayed: true`) atau `409` bila isinya berbeda. Bila database gagal: `503` tanpa nomor referensi, dan log hanya berisi kode SQLSTATE.
+
+## Infrastruktur dan deployment
+
+Tiga cara menjalankan proyek, semuanya dengan PHP 8.5 dan MySQL 8.4:
+
+| Cara | Untuk | Status |
+|---|---|---|
+| Native: PHP dan Node di host, MySQL di container `solveit-mysql` (`backend/docker/mysql/`) | Mesin pemilik dan developer dengan PHP 8.5 | Dipakai, diverifikasi |
+| Docker penuh: `infra/docker/compose.dev.yaml` (menyertakan MySQL yang sama) | Kontributor tanpa PHP, Node, atau MySQL yang cocok | Dibangun, diverifikasi lokal dan di Docker CI |
+| Docker produksi: `infra/docker/compose.prod.yaml` (gateway nginx, frontend statis, PHP-FPM, MySQL opsional) | VPS atau platform container bila hosting yang dipilih mendukung Docker | Disiapkan dan divalidasi, **belum di-deploy** |
+
+Rincian: `docs/development/docker-development.md`, `docs/development/docker-production.md`; aturan penempatan: `docs/project-structure.md` bagian 11. Hosting statis biasa untuk frontend tetap mungkin (`docs/development/development-guide.md`, Deployment).
 
 Laravel Boost (`laravel/boost`, dev dependency) adalah alat pengembangan untuk coding agent: guideline, skill, dan server MCP lokal (`php backend/artisan boost:mcp`). Ia bukan bagian runtime, tidak terpasang pada instalasi produksi `--no-dev`, dan bukan sistem bisnis atau aplikasi ekosistem. Aturannya: `docs/project-structure.md` bagian 9.
 

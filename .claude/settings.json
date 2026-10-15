@@ -33,6 +33,8 @@
       "Read(./**/.env.staging)",
       "Read(./**/.env.test)",
       "Read(./**/.env.testing)",
+      "Read(./**/production.env)",
+      "Read(./**/secrets/**)",
       "Read(./**/auth.json)"
     ]
   },

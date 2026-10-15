@@ -1,125 +1,79 @@
 # Project status
 
-Last updated: 2026-10-16 (B1.1 released on `main` as `88db528`. On `staging`: B2 through PR #22 (`5449bcc`) and the local MySQL 8.4 setup through PR #23 (`f277caf`). Release PR #24 `staging` to `main` open, awaiting owner review).
+Last updated: 2026-10-16 (release PR #24 merged to `main` as `6474647`; B2.1 inquiry idempotency and the Docker environments on `backend`, PR to `staging` opened from this branch).
 
 ## In one paragraph
 
-The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main` through six refinement rounds. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS** (B1.1, released). Supported coding agents: **Claude Code and Codex** only. B2 (on `staging`, release PR #24 to `main` open) adds the contact form's **Send through website** channel, built and tested but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`): the public build still composes WhatsApp or email messages and never calls the API. A real browser to Laravel to MySQL submission has been verified on the owner machine against a local Docker MySQL 8.4.11 (PR #23). The API is **not deployed**; no domain or hosting exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`).
+The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main`. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS**. Since B2.1 the inquiry endpoint is **idempotent per `Idempotency-Key`** (backend only; the frontend client does not send a key until B2.2). The contact form's **Send through website** channel (B2) is built but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`), so shipped builds never call the API. The repository now has a **full-Docker development environment** (`infra/docker/compose.dev.yaml`, reusing the existing MySQL container) and a **production-oriented Docker configuration** (`infra/docker/compose.prod.yaml`): production Docker configuration prepared and validated, **not publicly deployed**. No domain, hosting, certificate, or production database exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`). Supported coding agents: Claude Code and Codex.
 
 ## Shipped (on `main`)
 
 | Round | Release PR | Highlights |
 |---|---|---|
-| 1 | #2 | Company profile frontend: pages, design system, accessibility, prerender |
-| 2 | #4 | Light/dark themes, Indonesian/English, navigation, contact channels, parallax, performance |
-| 3 | #6 | Motion, premium interactions, the rule-based "Tanya Solveit" assistant, testimonial pledge |
-| 4 | #8 | Branded loader, navbar morph, floating controls, portfolio detail |
-| 5 | #10 | Compact navbar, demo labels, case study chapters and scrollspy, slice hover |
-| 6 | #13 | Navbar logo morph fix, glass navbar, About storytelling and ecosystem map, shared FAQ, responsive case study preview, consultation selects, ecosystem naming proposal, owner's new vision text |
-| B0, B1 | #18 (from #16, #17) | Laravel 13 backend foundation, Laravel Boost, `POST /api/v1/inquiries` with tests and Backend CI. Not deployed |
-| B1.1 | #21 (from #20) | MySQL 8.4 LTS and PHP 8.5.7+, test database guard, Claude Code and Codex only, repository hygiene, Planned architecture documents. Release commit `88db528` |
+| 1 to 6 | #2, #4, #6, #8, #10, #13 | Company profile frontend: pages, design system, themes, ID/EN, motion, assistant, case studies, About storytelling |
+| B0, B1 | #18 (from #16, #17) | Laravel 13 backend foundation, Laravel Boost, `POST /api/v1/inquiries`, Backend CI. Not deployed |
+| B1.1 | #21 (from #20) | MySQL 8.4 LTS and PHP 8.5.7+, test database guard, Claude Code and Codex only. Release commit `88db528` |
+| B2 and local MySQL | #24 (from #22, #23; status #25) | Frontend inquiry API channel behind a disabled flag; persistent local MySQL 8.4 container `solveit-mysql`. Release commit `6474647` (2026-10-15); `staging` `966ddf0` has the same tree |
 
-Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies, `/kontak`, 404, each mirrored under `/en/` with English slugs. Case studies are labelled demonstration concepts (`isDemo: true`, no results).
+Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies, `/kontak`, 404, each mirrored under `/en/`. Case studies are labelled demonstration concepts (`isDemo: true`, no results). B2 details and evidence: `docs/api/inquiries.md` (Klien frontend) and `docs/qa/qa-report.md` (sections B2 and MySQL 8.4 lokal permanen).
 
-## B2: frontend inquiry API integration (PR #22, merged into `staging` as `5449bcc`)
+## B2.1: inquiry idempotency (backend)
 
-Status: Implemented and Verified with mocked API responses in CI; real HTTP integration with Laravel and MySQL Verified locally afterwards (next section); **not enabled** in any build that ships. Evidence: `docs/qa/qa-report.md`, section "B2". Contract and client behaviour: `docs/api/inquiries.md`, section "Klien frontend (B2)".
+Status: Implemented and Tested (locally, in the Docker dev container, and in Backend CI). Not deployed. **Not yet used by the frontend** (B2.2). Contract: `docs/api/inquiries.md`, section Idempotensi (B2.1). Evidence: `docs/qa/qa-report.md`, section B2.1.
 
-- **Flag and config** (`frontend/src/config/site.ts`): the channel is on only when `VITE_INQUIRY_API_ENABLED` is exactly `true` and `VITE_API_BASE_URL` is a bare HTTPS origin (plain HTTP only for loopback, no path or credentials). Then the endpoint is `<origin>/api/v1/inquiries`. Default builds have no channel, no honeypot, and no request.
-- **Client** (`frontend/src/services/inquiry-api.ts`): one POST, no retry, 15 s timeout, abort on unmount. Only a `201` with a valid `INQ-` reference counts as received. 422/413/429/503 and other 4xx mean not stored; 5xx, malformed 2xx, network errors, and timeouts are an uncertain outcome.
-- **Form** (`frontend/src/components/contact/inquiry-form.tsx`): third channel with ref-based double-submit guard. It shows the real reference or localized feedback, keeps the visitor's values, and never opens WhatsApp or email by itself. The privacy copy depends on the mode. Validation now matches `StoreInquiryRequest` (all seven fields, character lengths, plain-space phone pattern).
-- **Tests**:
-  - 125 unit and component tests (69 before).
-  - Default-build e2e proves the disabled mode.
-  - A second build proves the enabled mode: `playwright.api.config.ts`, `tests/e2e-api/`, `npm run test:e2e:api`, with mocked responses.
-  - Both builds run in Frontend CI and Cross-browser QA.
-- **Flaky WebKit test fixed (root cause confirmed)**:
-  - The failure: `refinement.spec.ts` theme icon test, Cross-browser QA run 38723672210 attempt 1 (`webkit-mobile`).
-  - Why it failed: `setTheme()` applies the theme inside the View Transition update callback, a frame or more after the click. The test read the icon transform right after `click()`. On touch devices that read could still see `none`. On pointer devices the hover rotation made it pass without checking the roll.
-  - The fix waits for the theme and asserts the recorded transform transitions and the settled state. A reduced-motion check was added. Only the test changed.
-  - Evidence: reproduced deterministically by delaying the callback; 40/40 local WebKit repeats pass.
-- **Build dir**: `BUILD_DIR` (default `build`) lets the API-enabled variant build into `build/inquiry-api` without touching `build/client`.
+- Optional header `Idempotency-Key`: exactly one UUID v4 (any case). Malformed: `400` before validation. Missing: B1 behaviour, no duplicate protection.
+- Same key and equivalent canonical payload: `201` with the original reference and `Idempotent-Replayed: true`, no new row. Same key, different content: `409`, nothing stored, no reference revealed. Different keys: independent inquiries.
+- Storage: nullable `UNIQUE` column `inquiries.idempotency_key_hash` (SHA-256 of the key, never the key). The insert itself is the check; a losing concurrent insert waits on InnoDB, then replays or conflicts. No second copy or fingerprint of personal data: equivalence compares the stored row. Deadlocks are retried up to three times.
+- Failed inserts (`503`) and rejected payloads (`422`) do not consume the key. Rate limiting still counts every retry. CORS allows the header only for the configured origins and exposes `Idempotent-Replayed`.
+- Key lifecycle: the hash lives and dies with the inquiry row; no separate expiry (retention is an owner decision).
+- Tests: 151 tests, 466 assertions (109 and 275 before), including five multi-process tests with independent MySQL connections and a mutation check that proved they fail without the key hash.
 
-## Local MySQL 8.4 environment (PR #23, merged into `staging` as `f277caf`)
+## Docker environments (`infra/docker/`)
 
-Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-report.md`, section "MySQL 8.4 lokal permanen". No application code changed.
+Status: Development Implemented and Verified (owner machine and Docker CI). Production prepared and validated (local isolated smoke test and Docker CI), **not deployed**. Rules: `docs/project-structure.md` section 11. Guides: `docs/development/docker-development.md`, `docs/development/docker-production.md`.
 
-- **Setup** (`backend/docker/mysql/`):
-  - `compose.yaml` runs `mysql:8.4.11` as container `solveit-mysql` on `127.0.0.1:3307`, with the named volume `solveit-mysql-data` and `restart: unless-stopped`.
-  - Passwords are Docker secrets in the ignored `secrets/` folder. `root` exists only inside the container.
-  - `initdb/` creates `solveit_indonesia` (`solveit_dev`) and `solveit_indonesia_testing` (`solveit_test`) with escaped, database-only grants.
-  - The steps and the daily commands, including backup, are in `backend/README.md`.
-- **Owner machine**:
-  - XAMPP MariaDB 10.4 on 3306 and PHP 8.5.7 are unchanged.
-  - `backend/.env` now uses the container, changed with owner approval. The backup is `backend/.env.backup`, and the old SQLite file is unused.
-  - `backend/.env.testing` exists.
-- **Verified**:
-  - Server: `VERSION()` 8.4.11, MySQL Community Server.
-  - Migrations: run on the development database.
-  - Tests: 109 tests, 275 assertions.
-  - Laravel Boost `application-info` reports the `mysql` engine.
-- **Real B2 smoke test** (no mocks), with the API-enabled build on `localhost:4174` against `php artisan serve`:
-  - A CORS preflight passes.
-  - A double click sent one POST, which returned `201` with a real `INQ-` reference.
-  - Exactly one row was stored. Invalid input and the honeypot returned `422` and stored nothing.
-  - The test row was removed afterwards. Real `429` and the browser display of a server `422` were not exercised.
-- **Defaults changed**: `backend/.env.example` now uses `DB_PORT=3307` and adds `http://localhost:4174` to `CORS_ALLOWED_ORIGINS`. Backend CI sets its own `DB_PORT`.
+- **Development** (`compose.dev.yaml`, project `solveit-indonesia`): `backend` (PHP 8.5.11, Composer 2.10.3, `artisan serve`, `127.0.0.1:8000`), `frontend` (Node 22.23.1, Vite with polling hot reload, `127.0.0.1:5173`), and MySQL **included unchanged** from `backend/docker/mysql/compose.yaml`. Identical config hash, so the existing `solveit-mysql` container and `solveit-mysql-data` volume are reused, never recreated (verified: same container ID and start time before and after). Onboarding: `bash infra/docker/scripts/setup-dev.sh` (creates only missing secrets and `.env` files, never overwrites). Native and Docker workflows share the same database and run side by side.
+- **Production** (`compose.prod.yaml`): nginx gateway (only published service, loopback by default), static frontend (nginx, no Node), Laravel on PHP-FPM (`--no-dev`, www-data, read-only, secrets as files), explicit `migrate` one-off service with a separate DDL user, optional bundled MySQL 8.4 with a DML-only app user. `VITE_INQUIRY_API_ENABLED` is fixed to `false`. TLS is not configured (no domain).
+- **Docker CI** (`.github/workflows/docker-ci.yml`): Compose and shellcheck validation, fresh-clone onboarding with backend and frontend tests inside containers, production build and `verify-production.sh` (33 checks) with random secrets. Never deploys or pushes images.
+- Fixed during QA: a health endpoint reachable through Docker Desktop's port forwarding (moved to an unpublished port), and MySQL secrets created `600` that the MySQL image cannot read on Linux (now `644` files in a `700` folder; `backend/README.md` troubleshooting).
 
-## Branches
+## Owner machine (verified 2026-10-16)
 
-- `main`: `88db528` (release B1.1, PR #21).
-- `staging`: `f277caf`, the merge of PR #23 on top of `5449bcc` (the merge of PR #22). Release PR #24 to `main` is open and left unmerged for the owner's review; `main` has no commit missing from `staging`.
-- `frontend`: `1ef187c` (B2: `fe6d272` test, `b4748d9` feat, `b843531` docs, `09efbc0` chore, `8eed02d` and `1ef187c` status). Merged.
-- `backend`: `f277caf` (fast-forwarded to `staging`) plus this status update, in a docs PR to `staging`. Before that: `e7f5b6f` (chore, local MySQL setup), `45da75e` (docs), the merge of `origin/staging` `3a3feb0` that resolved the two documentation conflicts, and `b490185` (docs, consistency); merged as PR #23. No application code changed on `backend`.
-- CI before B2 (on `88db528`): Frontend CI 38723671948 and Cross-browser QA 38723672210 green (WebKit 175 passed; WebKit iPhone 14 143 passed after one re-run of the flaky theme test, fixed in B2). Backend CI for B1.1 green on PHP 8.5.11 and MySQL 8.4.11.
-- CI for PR #22 (all green):
-  - Frontend CI run 38734922594 on `8eed02d`: default build e2e 488 passed; API build e2e 24 passed.
-  - Cross-browser QA, no retries, run 38734781136 on `09efbc0` (push) and run 38734933837 on `8eed02d` (dispatch), each with the same result:
-    - WebKit: 177 passed, 0 failed, 0 flaky.
-    - WebKit iPhone 14: 145 passed, 0 failed, 0 flaky.
-    - API build: 7 passed per project, with the email test skipped on WebKit.
-  - Last PR #22 head `1ef187c`: Frontend CI run 38738309596 green. Pushes to `staging` run no workflow, so the merge commit `5449bcc` has no run of its own; its tree is identical to `1ef187c`.
-- CI for PR #23: Backend CI run 38783110473 on the final head `b490185` green (PHP 8.5.11, MySQL 8.4.11, 109 tests, 275 assertions, no advisories). The tree of `staging` `f277caf` is identical to `b490185`, and `frontend/` and `.github/` are identical to `1ef187c`.
-- Release PR #24, head `f277caf` (all green, no retries):
-  - Frontend CI 38784609468: 125 unit and component tests, default E2E 488 passed, API-build E2E 24 passed.
-  - Backend CI 38784609456: 109 tests, 275 assertions on PHP 8.5.11 and MySQL 8.4.11.
-  - Cross-browser QA 38786723379, dispatched with the workflow from `staging` so the API-build step runs: WebKit 177 passed, WebKit iPhone 14 145 passed, API build 7 passed and 1 skipped per project, 0 failed, 0 flaky. Run 38784441899 used `main`'s older workflow file and covered the default build only.
+- XAMPP PHP 8.5.7 and MariaDB 10.4 on 3306: unchanged. `solveit-mysql` (`mysql:8.4.11`, `127.0.0.1:3307`) and `solveit-mysql-data`: unchanged, reused by the Docker dev project.
+- The B2.1 migration ran on the development database (additive). New Docker volumes: `solveit-indonesia_backend-vendor`, `solveit-indonesia_composer-cache`, `solveit-indonesia_frontend-node-modules`. Dev `backend` and `frontend` containers exist but are stopped and do not auto-start, so ports 8000 and 5173 stay free for the native workflow.
+- The isolated production smoke project (`solveit-prod-smoke`) was removed with its own volume; images `solveit-indonesia/{backend,frontend}:local` and `:dev` remain.
+
+## Branches and CI
+
+- `main` `6474647`, `staging` `966ddf0` (same tree), `frontend` `6474647`.
+- `backend`: `6474647` plus `dcd653e` (feat, idempotency), `6418370` (chore, Docker dev), `97c4be5` (feat, Docker production), `6c39e6f` (test, Docker CI), `73c2a1e`, `a126fbe`, `fc12e92`, `fe58a3d` (CI and permission fixes found by Docker CI), and the documentation commit that carries this file.
+- Backend CI run 38805166473 on `6c39e6f`: green (PHP 8.5.11, MySQL 8.4.11). Docker CI on `a126fbe` (run 38805741991): Compose and scripts green, production images and smoke test green, development job failed only on a wrong version regex, fixed in `fc12e92`. PR CI results: see the PR and `docs/qa/qa-report.md`.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
 ## Quality baseline
 
-- Frontend (B2): lint, typecheck, unit tests 125/125, build pass.
-  - E2E, default build: Chromium desktop 180, tablet 161, and Pixel 7 147 passed, 0 failed.
-  - E2E, API build: Chromium 24, Firefox 8, and WebKit 14 passed (2 skipped).
-  - axe: 0 violations.
-  - Lighthouse mobile on `/kontak`: performance 100 and CLS 0, unchanged from `main`.
-- Backend (no application change since B1.1): 109 tests, 275 assertions on MySQL 8.4.11 and PHP 8.5.7, in CI and on the owner machine's local Docker MySQL; Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (locally `composer audit` needs `COMPOSER_IPRESOLVE=4` because IPv6 requests to Packagist time out on that network).
+- Frontend: unchanged application code; `vite.config.ts` gained an opt-in polling switch (`SOLVEIT_WATCH_POLLING`, unset natively). Lint, typecheck, 125 unit tests pass on the host and in the container. Previous E2E, axe, and Lighthouse results (B2) stand; Frontend CI runs the full Chromium suite on the PR.
+- Backend: 151 tests, 466 assertions on MySQL 8.4.11 (native PHP 8.5.7 and container PHP 8.5.11); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally).
 
 ## Blocked or owner action required
 
-- **Local MySQL on the owner machine**: Done (section above). After a Windows restart Docker Desktop must be running; the container then starts by itself.
-- **API activation** (owner decision): enabling `VITE_INQUIRY_API_ENABLED` in any shipped build needs approval of the privacy notice text, retention period, hosting, the production MySQL database, `CORS_ALLOWED_ORIGINS`, and who handles inquiries.
-- **Release**: merge this status PR into `staging`, then release PR #24 to `main`, after review. Nothing is merged to `main` without the owner.
-- **Security hardening (pending, owner approval)**: on the owner machine, `backend/docker/mysql/secrets/` and `backend/.env` inherit the D: drive ACL (`Authenticated Users` and `CodexSandboxUsers` can read). Change ACLs only after an effective-permissions audit, a decision about the Codex sandbox group, and specific owner approval.
-- **Production limits**: the API is not deployed and has no production database, domain, or CORS origin; the inquiry channel stays off in every shipped build until the owner decisions below.
+- **API activation** (owner decision): enabling `VITE_INQUIRY_API_ENABLED` in any shipped build needs approval of the privacy notice text, retention period, hosting, the production MySQL database, `CORS_ALLOWED_ORIGINS`, and who handles inquiries. B2.2 should land first.
+- **Production deployment** (owner decision): hosting provider, domain, TLS, production database (bundled or managed), backup storage. The Docker setup is ready to be tried on an approved Docker-capable host; nothing has been deployed.
+- **Security hardening (pending, owner approval)**: on the owner machine, `backend/docker/mysql/secrets/` and `backend/.env` inherit the D: drive ACL (`Authenticated Users` and `CodexSandboxUsers` can read). Change ACLs only after an effective-permissions audit, a decision about the Codex sandbox group, and specific owner approval. Not changed in this task.
 
 ## Open decisions (owner)
 
-- Domain and hosting (MySQL 8.4 and PHP 8.5 are decided). They unlock canonical URLs, sitemap, final SEO/GEO, the production CORS origin, `TRUSTED_PROXIES`, and API deployment. The hosting must allow the document root `backend/public/`.
-- Inquiry data: retention period, export and deletion procedure, privacy notice on the form, and whether a free CAPTCHA (Turnstile) is needed after launch. Backend idempotency (an idempotency key) before activation, so a visitor who retries after an uncertain outcome cannot create duplicates.
-- Admin dashboard: frontend option (recommended: separate `admin/` app on a subdomain), roles, MFA scope, content workflow (static rebuild vs runtime data).
-- Visitor analytics: legal and privacy review under UU PDP before any activation, retention, and whether to use a third-party service instead.
-- GitHub integration lives in Solveit OpsHub; GitHub App permissions are verified at implementation time.
-- How inquiries reach Solveit OpsHub (versioned event or webhook) once OpsHub exists.
+- Domain and hosting (MySQL 8.4 and PHP 8.5 are decided; Docker is a supported option, not a requirement). They unlock canonical URLs, sitemap, final SEO/GEO, the production CORS origin, `TRUSTED_PROXIES` or the gateway's `set_real_ip_from`, TLS, and API deployment.
+- Inquiry data: retention period (also ends the life of idempotency keys), export and deletion procedure, privacy notice on the form, and whether a free CAPTCHA (Turnstile) is needed after launch.
+- Admin dashboard: frontend option (recommended: separate `admin/` app on a subdomain), roles, MFA scope, content workflow. Visitor-submitted inquiry fields should stay unchanged (idempotency compares them).
+- Visitor analytics: legal and privacy review under UU PDP before any activation.
+- GitHub integration lives in Solveit OpsHub. How inquiries reach OpsHub (versioned event or webhook) once it exists.
 - Product names other than Solveit OpsHub are proposals (`docs/product/product-naming.md`). No client has approved a testimonial or a real case study yet.
 
 ## Next task
 
-1. Owner: merge this status PR into `staging`, then review and merge release PR #24 (`staging` to `main`).
-2. After the release merge, sync: verify the `main` merge commit, fast-forward `frontend` and `backend` to `main` without force, and record the release here.
-3. Recommended next phase, in order:
-   1. **Inquiry idempotency** (backend): an idempotency key on `POST /api/v1/inquiries`, so a visitor who retries after an uncertain outcome cannot create a duplicate. Needed before any public activation.
-   2. **Inquiry privacy and operational readiness** (owner decisions above): privacy notice, retention, export and deletion, hosting, production database, CORS origin, who handles inquiries.
-   3. **B3: secure admin authentication and dashboard foundation** (`docs/architecture/admin-dashboard.md`, section 9), then inquiry management inside it.
-   4. Later: visitor analytics after the UU PDP review (`docs/architecture/visitor-analytics.md`); ecosystem services integrate through versioned APIs or events, never a shared database (`docs/architecture/integration-plan.md`).
+1. Release: PR `backend` to `staging`, then `staging` to `main`, after CI is green; then fast-forward `frontend` and `backend` to `main` and record the merge commits here.
+2. **B2.2: frontend idempotency** (`frontend` branch): send `Idempotency-Key` per logical submission, reuse it only for retries of unchanged data after an uncertain result, new key when the data changes, handle `409` and `Idempotent-Replayed`, no unbounded automatic retries, no key or inquiry data in logs or analytics (`docs/api/inquiries.md`, Panduan untuk B2.2). Tests in unit, component, and the API-build E2E.
+3. Inquiry privacy and operational readiness (owner decisions above), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host.
+4. **B3**: secure admin authentication and dashboard foundation (`docs/architecture/admin-dashboard.md`, section 9).
