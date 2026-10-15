@@ -46,7 +46,13 @@ Status: Implemented and Verified with mocked API responses; **not enabled** in a
 - `backend`: `88db528`; no backend file changed in B2.
 - `frontend`: `88db528` plus B2: `fe6d272` (test), `b4748d9` (feat), `b843531` (docs), `09efbc0` (chore, verification sequences), plus this status update. PR #22 to `staging`, left unmerged for the owner's review.
 - CI before B2 (on `88db528`): Frontend CI 38723671948 and Cross-browser QA 38723672210 green (WebKit 175 passed; WebKit iPhone 14 143 passed after one re-run of the flaky theme test, fixed in B2). Backend CI for B1.1 green on PHP 8.5.11 and MySQL 8.4.11.
-- CI for PR #22: see the PR checks; results are recorded below once read.
+- CI for PR #22 (all green):
+  - Frontend CI run 38734922594 on `8eed02d`: default build e2e 488 passed; API build e2e 24 passed.
+  - Cross-browser QA, no retries, run 38734781136 on `09efbc0` (push) and run 38734933837 on `8eed02d` (dispatch), each with the same result:
+    - WebKit: 177 passed, 0 failed, 0 flaky.
+    - WebKit iPhone 14: 145 passed, 0 failed, 0 flaky.
+    - API build: 7 passed per project, with the email test skipped on WebKit.
+  - PR #22 is mergeable. Later docs-only commits re-run the checks.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 

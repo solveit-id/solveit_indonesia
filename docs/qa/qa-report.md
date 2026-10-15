@@ -33,6 +33,13 @@ Akar masalah: `setTheme()` (`src/lib/theme.ts`) menerapkan `data-theme` di dalam
 
 Perbaikan (hanya tes, aplikasi tidak berubah): tunggu `data-theme="dark"`, catat transisi ikon lewat `transitionrun` yang terjadi setelah tema gelap aktif (gulungan hover sebelumnya tidak terhitung), wajibkan transisi `transform` pada matahari dan bulan, lalu periksa keadaan akhir: matahari bergeser ke bawah sel (`DOMMatrix.f > 0`) dan transparan, bulan opasitas 1 dan tegak setelah pointer menjauh. Tes baru untuk reduced motion: hanya crossfade, tanpa transisi `transform`. Tidak ada timeout yang dinaikkan. Pengulangan lokal: WebKit desktop dan iPhone 14, 10 kali masing-masing untuk kedua tes, 40/40 lulus; Chromium desktop dan Pixel 7 lulus.
 
+### CI (GitHub Actions)
+
+| Run | Hasil |
+|---|---|
+| Frontend CI 38734922594 (PR #22, `8eed02d`) | Lulus. E2E build bawaan 488 lulus; E2E build API 24 lulus |
+| Cross-browser QA 38734781136 (`09efbc0`, push) dan 38734933837 (`8eed02d`, dispatch), 1 worker, tanpa retry | Keduanya: WebKit 177 lulus, 0 gagal, 0 flaky, 8 dilewati; WebKit iPhone 14 145 lulus, 0 gagal, 0 flaky, 40 dilewati; build API 7 lulus dan 1 dilewati per project. Tes tema yang sebelumnya flaky lulus di keempat eksekusi |
+
 ### Performa dan aksesibilitas
 
 | Ukuran (gzip) | `main` `88db528` | B2 (build bawaan) |
