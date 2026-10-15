@@ -39,7 +39,7 @@ Jangan commit file `.env*` selain `.env.example`.
 
 ## Aset
 
-- Logo asli ada di `brand/` di root repo; salinan identik yang disajikan situs ada di `frontend/public/brand/` (dipakai `generate-brand-assets.mjs` dan logo JSON-LD). Path vektor untuk komponen React ada di `src/components/brand/logo-paths.ts` (disalin verbatim). Bila logo berubah, perbarui ketiganya bersamaan.
+- Logo asli (satu-satunya salinan di repo) ada di `public/brand/`: `solveit-logo-full.svg` (logo lengkap: mark, wordmark, INDONESIA) dan `solveit-logo-icon.svg` (mark saja). Keduanya disajikan situs, dibaca `generate-brand-assets.mjs`, dan `solveit-logo-full.svg` menjadi logo JSON-LD. Path vektor untuk komponen React ada di `src/components/brand/logo-paths.ts` (disalin verbatim). Bila logo berubah, perbarui keduanya bersamaan.
 - `node scripts/generate-brand-assets.mjs` membuat ulang `public/og/solveit-og.png`, `apple-touch-icon.png`, `icon-512.png`, dan `favicon-32.png` dari logo asli.
 - `python scripts/subset-font.py` membuat ulang `src/assets/fonts/archivo-solveit.woff2` dari `@fontsource-variable/archivo`.
 
@@ -50,7 +50,7 @@ Setiap teks ada dalam dua bahasa. TypeScript menolak build bila satu bahasa kehi
 - Teks antarmuka (judul seksi, tombol, label formulir, pesan validasi, metadata SEO): `src/i18n/messages/id.ts` (mendefinisikan bentuk) dan `src/i18n/messages/en.ts`.
 - Layanan, proses, FAQ: urutan di `src/data/services.ts` dan `src/data/process.ts`; teks di `src/data/locales/{id,en}/services.ts` dan `process.ts`.
 - Kontak: `src/data/company.ts` (hanya data yang sudah dikonfirmasi: email, tiga WhatsApp, Instagram).
-- Ekosistem (peta "Arah pengembangan" di Tentang Kami): `src/data/ecosystem.ts`, dengan teks peran per bahasa. Status hanya `current`, `design`, atau `planned`; jangan tambahkan status "tersedia" sebelum produk benar-benar diluncurkan. Nama produk masih usulan, lihat `docs/product-naming.md`.
+- Ekosistem (peta "Arah pengembangan" di Tentang Kami): `src/data/ecosystem.ts`, dengan teks peran per bahasa. Status hanya `current`, `design`, atau `planned`; jangan tambahkan status "tersedia" sebelum produk benar-benar diluncurkan. Nama produk masih usulan, lihat `docs/product/product-naming.md`.
 - Pratinjau responsif studi kasus: `preview` di `src/data/projects.ts`. Konsep memakai `{ kind: "concept" }` (wireframe berlabel dari narasi). Untuk proyek nyata dengan izin publikasi, gunakan `{ kind: "screenshots", shots: { desktop, tablet, mobile } }` dengan file di `public/`; labelnya berganti otomatis menjadi "Pratinjau aplikasi nyata".
 - Portofolio: fakta dasar (kunci, slug per bahasa, kategori, teknologi, sampul) di `src/data/projects.ts`; narasi di `src/data/locales/{id,en}/projects.ts`. Proyek nyata diberi `isDemo: false`; label demo hilang otomatis dan JSON-LD `CreativeWork` mulai dipublikasikan. `results` hanya boleh berisi hasil yang terverifikasi. Route, prerender, dan pasangan hreflang mengikuti data secara otomatis.
 - Halaman atau bahasa baru: tambahkan path ke `pagePaths` di `src/i18n/config.ts` dan file halaman di `src/routes.ts`; untuk bahasa baru tambahkan juga ke `locales`, `localeMeta`, `messages`, dan `src/data/locales/`.

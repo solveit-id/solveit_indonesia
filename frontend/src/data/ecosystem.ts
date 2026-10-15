@@ -4,7 +4,7 @@ import type { EcosystemPart } from "~/types/content";
 /**
  * The connected Solveit ecosystem as the About page presents it. Every name
  * except the company's own website is a PROPOSED working name (see
- * docs/product-naming.md): not a registered trademark, not a launched
+ * docs/product/product-naming.md): not a registered trademark, not a launched
  * product. `status` has no "available" value on purpose, so nothing here can
  * be shown as live; add one only when a product actually ships.
  *

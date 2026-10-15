@@ -45,7 +45,7 @@ export const organizationSchema = (locale: Locale = defaultLocale): JsonLd =>
     "@id": organizationId(),
     name: company.name,
     url: absoluteUrl(pathFor("home", locale)) ?? undefined,
-    logo: absoluteUrl("/brand/logo-solveit-primary.svg") ?? undefined,
+    logo: absoluteUrl("/brand/solveit-logo-full.svg") ?? undefined,
     description: getMessages(locale).company.description,
     slogan: company.tagline,
     email: company.email,

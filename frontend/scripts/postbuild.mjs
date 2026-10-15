@@ -1,6 +1,6 @@
 // Post-build steps for the static output in build/client:
 //  - 404.html and en/404.html from the prerendered /404 and /en/404 pages
-//    (static hosts serve the nearest 404.html; see docs/development.md)
+//    (static hosts serve the nearest 404.html; see docs/development/development-guide.md)
 //  - robots.txt, plus sitemap.xml when VITE_SITE_URL is configured
 // The sitemap is derived from the prerendered HTML, so it always matches what
 // was actually built: it skips any page marked noindex and lists each page's

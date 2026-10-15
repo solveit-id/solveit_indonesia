@@ -25,7 +25,7 @@ const pages = locales.flatMap((locale) =>
 // One explicit route per case study (not `portofolio/:slug`): unknown slugs
 // then fall through to the splat routes, so the static 404 pages hydrate on
 // exactly the route they were rendered for. When case studies come from the
-// API, switch to a `:slug` route with a clientLoader (docs/integration-plan.md).
+// API, switch to a `:slug` route with a clientLoader (docs/architecture/integration-plan.md).
 const caseStudies = locales.flatMap((locale) =>
   projects.map((project) =>
     route(projectPath(project, locale).slice(1), "pages/project.tsx", {
