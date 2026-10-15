@@ -2,7 +2,7 @@
 
 Referensi endpoint backend Laravel milik website ini (`backend/`). Hanya kontrak yang benar-benar dibangun dan dites yang ditulis di sini; rencana endpoint lain ada di `docs/architecture/integration-plan.md`.
 
-Status: **dibangun dan dites secara lokal (B1), belum di-deploy, belum dipakai frontend.** Domain, hosting, dan URL produksi belum ditentukan.
+Status: **dibangun dan dites secara lokal (B1), belum di-deploy.** Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
 
 ## Endpoint
 

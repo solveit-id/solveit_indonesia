@@ -1,6 +1,6 @@
 # Rencana Integrasi Backend dan Solveit OpsHub
 
-Status (2026-10-15): **inquiry dibangun (B1), sisanya usulan.** `POST /api/v1/inquiries` sudah ada di `backend/` dan dites, tetapi belum di-deploy dan belum dipanggil frontend; kontraknya kini di `docs/api/inquiries.md`. Endpoint proyek dan layanan di bawah masih usulan. Dokumen ini menjaga batas sistem dan peta jalan agar website dapat terhubung ke sistem Solveit lain tanpa menyatu dengannya.
+Status (2026-10-15): **inquiry dibangun (B1) dan klien frontend dibangun di balik flag (B2), sisanya usulan.** `POST /api/v1/inquiries` sudah ada di `backend/` dan dites, tetapi belum di-deploy. Kanal **Kirim melalui website** di formulir kontak hanya aktif pada build dengan `VITE_INQUIRY_API_ENABLED=true`; build produksi menonaktifkannya sampai pemilik menyetujui privasi, masa simpan, hosting, dan database. Kontrak dan perilaku klien: `docs/api/inquiries.md`. Endpoint proyek dan layanan di bawah masih usulan. Dokumen ini menjaga batas sistem dan peta jalan agar website dapat terhubung ke sistem Solveit lain tanpa menyatu dengannya.
 
 ## Batas sistem (keputusan 2026-10-14)
 
@@ -22,8 +22,8 @@ Status (2026-10-15): **inquiry dibangun (B1), sisanya usulan.** `POST /api/v1/in
 | Kebutuhan | Saat ini | Setelah API tersedia |
 |---|---|---|
 | Daftar dan detail proyek | `src/services/projects.ts` membaca `src/data/projects.ts` | Fungsi yang sama memanggil API; halaman memakai `clientLoader`; route studi kasus kembali ke `portofolio/:slug` |
-| Inquiry konsultasi | `src/services/inquiry.ts` menyusun pesan WhatsApp/email | B2: kanal `api` yang mengirim payload yang sama ke `POST /api/v1/inquiries` (sudah ada), kirim honeypot `homepage` kosong, tampilkan nomor referensi dari `201`, petakan `422` ke `InquiryErrors`, dan tawarkan WhatsApp/email pada `429`, `503`, atau galat jaringan |
-| Konfigurasi | `VITE_API_BASE_URL` sudah dibaca di `src/config/site.ts` | Diisi per lingkungan |
+| Inquiry konsultasi | `src/services/inquiry.ts` menyusun pesan WhatsApp/email; kanal `api` (`src/services/inquiry-api.ts`, B2) sudah dibangun tetapi nonaktif secara default | Aktifkan flag pada build lingkungan yang API-nya sudah di-deploy dan disetujui pemilik. Klien mengirim honeypot `homepage`, menampilkan nomor referensi hanya dari `201` yang valid, memetakan `422` ke `InquiryErrors`, dan menawarkan WhatsApp/email (tanpa membukanya otomatis) pada `429`, `503`, atau hasil tidak pasti |
+| Konfigurasi | `src/config/site.ts` memvalidasi `VITE_API_BASE_URL` (origin saja, HTTPS kecuali loopback) dan `VITE_INQUIRY_API_ENABLED` (default `false`) | Diisi per lingkungan; tidak ada rahasia di `VITE_*` |
 
 ## Kontrak
 
@@ -47,7 +47,7 @@ Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dib
 
 | Tahap | Fitur (di sistem ekosistem, bukan website ini) | Dampak ke website ini |
 |---|---|---|
-| 1 | Inquiry via API website, panel admin website | Endpoint inquiry sudah dibangun (B1). Berikutnya: kanal `api` di form kontak (B2), panel admin website, lalu penerusan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
+| 1 | Inquiry via API website, panel admin website | Endpoint inquiry sudah dibangun (B1); kanal `api` di form kontak dibangun di balik flag yang nonaktif (B2). Berikutnya: deployment dan aktivasi setelah keputusan pemilik, panel admin website, lalu penerusan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
 | 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain sistem klien; tidak ada route `/portal/*` di website ini |
 | 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di sistem ekosistem |
 | 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di sistem ekosistem |
