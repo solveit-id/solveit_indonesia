@@ -25,6 +25,8 @@ services:
         SOLVEIT_UID: ${SOLVEIT_UID:-1000}
         SOLVEIT_GID: ${SOLVEIT_GID:-1000}
     image: solveit-indonesia/backend:dev
+    # A minimal init forwards stop signals, so `stop` ends the dev server at once.
+    init: true
     # backend/.env and backend/.env.testing are shared with the native workflow. Inside Docker
     # only the address of MySQL differs: the service name and its internal port. Variables set
     # here win over both files, so credentials stay in the files and nowhere else.
@@ -53,6 +55,7 @@ services:
         SOLVEIT_UID: ${SOLVEIT_UID:-1000}
         SOLVEIT_GID: ${SOLVEIT_GID:-1000}
     image: solveit-indonesia/frontend:dev
+    init: true
     # No VITE_* here: the inquiry API channel stays off (frontend/.env.example). Docker Desktop
     # does not forward file events from Windows folders into containers, so the dev server
     # polls for changes there (hot reload); on Linux and macOS set SOLVEIT_WATCH_POLLING=false.
