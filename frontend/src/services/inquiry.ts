@@ -61,6 +61,32 @@ export const inquiryFields: (keyof InquiryPayload)[] = [
   "message",
 ];
 
+/**
+ * The values the API receives: strings trimmed, enum values as they are, and
+ * an empty organization as `""` (Laravel stores it as `null`). Laravel's own
+ * trim removes every character `String.prototype.trim` removes and a few
+ * more, so two inquiries equal here are also equal for the server's
+ * idempotency check; the reverse is not guaranteed and does not need to be.
+ */
+export function canonicalInquiry(payload: InquiryPayload): InquiryPayload {
+  return {
+    name: payload.name.trim(),
+    organization: payload.organization.trim(),
+    contact: payload.contact.trim(),
+    service: payload.service,
+    budget: payload.budget,
+    timeline: payload.timeline,
+    message: payload.message.trim(),
+  };
+}
+
+/** Whether two inquiries carry the same canonical values (field by field, case sensitive). */
+export function sameInquiry(a: InquiryPayload, b: InquiryPayload): boolean {
+  const left = canonicalInquiry(a);
+  const right = canonicalInquiry(b);
+  return inquiryFields.every((key) => left[key] === right[key]);
+}
+
 export function validateInquiry(
   payload: InquiryPayload,
   locale: Locale = defaultLocale,

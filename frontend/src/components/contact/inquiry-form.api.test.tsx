@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +21,11 @@ vi.mock("~/config/site", async (importOriginal) => {
 
 const ENDPOINT = "https://api.example.test/api/v1/inquiries";
 const REFERENCE = "INQ-7K3M-9QX2-HD4T";
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const NOT_STORED = {
+  message:
+    "The inquiry could not be saved. Please try again later or contact us by WhatsApp or email.",
+};
 
 const renderForm = (url = "/kontak?layanan=website") => {
   const router = createMemoryRouter(
@@ -83,6 +88,13 @@ const receipt = async (text: RegExp) =>
 
 const sendButton = () => screen.getByRole("button", { name: /kirim melalui website|mengirim/i });
 const body = (call = 0) => JSON.parse(String((fetchMock.mock.calls[call]![1] as RequestInit).body));
+const keyOf = (call = 0) =>
+  ((fetchMock.mock.calls[call]![1] as RequestInit).headers as Record<string, string>)[
+    "Idempotency-Key"
+  ];
+const retryButton = () =>
+  screen.queryByRole("button", { name: /kirim ulang permintaan yang sama/i });
+const messageField = () => screen.getByLabelText(/ceritakan kebutuhan anda/i);
 
 describe("InquiryForm with the website channel", () => {
   it("offers the website channel and explains where the data goes", () => {
@@ -231,23 +243,26 @@ describe("InquiryForm with the website channel", () => {
   });
 
   it.each([
-    [413, "Permintaan terlalu besar untuk dikirim"],
-    [503, "permintaan ini belum tercatat"],
-    [404, "tidak dapat dikirim melalui website"],
-  ])("explains a %i, keeps the form, and never switches channel by itself", async (code, text) => {
-    const u = user();
-    const open = vi.spyOn(window, "open").mockReturnValue(null);
-    fetchMock.mockResolvedValue(json(code, { message: "x" }));
-    renderForm();
-    await fillValid(u);
-    await u.click(sendButton());
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(text);
-    expect(alert).toHaveTextContent("Isian Anda tetap tersimpan di formulir ini.");
-    expect(open).not.toHaveBeenCalled();
-    expect(screen.getByLabelText(/^nama/i)).toHaveValue("Rina Wulandari");
-    expect(sendButton()).toBeEnabled();
-  });
+    [413, { message: "x" }, "Permintaan terlalu besar untuk dikirim"],
+    [503, NOT_STORED, "permintaan ini belum tercatat"],
+    [404, { message: "x" }, "tidak dapat dikirim melalui website"],
+  ])(
+    "explains a %i, keeps the form, and never switches channel by itself",
+    async (code, reply, text) => {
+      const u = user();
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      fetchMock.mockResolvedValue(json(code, reply));
+      renderForm();
+      await fillValid(u);
+      await u.click(sendButton());
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(text);
+      expect(alert).toHaveTextContent("Isian Anda tetap tersimpan di formulir ini.");
+      expect(open).not.toHaveBeenCalled();
+      expect(screen.getByLabelText(/^nama/i)).toHaveValue("Rina Wulandari");
+      expect(sendButton()).toBeEnabled();
+    },
+  );
 
   it.each([
     ["a network error", () => Promise.reject(new TypeError("Failed to fetch"))],
@@ -320,5 +335,290 @@ describe("InquiryForm with the website channel", () => {
     const status = await receipt(/received and recorded by the website/);
     expect(status).toHaveTextContent(REFERENCE);
     expect(body().service).toBe("aplikasi-web");
+  });
+});
+
+describe("InquiryForm idempotency and safe retry", () => {
+  const accepted = (headers: Record<string, string> = {}) =>
+    json(201, { id: REFERENCE, status: "received" }, headers);
+
+  it("sends one cryptographic key per logical submission, never in the body", async () => {
+    const u = user();
+    const randomUUID = vi.spyOn(crypto, "randomUUID");
+    fetchMock.mockResolvedValue(accepted());
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    await receipt(/diterima dan dicatat/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(keyOf()).toMatch(UUID_V4);
+    expect(randomUUID).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(body())).not.toContain(keyOf());
+  });
+
+  it("recovers an uncertain outcome with the same key and shows the original reference", async () => {
+    const u = user();
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(accepted({ "Idempotent-Replayed": "true" }));
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Kirim ulang untuk memeriksanya");
+    // Nothing is retried by itself.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await u.click(retryButton()!);
+    const status = await receipt(/diterima dan dicatat/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(keyOf(1)).toBe(keyOf(0));
+    expect(body(1)).toEqual(body(0));
+    expect(within(status).getByText(REFERENCE)).toBeInTheDocument();
+    expect(status).toHaveTextContent("Percobaan sebelumnya ternyata sudah tercatat");
+    expect(status).toHaveFocus();
+    expect(screen.getAllByText(REFERENCE)).toHaveLength(1);
+    expect(sendButton()).toBeDisabled();
+  });
+
+  it("treats a replay without the exposed header like any 201", async () => {
+    const u = user();
+    fetchMock.mockResolvedValueOnce(json(504, {})).mockResolvedValueOnce(accepted());
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    await screen.findByRole("alert");
+    // The main button retries the unchanged content with the same key too.
+    await u.click(sendButton());
+    const status = await receipt(/diterima dan dicatat/);
+    expect(keyOf(1)).toBe(keyOf(0));
+    expect(status).not.toHaveTextContent("Percobaan sebelumnya");
+  });
+
+  it("uses a new key when the content changes after an uncertain result", async () => {
+    const u = user();
+    fetchMock.mockResolvedValue(json(502, {}));
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    const alert = await screen.findByRole("alert");
+    expect(retryButton()).not.toBeNull();
+
+    await u.type(messageField(), " Ditambah stok.");
+    expect(alert).toHaveTextContent("Isian sudah berubah sejak percobaan tadi");
+    expect(retryButton()).toBeNull();
+
+    // Back to the exact earlier content: the attempt can be checked again.
+    await u.type(messageField(), "{Backspace}".repeat(" Ditambah stok.".length));
+    expect(retryButton()).not.toBeNull();
+    await u.click(retryButton()!);
+    await screen.findByRole("alert");
+    expect(keyOf(1)).toBe(keyOf(0));
+
+    // Surrounding spaces are not a change: Laravel trims them too.
+    await u.type(screen.getByLabelText(/^nama/i), "  ");
+    expect(retryButton()).not.toBeNull();
+
+    await u.type(messageField(), " Ditambah stok.");
+    await u.click(sendButton());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(keyOf(2)).not.toBe(keyOf(0));
+    expect(body(2).message).toMatch(/Ditambah stok\.$/);
+  });
+
+  it("keeps the submitted snapshot when the visitor edits during the request", async () => {
+    const u = user();
+    const request = deferredFetch();
+    fetchMock.mockReturnValueOnce(request.pending).mockResolvedValueOnce(json(500, {}));
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    await u.type(messageField(), " Ditambah stok.");
+    expect(messageField()).toHaveValue(
+      "Kami butuh website profil dengan katalog produk. Ditambah stok.",
+    );
+    await act(async () => request.answer(json(500, {})));
+    const alert = await screen.findByRole("alert");
+    expect(body(0).message).toBe("Kami butuh website profil dengan katalog produk.");
+    // The edits are visible, flagged as unsent, and not tied to the old key.
+    expect(alert).toHaveTextContent("Isian sudah berubah sejak percobaan tadi");
+    expect(messageField()).toHaveValue(
+      "Kami butuh website profil dengan katalog produk. Ditambah stok.",
+    );
+    await u.click(sendButton());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(keyOf(1)).not.toBe(keyOf(0));
+    expect(body(1).message).toMatch(/Ditambah stok\.$/);
+  });
+
+  it("flags edits made during a request that then succeeds", async () => {
+    const u = user();
+    const request = deferredFetch();
+    fetchMock.mockReturnValue(request.pending);
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    await u.type(messageField(), " Ditambah stok.");
+    await act(async () => request.answer(accepted()));
+    const status = await receipt(/diterima dan dicatat/);
+    expect(status).toHaveTextContent("Perubahan setelah pengiriman ini belum terkirim");
+    expect(sendButton()).toBeEnabled();
+  });
+
+  it("prevents a second POST from double clicks on the retry button", async () => {
+    const u = user();
+    const request = deferredFetch();
+    fetchMock.mockResolvedValueOnce(json(500, {})).mockReturnValueOnce(request.pending);
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    await screen.findByRole("alert");
+    await u.dblClick(retryButton()!);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(retryButton()).toHaveAttribute("aria-disabled", "true");
+    await act(async () => request.answer(accepted()));
+    await receipt(/diterima dan dicatat/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [409, "bertabrakan dengan permintaan yang tercatat sebelumnya"],
+    [400, "Website tidak dapat memproses kiriman ini"],
+  ])("explains a %i, never as success, and retires the key", async (code, text) => {
+    const u = user();
+    fetchMock
+      .mockResolvedValueOnce(json(code, { message: "Idempotency-Key details <b>x</b>" }))
+      .mockResolvedValueOnce(accepted());
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(text);
+    expect(alert).toHaveTextContent("Isian Anda tetap tersimpan di formulir ini.");
+    expect(document.body).not.toHaveTextContent(/Idempotency|<b>/);
+    expect(screen.queryByText(/INQ-/)).toBeNull();
+    expect(retryButton()).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Only the visitor starts the new submission, and it has a new key.
+    await u.click(sendButton());
+    await receipt(/diterima dan dicatat/);
+    expect(keyOf(1)).toMatch(UUID_V4);
+    expect(keyOf(1)).not.toBe(keyOf(0));
+  });
+
+  it("waits for Retry-After before asking again, then reuses the key", async () => {
+    const u = user();
+    const start = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(start);
+    fetchMock
+      .mockResolvedValueOnce(json(429, { message: "Too Many Attempts." }, { "Retry-After": "120" }))
+      .mockResolvedValueOnce(accepted());
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    expect(await screen.findByRole("alert")).toHaveTextContent("sekitar 2 menit");
+
+    now.mockReturnValue(start + 61_000);
+    await u.click(sendButton());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("sekitar 1 menit"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    now.mockReturnValue(start + 121_000);
+    await u.click(sendButton());
+    await receipt(/diterima dan dicatat/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(keyOf(1)).toBe(keyOf(0));
+  });
+
+  it("treats a 503 that Laravel did not write as uncertain", async () => {
+    const u = user();
+    fetchMock.mockResolvedValue(
+      new Response("<html>503 Service Temporarily Unavailable</html>", { status: 503 }),
+    );
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Website belum memberi konfirmasi.");
+    expect(alert).not.toHaveTextContent("belum tercatat");
+    expect(retryButton()).not.toBeNull();
+  });
+
+  it("sends nothing when the browser cannot make a secure key", async () => {
+    const u = user();
+    vi.stubGlobal("crypto", {});
+    renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Browser ini tidak dapat mengirim dengan aman");
+    expect(fetchMock).not.toHaveBeenCalled();
+    // WhatsApp still works without it.
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await u.click(screen.getByRole("button", { name: /kirim lewat whatsapp/i }));
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes no key for WhatsApp or email", async () => {
+    const u = user();
+    const randomUUID = vi.spyOn(crypto, "randomUUID");
+    vi.spyOn(window, "open").mockReturnValue(null);
+    renderForm();
+    await fillValid(u);
+    await u.click(screen.getByRole("button", { name: /kirim lewat whatsapp/i }));
+    await u.click(screen.getByRole("button", { name: /kirim lewat email/i }));
+    expect(randomUUID).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the key and the inquiry out of storage, cookies, the URL, and the console", async () => {
+    const u = user();
+    const levels = ["log", "info", "warn", "error", "debug"] as const;
+    const consoles = levels.map((level) => vi.spyOn(console, level));
+    const stored = vi.spyOn(Storage.prototype, "setItem");
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValue(accepted());
+    const { container } = renderForm();
+    await fillValid(u);
+    await u.click(sendButton());
+    await screen.findByRole("alert");
+    await u.click(retryButton()!);
+    await receipt(/diterima dan dicatat/);
+    const key = keyOf();
+    expect(stored).not.toHaveBeenCalled();
+    expect(document.cookie).toBe("");
+    expect(window.location.href).not.toContain(key);
+    expect(window.location.href).not.toContain("Rina");
+    expect(container.innerHTML).not.toContain(key);
+    for (const spy of consoles) expect(spy).not.toHaveBeenCalled();
+    expect(String(fetchMock.mock.calls[0]![0])).toBe(ENDPOINT);
+  });
+
+  it("speaks English through an uncertain result and its replay", async () => {
+    const u = user();
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(accepted({ "Idempotent-Replayed": "true" }));
+    renderForm("/en/contact?service=website");
+    await fillValid(u, true);
+    await u.click(screen.getByRole("button", { name: /send through website/i }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("The website has not confirmed your request.");
+    expect(alert).toHaveTextContent("Retry to check");
+    await u.click(screen.getByRole("button", { name: "Retry the same request" }));
+    const status = await receipt(/received and recorded by the website/);
+    expect(status).toHaveTextContent(REFERENCE);
+    expect(status).toHaveTextContent("Your earlier attempt had already been recorded");
+    expect(keyOf(1)).toBe(keyOf(0));
+  });
+
+  it("speaks English for a conflict", async () => {
+    const u = user();
+    fetchMock.mockResolvedValue(json(409, { message: "x" }));
+    renderForm("/en/contact?service=website");
+    await fillValid(u, true);
+    await u.click(screen.getByRole("button", { name: /send through website/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "conflicts with a request recorded earlier",
+    );
   });
 });
