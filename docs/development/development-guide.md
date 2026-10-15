@@ -1,13 +1,13 @@
 # Pengembangan Lokal
 
-Frontend (`frontend/`) di bagian atas; backend Laravel (`backend/`) di bagian [Backend (Laravel)](#backend-laravel).
+Frontend (`frontend/`) di bagian atas; backend Laravel (`backend/`) di bagian [Backend (Laravel)](#backend-laravel). Dokumen ini menjelaskan alur **native** (alat terpasang di komputer). Alternatifnya, seluruh lingkungan di Docker tanpa PHP, Node, atau MySQL di host: `docker-development.md`.
 
 ## Prasyarat
 
 - Node.js 22.12 atau lebih baru (diuji dengan 22.23), npm 10
 - Untuk e2e: browser Chromium Playwright (`npx playwright install chromium`)
 - Opsional, hanya untuk membuat ulang subset font: Python 3 dengan `fonttools` dan `brotli`
-- Backend: PHP 8.5, minimal 8.5.7 (diuji dengan 8.5.7) dengan ekstensi `pdo_mysql`, `mbstring`, `intl`, `bcmath`, `openssl`, `fileinfo`; Composer 2 (diuji dengan 2.8.12); server **MySQL 8.4 LTS** (Oracle MySQL, bukan MariaDB; diuji dengan 8.4.11). Tidak butuh Redis atau queue worker. Docker opsional, hanya sebagai cara mudah menjalankan MySQL 8.4 lokal
+- Backend: PHP 8.5, minimal 8.5.7 (diuji dengan 8.5.7) dengan ekstensi `pdo_mysql`, `mbstring`, `intl`, `bcmath`, `openssl`, `fileinfo`; Composer 2 (diuji dengan 2.8.12); server **MySQL 8.4 LTS** (Oracle MySQL, bukan MariaDB; diuji dengan 8.4.11). Tidak butuh Redis atau queue worker. Docker dipakai untuk MySQL 8.4 lokal (cara yang disarankan) dan, bila ingin, untuk seluruh lingkungan (`docker-development.md`)
 
 ## Perintah
 
@@ -68,7 +68,7 @@ Hasil build adalah situs statis di `frontend/build/client`. Hosting harus:
 2. Menyajikan 404 dengan status 404 untuk path yang tidak ada (jangan fallback ke `index.html`): `en/404.html` untuk path di bawah `/en/`, `404.html` untuk yang lain. Cloudflare Pages melakukannya otomatis (404.html terdekat); di Netlify tambahkan aturan `/en/*  /en/404.html  404` di `_redirects`; di Nginx gunakan `error_page 404` per `location /en/`.
 3. Mengaktifkan kompresi brotli/gzip dan cache panjang untuk `/assets/*` (nama file ber-hash).
 
-Netlify, Cloudflare Pages, Vercel (output statis), atau Nginx memenuhi ini dengan konfigurasi standar.
+Netlify, Cloudflare Pages, Vercel (output statis), atau Nginx memenuhi ini dengan konfigurasi standar. Image Docker produksi frontend (`infra/docker/frontend/Dockerfile`, nginx dengan `infra/docker/nginx/frontend.conf`) sudah menerapkan ketiganya dan diuji; deployment Docker lengkap bersama API ada di `docker-production.md` (disiapkan, belum di-deploy).
 
 ## Backend (Laravel)
 
@@ -130,6 +130,8 @@ Jangan menjalankan `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wip
 6. `php artisan test`, cek route, `composer audit`, lalu `composer install --no-dev` yang harus tetap boot tanpa Boost.
 
 Tidak butuh rahasia GitHub. Frontend CI dan Cross-browser QA tidak dipicu oleh perubahan backend saja.
+
+**Docker CI** (`.github/workflows/docker-ci.yml`) berjalan pada PR ke `staging` atau `main`, push ke `backend`, dan manual, bila `infra/**`, `backend/**`, `frontend/**`, atau workflow-nya berubah. Tiga job: (1) shellcheck dan validasi file Compose (termasuk bukti bahwa proyek pengembangan memakai definisi MySQL yang sama dan bahwa hanya gateway produksi yang mempublikasikan port, di loopback); (2) onboarding pengembangan dari clone baru dengan `setup-dev.sh`, versi PHP, Node, Laravel, dan MySQL di container, `/up` dan dev server, tes backend dan frontend di container, dan restart tanpa kehilangan data; (3) build image produksi, migrasi eksplisit, dan `infra/docker/scripts/verify-production.sh` dengan rahasia acak per run. Tidak ada image yang di-push dan tidak ada deployment.
 
 ### Laravel Boost dan MCP untuk agent
 

@@ -1,0 +1,46 @@
+# Build context is the repository root; this allowlist keeps only what the backend image needs.
+# BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile before the root .dockerignore.
+*
+!backend/
+!infra/docker/backend/
+
+# Never in an image: secrets, local environments, dependencies installed on the host,
+# databases, logs, caches, and test or agent files.
+backend/.env
+backend/.env.*
+backend/auth.json
+backend/docker/
+backend/vendor/
+backend/node_modules/
+backend/tests/
+backend/phpunit.xml
+backend/.phpunit.cache/
+backend/.phpunit.result.cache
+backend/database/*.sqlite*
+backend/storage/logs/*
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/framework/testing/*
+backend/storage/app/private/*
+backend/storage/app/public/*
+backend/bootstrap/cache/*.php
+backend/.ai/
+backend/.agents/
+backend/.claude/
+backend/.codex/
+backend/.mcp.json
+backend/AGENTS.md
+backend/CLAUDE.md
+backend/boost.json
+**/*.sql
+**/*.sql.gz
+**/*.dump
+**/*.bak
+**/*.log
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/.DS_Store
+**/Thumbs.db

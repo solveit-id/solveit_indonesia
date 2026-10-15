@@ -2,6 +2,80 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B2.1 idempotensi inquiry dan lingkungan Docker (2026-10-16)
+
+Cakupan: header `Idempotency-Key` pada `POST /api/v1/inquiries` (backend saja; frontend B2.2 belum), lingkungan pengembangan Docker penuh, konfigurasi Docker produksi (disiapkan dan divalidasi, **tidak di-deploy**), dan Docker CI. Baseline yang diverifikasi: `origin/main`, `origin/frontend`, `origin/backend` = `6474647` (rilis PR #24), `origin/staging` `966ddf0` (PR #25) dengan tree yang sama (`5205258`); working tree bersih, tanpa stash atau worktree lain; tidak ada proteksi branch atau ruleset di GitHub.
+
+### Lingkungan awal (mesin pemilik)
+
+- PHP CLI XAMPP 8.5.7 (ZTS), Composer 2.8.12, Node 22.23.1, Docker 29.8.2, Compose 5.6.0.
+- Container `solveit-mysql` (`mysql:8.4.11`, `127.0.0.1:3307`, healthy), volume `solveit-mysql-data`. MariaDB XAMPP di 3306 (proses Windows, bukan Docker). Container dan volume proyek lain (berhenti) tidak disentuh.
+
+### Idempotensi (B2.1)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `php artisan test` native (PHP 8.5.7, MySQL 8.4.11, `solveit_indonesia_testing`) | **151 tes, 466 assertion, lulus** (sebelumnya 109 dan 275) |
+| Tes baru | `InquiryIdempotencyTest` (HTTP: replay, 6 variasi payload setara, 7 variasi isi berbeda untuk `409`, kunci berbeda, tanpa kunci, 8 kunci rusak untuk `400`, kegagalan penyimpanan dan `422` tidak memakai kunci, rate limit tetap berlaku, baris lama tanpa kunci, log tanpa data pribadi, preflight CORS dari origin terdaftar dan tidak terdaftar, `Idempotent-Replayed` dapat dibaca), `SubmitInquiryConcurrencyTest` (5 tes multi-proses), tes model (indeks `UNIQUE`, banyak `NULL`, hash tidak diserialisasi), tabrakan `public_id` dengan kunci |
+| Konkurensi nyata | Proses PHP terpisah, masing-masing koneksi MySQL sendiri, dengan pengaman database tes: 6 permintaan serentak dengan satu kunci menghasilkan tepat 1 baris, 6 kali `201` dengan referensi sama, tepat 1 tanpa `Idempotent-Replayed`; 3 lawan 3 dengan isi berbeda menghasilkan 1 baris, 3 kali `201`, 3 kali `409`; `INSERT` yang tertahan transaksi lain menjadi replay setelah commit, inquiry baru setelah rollback, `409` bila isi berbeda |
+| Uji mutasi | Action diubah agar tidak menulis hash kunci: kelima tes konkurensi gagal (6 baris, hash `null`, insert tidak pernah tertahan); kode dipulihkan |
+| Migrasi | Naik pada database pengembangan (aditif); turun lalu naik lagi pada `solveit_indonesia_testing`; kolom `char(64)` ASCII nullable dengan indeks `inquiries_idempotency_key_hash_unique` (dibaca lewat Boost `database-schema`) |
+| Pint, `composer validate --strict`, `check-platform-reqs`, `audit` (`COMPOSER_IPRESOLVE=4`), `route:list` | Lulus; tidak ada advisory; `POST api/v1/inquiries`, `GET|HEAD up` |
+| Backend CI run 38805166473 (`6c39e6f`, PHP 8.5.11, MySQL 8.4.11 di Linux) | Lulus, termasuk tes multi-proses |
+
+### Docker pengembangan
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Image | `backend:dev` dari `php:8.5.11-fpm-bookworm` (PHP 8.5.11 NTS, `bcmath`, `intl`, `mbstring`, `pdo_mysql`, OPcache; Composer 2.10.3), `frontend:dev` dari `node:22.23.1-bookworm-slim` (Node v22.23.1). Build pertama 25 menit, hampir seluruhnya unduhan image dasar dan kompilasi `intl` |
+| `include` MySQL | `config --hash mysql` identik untuk `compose.dev.yaml`, `backend/docker/mysql/compose.yaml`, dan label container yang berjalan |
+| `setup-dev.sh` di mesin pemilik | 58 detik; secret, `.env`, `.env.testing` sudah ada dan tidak diubah (ukuran dan waktu ubah sama); `solveit-mysql` dipakai ulang: ID, waktu dibuat, waktu start, dan jumlah restart sama sebelum dan sesudah; migrasi "Nothing to migrate" |
+| Laravel di container | 13.36.0, `db:show`: MySQL 8.4.11, host `mysql`, port 3306, database `solveit_indonesia` |
+| Tes backend di container | **151 lulus, 466 assertion** pada `solveit_indonesia_testing` lewat pengaman yang sama (awalnya 3 tes kontrak frontend dilewati karena `frontend/src/types` tidak terlihat; kini di-mount read-only). Pint lulus |
+| Frontend di container | `npm test` 125 lulus, `typecheck` dan `lint` exit 0; dev server `200` di `127.0.0.1:5173` |
+| Hot reload | Tanpa polling, `fs.watch` di container tidak menerima event dari folder Windows (dibuktikan). Dengan `SOLVEIT_WATCH_POLLING=true`, browser Chromium menerima `[vite] hot updated: /src/styles/app.css` 2,6 detik setelah file diubah di host; file dikembalikan |
+| `/up` | `{"status":"ok"}` di `127.0.0.1:8000` |
+| Native dan Docker bersamaan | `php artisan test` native (151 lulus) saat backend Docker tetap menjawab `/up` |
+| Restart | `compose restart` (termasuk `solveit-mysql`, container yang sama, 0 restart tercatat): 5 migrasi tetap tercatat |
+| Port | 3306 tetap MariaDB XAMPP (`0.0.0.0`), 3307, 5173, 8000 hanya `127.0.0.1` |
+| Stop | Dengan `init: true` kedua server dev berhenti dalam 1,6 detik (sebelumnya dimatikan paksa setelah 10 detik, exit 137) |
+| Setelah QA | `backend` dan `frontend` dihentikan (`stop`) dan tanpa restart otomatis, agar port 8000 dan 5173 bebas untuk alur native; `solveit-mysql` tetap berjalan |
+
+### Docker produksi (proyek uji terisolasi `solveit-prod-smoke`, data sintetis)
+
+Rahasia acak di folder sementara di luar repository, `production.env.example` sebagai konfigurasi, profil `bundled-db`. `infra/docker/scripts/verify-production.sh`: **33 pemeriksaan lulus**, antara lain:
+
+- PHP 8.5.11 dengan kelima ekstensi; `expose_php`, `display_errors`, `opcache.validate_timestamps` mati; Laravel 13.36.0; backend sebagai `www-data` (uid 33), kode read-only; tanpa Boost, PHPUnit, Pint, `tests/`, `.env`; tidak ada `.env`, dump, `auth.json`, `.git`, kunci, atau sertifikat aplikasi di image backend dan frontend; image frontend tanpa Node.
+- Hanya gateway yang mempublikasikan port (`127.0.0.1:8080`); backend, frontend, MySQL tidak.
+- `/` (`lang="id"`), `/en/`, `/kontak` tanpa honeypot (kanal API nonaktif), `/en/contact` `200`; `/halaman-tidak-ada` `404` dengan halaman ID, `/en/missing-page` `404` dengan halaman EN, `/404.html` `404`; aset ber-hash `immutable`, `text/css`, gzip; HTML `no-cache`, `nosniff`, tanpa versi server; tidak ada endpoint health di port publik.
+- `/up` `200`; `GET /api/v1/inquiries` `405` tanpa trace; `POST` dengan kunci `201`, ulang `201` dengan referensi sama dan `Idempotent-Replayed`, isi lain `409`, kunci rusak `400`, payload kosong `422`, percobaan keenam `429` dengan `Retry-After`.
+- Setelah restart backend: `/up` `200`; MySQL 8.4.11 dengan tepat 1 inquiry; `solveit_app` hanya `SELECT, INSERT, UPDATE, DELETE` pada `` `solveit\_indonesia`.* ``.
+
+Migrasi berjalan hanya lewat `run --rm migrate` (5 migrasi sebagai `solveit_migrator`). Container backend: read-only, `cap_drop: ALL`, `no-new-privileges`, batas memori 512 MB; environment hanya berisi `APP_KEY_FILE` dan `DB_PASSWORD_FILE`. Tidak satu pun dari empat rahasia muncul di `docker inspect` keempat container atau di `docker history` kedua image. Ukuran image: frontend 94,6 MB, backend 794 MB (image Debian PHP resmi menyertakan toolchain kompilasi; dapat diperkecil nanti). Proyek uji dihapus dengan `down -v` (hanya volume `solveit-prod-smoke_mysql-data`).
+
+Temuan yang diperbaiki selama QA:
+
+- Health check nginx di `/healthz` dengan `allow 127.0.0.1` ternyata terjangkau dari host: port forwarding Docker Desktop membuat koneksi host tampak sebagai loopback di container. Health check dipindah ke server nginx terpisah di `127.0.0.1:8081` yang tidak pernah dipublikasikan. Akibat yang sama untuk batas laju didokumentasikan (`set_real_ip_from` di `docker-production.md`, TLS).
+- Docker CI pertama gagal di Linux dengan `[1130] Host ... is not allowed`: `setup-dev.sh` membuat secret MySQL `600`, padahal image MySQL membaca secret sebagai uid 999 setelah melepas hak root, sehingga provisioning start pertama gagal. Di Windows tidak terlihat karena bind mount Docker Desktop longgar. Perbaikan: file `644`/`0444`, folder `700`; berlaku juga untuk panduan produksi.
+
+### Docker CI (GitHub Actions, Ubuntu)
+
+| Run | Hasil |
+|---|---|
+| 38805164238 (`6c39e6f`) | Workflow ditolak: konteks `runner` di `env` tingkat job. Diperbaiki; workflow kini lulus actionlint 1.7.7 dan semua skrip lulus shellcheck |
+| 38805322828 (`73c2a1e`) | Compose dan skrip lulus. Produksi gagal di langkah secret (glob pada folder yang baru dikunci). Pengembangan gagal: `[1130]`, karena izin secret MySQL (di atas) |
+| 38805741991 (`a126fbe`) | Compose dan skrip lulus. **Produksi lulus** (build, migrasi eksplisit, 33 pemeriksaan smoke di Linux). Pengembangan: onboarding dari clone baru lulus (PHP 8.5.11, Node v22.23.1, Laravel 13.36.0), lalu gagal hanya pada regex baris versi MySQL (`db:show` memakai titik, bukan spasi); diperbaiki di `fc12e92` |
+
+Hasil run pada PR dicatat di `.ai/project-status.md` dan di PR.
+
+### Belum diverifikasi
+
+- Deployment publik, TLS, domain, database produksi, dan perilaku di penyedia hosting tertentu: tidak ada yang dipilih.
+- Docker di macOS dan Linux desktop secara langsung (Linux hanya lewat runner GitHub Actions).
+- Playwright e2e di dalam container (tidak didukung image Node slim; tetap di host dan CI).
+- Server MCP Laravel Boost lewat `docker compose exec` untuk kontributor tanpa PHP di host.
+- Klien frontend dengan `Idempotency-Key` (B2.2).
+
 ## MySQL 8.4 lokal permanen dan uji integrasi nyata B2 (2026-10-16)
 
 Lingkungan pengembangan di mesin pemilik, tanpa mengubah XAMPP. Kode backend dan frontend tidak berubah; yang di-commit hanya `backend/docker/mysql/` dan dokumentasi.

@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Pinned by the brief: one repository for this website only, with `frontend/` (React, TypeScript strict, Vite, GSAP) and the website's own `backend/` (Laravel 13 API on PHP 8.5, at least 8.5.7, and MySQL 8.4 LTS; inquiry endpoint built, not yet deployed; the frontend client exists behind a flag that is off by default). Other Solveit systems are separate repositories. Styling, routing, and prerendering were delegated: Tailwind CSS v4, React Router 7 framework mode with static prerendering (`ssr: false`).
+Pinned by the brief: one repository for this website only, with `frontend/` (React, TypeScript strict, Vite, GSAP) and the website's own `backend/` (Laravel 13 API on PHP 8.5, at least 8.5.7, and MySQL 8.4 LTS; inquiry endpoint built with idempotent retries, not yet deployed; the frontend client exists behind a flag that is off by default). Other Solveit systems are separate repositories. Styling, routing, and prerendering were delegated: Tailwind CSS v4, React Router 7 framework mode with static prerendering (`ssr: false`).
 
 ## Users
 

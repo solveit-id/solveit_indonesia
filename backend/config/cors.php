@@ -10,7 +10,8 @@ return [
     | Only the origins listed in CORS_ALLOWED_ORIGINS (comma-separated, exact
     | scheme, host, and port) may call the API from a browser. Empty means no
     | cross-origin access. Never use "*": the production website origin is
-    | added once the domain is decided.
+    | added once the domain is decided. Idempotency-Key (request) and
+    | Idempotent-Replayed (response) belong to POST /api/v1/inquiries.
     |
     | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
     |
@@ -27,9 +28,9 @@ return [
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['Accept', 'Content-Type', 'X-Requested-With'],
+    'allowed_headers' => ['Accept', 'Content-Type', 'Idempotency-Key', 'X-Requested-With'],
 
-    'exposed_headers' => ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
+    'exposed_headers' => ['Idempotent-Replayed', 'Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
 
     'max_age' => 3600,
 

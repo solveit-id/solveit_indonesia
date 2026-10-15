@@ -7,7 +7,8 @@ Shared instructions for the two coding agents used in this repository: Claude Co
 Solveit Indonesia company profile and portfolio. This repository holds only the website and its own backend; Solveit OpsHub and other Solveit systems live in separate repositories and integrate through API contracts or events, never a shared database (see `docs/architecture/integration-plan.md`).
 
 - `frontend/`: React 19, TypeScript strict, Vite 8, React Router 7 (framework mode, static prerender), Tailwind CSS v4, GSAP. Built and released.
-- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` and `GET /up` (contracts in `docs/api/`). Not deployed; the shipped frontend does not call it (the B2 website channel is behind `VITE_INQUIRY_API_ENABLED`, off by default). Add only endpoints that really work, never fake ones.
+- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` (idempotent per `Idempotency-Key` since B2.1) and `GET /up` (contracts in `docs/api/`). Not deployed; the shipped frontend does not call it (the B2 website channel is behind `VITE_INQUIRY_API_ENABLED`, off by default, and does not send an idempotency key until B2.2). Add only endpoints that really work, never fake ones.
+- `infra/docker/`: full-Docker development (`compose.dev.yaml`, includes the existing MySQL Compose file) and a provider-independent production setup (`compose.prod.yaml`). Production is prepared and validated, **not deployed**. Placement rules: `docs/project-structure.md` section 11; guides in `docs/development/docker-*.md`.
 - Planned, not built: website admin dashboard, first-party visitor analytics, GitHub integration boundary (`docs/architecture/`). Never describe them as available.
 
 ## Read first
@@ -26,13 +27,15 @@ Solveit Indonesia company profile and portfolio. This repository holds only the 
 
 ## Development environment
 
-- Owner machine: Windows 11, Git Bash and PowerShell, Node 22.23 (`.nvmrc`: 22, `engines`: >=22.12), PHP 8.5.7 (XAMPP), Composer 2.8. The XAMPP database is MariaDB 10.4, which is not MySQL: never use it for this project. Run MySQL 8.4 separately: the Docker container `solveit-mysql` from `backend/docker/mysql/compose.yaml` on `127.0.0.1:3307` (`backend/README.md`). `mysql --version` there reports the XAMPP MariaDB client, not the server; check the server with `php artisan db:show`.
+- Owner machine: Windows 11, Git Bash and PowerShell, Node 22.23 (`.nvmrc`: 22, `engines`: >=22.12), PHP 8.5.7 (XAMPP), Composer 2.8. The XAMPP database is MariaDB 10.4, which is not MySQL: never use it for this project. Run MySQL 8.4 separately: the Docker container `solveit-mysql` from `backend/docker/mysql/compose.yaml` on `127.0.0.1:3307` (`backend/README.md`). `mysql --version` there reports the XAMPP MariaDB client, not the server; check the server with `php artisan db:show`. The Docker development project (`infra/docker/compose.dev.yaml`, project `solveit-indonesia`) reuses that same container and volume; never run `docker compose down -v` on it or `docker volume rm solveit-mysql-data`.
 - Git normalises text files to LF (`.gitattributes`); Windows working copies may show CRLF. Match the existing line ending when editing a file with scripts.
 - Memory is limited: run Playwright one project at a time with `--workers=1`. WebKit (desktop and iPhone 14) runs on GitHub Actions through the **Cross-browser QA** workflow (`gh workflow run cross-browser-qa.yml -f ref=<full sha>`).
 
 ## Commands
 
 Frontend (run in `frontend/`): `npm run dev` · `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` · `npm run test:e2e` · `npm run format` / `format:check` · `npm run check` (lint + typecheck + test + build).
+
+Docker (run from the repository root): `bash infra/docker/scripts/setup-dev.sh` (once) · `docker compose -f infra/docker/compose.dev.yaml up -d` · `... exec backend php artisan test` · `... exec frontend npm test`. Production images and smoke test: `docs/development/docker-production.md` (isolated project name, synthetic data only).
 
 Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix with `vendor/bin/pint`) · `composer validate --strict` · `composer audit` · `php artisan route:list --except-vendor` · `php artisan migrate` · `php artisan boost:update --no-discover`. Setup from a fresh clone: `backend/README.md`.
 
@@ -49,7 +52,8 @@ Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix
 
 1. Frontend changes: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. UI changes also: `npx playwright test --project=<desktop|tablet|mobile> --workers=1` (axe runs inside the suite). `PW_ALL_BROWSERS=1` adds `firefox`.
 2. Backend changes: `vendor/bin/pint --test`, `php artisan test` (MySQL testing database), `composer validate --strict`, `composer audit`; after dependency or guideline changes, `php artisan boost:update --no-discover` and commit the resulting `backend/AGENTS.md`.
-3. Report real output. Never weaken a test to make it pass.
+3. Docker changes (`infra/**`): `docker compose -f infra/docker/compose.dev.yaml config --quiet`, rebuild the affected image, and the checks in `docs/development/docker-*.md`; **Docker CI** repeats them on a clean runner.
+4. Report real output. Never weaken a test to make it pass.
 
 ## Rules
 
@@ -60,7 +64,8 @@ Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix
 - Motion: use `useMotion` from `src/lib/motion.ts` (lazy GSAP, auto-revert); gate effects with `gsap.matchMedia()` and `motionQueries.motion`; animate transform/opacity/colour only; content visible by default.
 - SEO: every page exports `meta` built with `buildMeta()` from `src/lib/seo.ts`. Final SEO/GEO work waits for the domain and hosting.
 - Naming: Solveit OpsHub is established; Solveit Orbit and the six client-facing names are proposals (`docs/product/product-naming.md`). Do not rename the `solveit_opshub` repository or its identifiers.
-- Structure: follow `docs/project-structure.md`; no loose files in the repository root, no duplicate assets, no secrets in Git (keys, `.env*` other than `.env.example`, database dumps; see `.gitignore`).
+- Structure: follow `docs/project-structure.md`; no loose files in the repository root, no duplicate assets, no secrets in Git (keys, `.env*` other than `.env.example`, `*.env` other than `*.env.example`, Docker `secrets/` folders, database dumps; see `.gitignore`).
+- Infrastructure: never delete or recreate the `solveit-mysql` container or `solveit-mysql-data` volume, never change XAMPP, never publish MySQL or PHP-FPM beyond loopback, never deploy publicly or create production databases or certificates without the owner. Production migrations run only as the explicit `migrate` service.
 - Agents: only Claude Code and Codex are supported. Do not add configuration for other agents.
 - Handoff: at the end of a task, update `.ai/project-status.md` (state, branch SHAs, next step).
 - Git: branches `frontend` and `backend` feed `staging` via PR, then `staging` to `main` via PR. Commit format `(type) short description`. No force push, no destructive reset, no `Co-authored-by` trailers or automatic attribution in commits or PRs.
