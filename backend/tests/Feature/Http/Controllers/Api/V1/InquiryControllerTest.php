@@ -9,7 +9,6 @@ use App\Models\Inquiry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -303,10 +302,22 @@ class InquiryControllerTest extends TestCase
         $this->assertFalse($inquiry->created_at->isSameDay('2000-01-01'));
     }
 
+    /**
+     * Make the database itself refuse the next row: in strict mode MySQL rejects a value
+     * longer than its column (SQLSTATE 22001). Unlike dropping the table, this needs no
+     * DDL, which MySQL would commit implicitly and leak into the other tests.
+     */
+    private function makeTheDatabaseRejectTheNextInquiry(): void
+    {
+        Inquiry::creating(function (Inquiry $inquiry): void {
+            $inquiry->name = str_repeat('x', 121);
+        });
+    }
+
     public function test_storage_failure_returns_503_without_a_reference(): void
     {
         Exceptions::fake();
-        Schema::drop('inquiries');
+        $this->makeTheDatabaseRejectTheNextInquiry();
 
         $response = $this->postJson(self::ENDPOINT, $this->payload());
 
@@ -314,12 +325,13 @@ class InquiryControllerTest extends TestCase
             ->assertExactJson(['message' => 'The inquiry could not be saved. Please try again later or contact us by WhatsApp or email.']);
         $this->assertStringNotContainsString('INQ-', $response->getContent());
         $this->assertStringNotContainsString('received', $response->getContent());
+        $this->assertDatabaseEmpty('inquiries');
     }
 
     public function test_storage_failure_is_reported_without_personal_data(): void
     {
         Exceptions::fake();
-        Schema::drop('inquiries');
+        $this->makeTheDatabaseRejectTheNextInquiry();
 
         $this->postJson(self::ENDPOINT, $this->payload())->assertServiceUnavailable();
 
@@ -327,8 +339,9 @@ class InquiryControllerTest extends TestCase
             $reported = $exception->getMessage().json_encode($exception->context());
 
             return $exception->getPrevious() === null
+                && $exception->context() === ['sqlstate' => '22001']
                 && ! str_contains($reported, 'rina@example.com')
-                && ! str_contains($reported, 'Rina Pratiwi')
+                && ! str_contains($reported, 'Toko Sinar Jaya')
                 && ! str_contains($reported, 'stok');
         });
     }
@@ -486,11 +499,5 @@ class InquiryControllerTest extends TestCase
 
         $this->postJson(self::ENDPOINT, $this->payload(), ['Origin' => 'http://localhost:5173'])
             ->assertHeaderMissing('Access-Control-Allow-Origin');
-    }
-
-    public function test_tests_run_against_an_isolated_in_memory_database(): void
-    {
-        $this->assertSame('sqlite', config('database.default'));
-        $this->assertSame(':memory:', config('database.connections.sqlite.database'));
     }
 }

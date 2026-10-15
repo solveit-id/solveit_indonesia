@@ -23,9 +23,16 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="DB_URL" value=""/>
+        <!-- MySQL, the project database. Tests drop and recreate every table, so they only run
+             against a disposable database whose name contains "_testing" (tests/TestCase.php).
+             Host, port, user, and password come from .env.testing or the environment.
+             The driver is pinned in $_SERVER too: Laravel reads it before $_ENV, so a shell
+             DB_CONNECTION=sqlite cannot quietly switch the suite back to SQLite. -->
+        <server name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_CONNECTION" value="mysql" force="true"/>
+        <env name="DB_DATABASE" value="solveit_indonesia_testing"/>
+        <server name="DB_URL" value=""/>
+        <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

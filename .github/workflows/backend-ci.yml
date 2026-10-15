@@ -21,49 +21,121 @@ defaults:
 
 jobs:
   verify:
-    name: verify (PHP ${{ matrix.php }})
+    name: verify (PHP 8.5, MySQL 8.4)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        # Lowest version allowed by composer.json (and config.platform.php) and the team's version.
-        php: ["8.3", "8.5"]
+    timeout-minutes: 20
+    services:
+      # Disposable MySQL 8.4 LTS that exists only for this job. Never a shared or production server.
+      # Root has no password because the container is reachable only from this runner and is
+      # destroyed with the job; the application connects as least-privilege users created below.
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, bcmath, pdo_sqlite, sqlite3
+          # Project policy: PHP 8.5, at least 8.5.7 (composer.json). The runner installs the newest
+          # 8.5 patch, so the next step asserts the minimum and records the version actually tested.
+          php-version: "8.5"
+          extensions: mbstring, intl, bcmath, pdo_mysql
           coverage: none
           tools: composer:v2
+      - name: PHP policy (8.5 series, at least 8.5.7, pdo_mysql)
+        run: |
+          version=$(php -r 'echo PHP_VERSION;')
+          php -r 'exit(PHP_VERSION_ID >= 80507 && PHP_VERSION_ID < 80600 ? 0 : 1);' \
+            || { echo "PHP $version does not meet the 8.5 (>= 8.5.7) policy" >&2; exit 1; }
+          php -m | grep -qx pdo_mysql || { echo "pdo_mysql is missing" >&2; exit 1; }
+          echo "Tested PHP: $version" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: MySQL server, databases, and least-privilege users
+        env:
+          MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          sql() { docker exec -i "$MYSQL_CONTAINER" mysql -uroot -N "$@"; }
+          version=$(sql -e "SELECT VERSION()")
+          comment=$(sql -e "SELECT @@version_comment")
+          case "$version" in 8.4.*) ;; *) echo "Expected MySQL 8.4 LTS, got $version" >&2; exit 1 ;; esac
+          if echo "$comment" | grep -qi mariadb; then echo "MariaDB is not MySQL: $comment" >&2; exit 1; fi
+          echo "Tested MySQL: $version ($comment)" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Random per-run passwords, masked in the log and never stored in the repository.
+          for name in MIGRATOR APP TEST; do
+            password=$(openssl rand -hex 24)
+            echo "::add-mask::$password"
+            echo "CI_${name}_PASSWORD=$password" >> "$GITHUB_ENV"
+            declare "CI_${name}_PASSWORD=$password"
+          done
+          sql <<SQL
+          CREATE DATABASE solveit_indonesia_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE DATABASE solveit_indonesia_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE USER 'ci_migrator'@'%' IDENTIFIED BY '$CI_MIGRATOR_PASSWORD';
+          GRANT ALL PRIVILEGES ON solveit_indonesia_ci.* TO 'ci_migrator'@'%';
+          CREATE USER 'ci_app'@'%' IDENTIFIED BY '$CI_APP_PASSWORD';
+          GRANT SELECT, INSERT, UPDATE, DELETE ON solveit_indonesia_ci.* TO 'ci_app'@'%';
+          CREATE USER 'ci_test'@'%' IDENTIFIED BY '$CI_TEST_PASSWORD';
+          GRANT ALL PRIVILEGES ON solveit_indonesia_testing.* TO 'ci_test'@'%';
+          SQL
       - name: Locate the Composer cache
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('backend/composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-
+          key: composer-${{ runner.os }}-php8.5-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php8.5-
       - run: composer validate --strict
       - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: composer check-platform-reqs
       - name: Prepare the environment
         run: |
           cp .env.example .env
           php artisan key:generate --no-interaction
       - name: Code style (Pint)
         run: vendor/bin/pint --test
-      - name: Migrations up, down, and up again (throwaway SQLite file)
+      - name: Migrations up, down, and up again (disposable CI database, migration user)
         env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ${{ github.workspace }}/backend/database/ci.sqlite
+          DB_DATABASE: solveit_indonesia_ci
+          DB_USERNAME: ci_migrator
+          DB_PASSWORD: ${{ env.CI_MIGRATOR_PASSWORD }}
         run: |
-          touch "$DB_DATABASE"
           php artisan migrate --force --no-interaction
           php artisan migrate:rollback --force --no-interaction
           php artisan migrate --force --no-interaction
           php artisan migrate:status
-      - name: Tests (in-memory SQLite from phpunit.xml)
+      - name: HTTP smoke test as a user without DDL rights (APP_DEBUG=false)
+        env:
+          APP_ENV: production
+          APP_DEBUG: "false"
+          DB_DATABASE: solveit_indonesia_ci
+          DB_USERNAME: ci_app
+          DB_PASSWORD: ${{ env.CI_APP_PASSWORD }}
+          MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/serve.log 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/up > /dev/null && break; sleep 1; done
+          test "$(curl -s http://127.0.0.1:8000/up)" = '{"status":"ok"}'
+          status=$(curl -s -o /tmp/inquiry.json -w '%{http_code}' http://127.0.0.1:8000/api/v1/inquiries \
+            -H 'Content-Type: application/json' -H 'Accept: application/json' \
+            -d '{"name":"CI Smoke","contact":"ci@example.com","service":"website","budget":"belum-tahu","timeline":"fleksibel","message":"Automated CI check of the inquiry endpoint on MySQL."}')
+          test "$status" = 201 || { echo "Expected 201, got $status" >&2; exit 1; }
+          grep -Eq '^\{"id":"INQ-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}","status":"received"\}$' /tmp/inquiry.json
+          test "$(docker exec "$MYSQL_CONTAINER" mysql -uroot -N -e 'SELECT COUNT(*) FROM solveit_indonesia_ci.inquiries')" = 1
+      - name: Tests (disposable MySQL testing database)
+        env:
+          DB_DATABASE: solveit_indonesia_testing
+          DB_USERNAME: ci_test
+          DB_PASSWORD: ${{ env.CI_TEST_PASSWORD }}
         run: php artisan test
       - name: Route check (exactly /api/v1/inquiries, no double prefix)
         run: php artisan route:list --method=POST --path=api --no-ansi | grep -E "POST +api/v1/inquiries "
