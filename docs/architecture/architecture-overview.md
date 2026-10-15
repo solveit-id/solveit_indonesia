@@ -6,7 +6,7 @@
 solveit_indonesia/
 ├── frontend/   React 19 + TypeScript (strict) + Vite 8 + React Router 7 (framework mode, prerender statis)
 │               Logo asli: frontend/public/brand/solveit-logo-{full,icon}.svg (jangan diubah bentuknya)
-├── backend/    Disiapkan untuk Laravel 13 (PHP 8.5). Belum berisi kode; lihat backend/README.md
+├── backend/    Laravel 13 API (PHP ^8.3, tim memakai 8.5): POST /api/v1/inquiries dan GET /up; lihat backend/README.md
 ├── docs/       Dokumentasi. PRODUCT.md (fakta produk) dan DESIGN.md (spesifikasi desain) di tingkat atas,
 │               sisanya per kelompok. Peta: docs/README.md; aturan struktur: docs/project-structure.md
 ├── .ai/        Handoff untuk agent lain (status proyek dan alur kerja tanpa Claude Code)
@@ -14,11 +14,28 @@ solveit_indonesia/
 └── CLAUDE.md   Memuat AGENTS.md ditambah catatan khusus Claude Code
 ```
 
-Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau endpoint. Formulir konsultasi menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email.
+Frontend publik sudah dirilis. Backend berisi fondasi API dan endpoint inquiry (B0 dan B1) yang dites secara lokal dan di CI, tetapi **belum di-deploy dan belum dipanggil frontend**. Sampai integrasi B2 dan deployment, formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email.
 
 ### Batas sistem
 
 Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend/API yang menjadi tanggung jawab website (inquiry, konten, admin website). Solveit OpsHub (pusat operasional internal) dan bagian ekosistem lain yang direncanakan untuk klien (pemesanan, proposal, kontrak, invoice, progres, revisi, pemeliharaan; nama usulan di `docs/product/product-naming.md`, payung "Solveit Orbit") adalah proyek terpisah dengan repository, deployment, dependensi, dan siklus rilis sendiri. Website terhubung ke sistem itu lewat REST API berversi, event/webhook, atau tautan antar-domain, bukan database bersama dan bukan route di dalam aplikasi ini. Rinciannya di `docs/architecture/integration-plan.md`.
+
+## Backend
+
+Aplikasi Laravel 13 standar di `backend/`, hanya JSON API tanpa halaman Blade atau aset Vite. Kontrak endpoint: `docs/api/`.
+
+| Lapisan | Lokasi | Isi |
+|---|---|---|
+| Routing | `routes/api.php`, `bootstrap/app.php` | `/api` dari Laravel, grup `v1`; `GET /up` di luar grup `web` (tanpa sesi) |
+| Validasi | `app/Http/Requests/Api/V1/` | Form Request per endpoint; enum di `app/Enums/` sama dengan tipe frontend |
+| Operasi | `app/Actions/` | `SubmitInquiry`: nomor referensi acak, status `received`, galat database menjadi 503 |
+| Respons | `app/Http/Resources/` | `InquiryResource` hanya `{ id, status }`, tanpa data pribadi |
+| Perlindungan | `AppServiceProvider` (rate limiter), `LimitRequestBodySize`, `config/cors.php`, `config/trustedproxy.php` | Batas laju per IP, batas body 64 KB, CORS dengan daftar origin, proxy tepercaya lewat environment |
+| Data | `database/migrations/`, `app/Models/` | Tabel `inquiries`; SQLite di lokal dan tes, database produksi belum dipilih |
+
+Alur `POST /api/v1/inquiries`: CORS dan proxy (middleware global) → rate limiter `inquiries` → batas body → `StoreInquiryRequest` (422 bila gagal) → `SubmitInquiry` menyimpan baris → `201 { id, status }`. Bila database gagal: `503` tanpa nomor referensi, dan log hanya berisi kode SQLSTATE.
+
+Laravel Boost (`laravel/boost`, dev dependency) adalah alat pengembangan untuk coding agent: guideline, skill, dan server MCP lokal (`php backend/artisan boost:mcp`). Ia bukan bagian runtime, tidak terpasang pada instalasi produksi `--no-dev`, dan bukan sistem bisnis atau aplikasi ekosistem. Aturannya: `docs/project-structure.md` bagian 9.
 
 ## Frontend
 
@@ -107,4 +124,9 @@ Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend
 | Bahasa dari URL, bukan dari browser | Prerender dan hydration deterministik; crawler melihat satu bahasa per URL; hreflang dua arah |
 | Terang sebagai default | Brief: pemilik bisnis menilai vendor di siang hari; gelap tetap tersedia sebagai pilihan sadar |
 | Bootstrap JS setelah first paint | HTML statis sudah lengkap; menunda unduhan modul ke belakang FCP menurunkan LCP mobile tersimulasi dari sekitar 3 detik ke sekitar 1,6 detik tanpa mengubah tampilan |
+| Backend tanpa `install:api` dan tanpa Sanctum | `install:api` selalu memasang Sanctum; endpoint publik tidak butuh autentikasi, dan autentikasi admin baru dirancang pada fase admin. Route API diaktifkan langsung lewat `withRouting(api:)` |
+| `config.platform.php` 8.3.0 di `composer.json` | Batas `^8.3` harus benar: resolusi di PHP 8.5 memilih Symfony 8 (butuh 8.4). Dengan platform 8.3, lock memakai Symfony 7.4 LTS dan dapat dipasang di 8.3 sampai 8.5; CI menguji keduanya. Hosting belum dipilih, jadi versi minimum dibiarkan serendah yang didukung Laravel 13 |
+| Nomor referensi `INQ-XXXX-XXXX-XXXX` acak, bukan ULID atau ID berurutan | ID berurutan menyingkap jumlah inquiry dan dapat ditebak; ULID menyingkap waktu dan berurutan. 60 bit acak Crockford base32 cukup unik (dengan kolom `UNIQUE` dan percobaan ulang) dan aman dibacakan lewat telepon |
+| Honeypot ditolak dengan 422, bukan 201 palsu | Aturan konten: sistem tidak pernah mengklaim kiriman yang tidak terjadi |
+| `/up` JSON sendiri, bukan halaman bawaan | Halaman bawaan menyebut Laravel di judulnya; probe kesehatan tidak perlu mengungkap stack |
 | ESLint 9, bukan 10 | `eslint-plugin-jsx-a11y` belum mendukung ESLint 10 (peer `^9`); ESLint 9 menjaga `npm ci` tetap ketat tanpa `--legacy-peer-deps`. A11y juga diverifikasi oleh axe di Playwright |

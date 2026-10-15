@@ -1,6 +1,6 @@
 # Rencana Integrasi Backend dan Solveit OpsHub
 
-Status: **usulan**. Belum ada endpoint yang dibangun. Dokumen ini menjadi kontrak awal agar frontend dan Laravel API website dapat dikembangkan tanpa merombak fondasi, dan agar website dapat terhubung ke sistem Solveit lain tanpa menyatu dengannya.
+Status (2026-10-15): **inquiry dibangun (B1), sisanya usulan.** `POST /api/v1/inquiries` sudah ada di `backend/` dan dites, tetapi belum di-deploy dan belum dipanggil frontend; kontraknya kini di `docs/api/inquiries.md`. Endpoint proyek dan layanan di bawah masih usulan. Dokumen ini menjaga batas sistem dan peta jalan agar website dapat terhubung ke sistem Solveit lain tanpa menyatu dengannya.
 
 ## Batas sistem (keputusan 2026-10-14)
 
@@ -11,41 +11,32 @@ Status: **usulan**. Belum ada endpoint yang dibangun. Dokumen ini menjadi kontra
 
 ## Backend
 
-- Laravel 13, PHP 8.5 (minimum 8.5.7, target 8.5.11 atau patch stabil terbaru seri 8.5), REST JSON di bawah `/api/v1`.
-- Dikembangkan di branch `backend`, folder `backend/`.
-- Autentikasi: hanya untuk admin website (mis. Laravel Sanctum). Autentikasi klien dan portal klien milik sistem ekosistem yang terpisah, bukan backend ini.
+- Laravel 13 (13.36 saat dibangun), REST JSON di bawah `/api/v1`. PHP `^8.3` sesuai minimum Laravel 13; tim dan mesin pengembang memakai 8.5 (8.5.7), CI menguji 8.3 dan 8.5. Target patch untuk produksi diputuskan bersama hosting.
+- Dikembangkan di branch `backend`, folder `backend/`. Rincian setup: `backend/README.md`.
+- Autentikasi: hanya untuk admin website (mis. Laravel Sanctum, belum dipasang). Autentikasi klien dan portal klien milik sistem ekosistem yang terpisah, bukan backend ini.
+- Laravel Boost adalah alat pengembangan untuk coding agent (dev dependency), bukan runtime, bukan sistem bisnis, dan tidak terhubung ke OpsHub.
 
 ## Titik tukar di frontend
 
 | Kebutuhan | Saat ini | Setelah API tersedia |
 |---|---|---|
 | Daftar dan detail proyek | `src/services/projects.ts` membaca `src/data/projects.ts` | Fungsi yang sama memanggil API; halaman memakai `clientLoader`; route studi kasus kembali ke `portofolio/:slug` |
-| Inquiry konsultasi | `src/services/inquiry.ts` menyusun pesan WhatsApp/email | Tambahkan kanal `api` yang mengirim payload yang sama; tampilkan nomor tiket dari respons |
+| Inquiry konsultasi | `src/services/inquiry.ts` menyusun pesan WhatsApp/email | B2: kanal `api` yang mengirim payload yang sama ke `POST /api/v1/inquiries` (sudah ada), kirim honeypot `homepage` kosong, tampilkan nomor referensi dari `201`, petakan `422` ke `InquiryErrors`, dan tawarkan WhatsApp/email pada `429`, `503`, atau galat jaringan |
 | Konfigurasi | `VITE_API_BASE_URL` sudah dibaca di `src/config/site.ts` | Diisi per lingkungan |
 
-## Kontrak yang diusulkan
+## Kontrak
 
-### `POST /api/v1/inquiries`
+### `POST /api/v1/inquiries` (dibangun)
 
-```json
-{
-  "name": "string, wajib, 2-120",
-  "organization": "string, opsional",
-  "contact": "string, wajib, email atau nomor telepon",
-  "service": "website | aplikasi-web | sistem-informasi | custom-software | dukungan-teknis",
-  "budget": "belum-tahu | di-bawah-10jt | 10-50jt | 50-150jt | di-atas-150jt",
-  "timeline": "fleksibel | 1-3-bulan | segera",
-  "message": "string, wajib, minimal 20 karakter"
-}
-```
+Kontrak lengkap, aturan validasi, respons, proteksi spam, dan privasi: `docs/api/inquiries.md`. Bentuk permintaan tetap `InquiryPayload` dari `frontend/src/types/inquiry.ts`; respons `201` `{ "id": "INQ-...", "status": "received" }`, `422` format validasi Laravel.
 
-Respons `201`: `{ "id": "INQ-...", "status": "received" }`. Respons `422`: `{ "message": "...", "errors": { "field": ["..."] } }` (format validasi Laravel), dipetakan ke `InquiryErrors` di frontend. Perlu rate limiting dan proteksi spam (honeypot atau Turnstile).
+Penerusan ke Solveit OpsHub belum dibangun. Saat OpsHub siap, inquiry yang tersimpan dikirim lewat event atau webhook berversi dari backend ini (misalnya `inquiry.received.v1` berisi nomor referensi dan field yang disepakati), bukan dengan OpsHub membaca tabel `inquiries`.
 
-### `GET /api/v1/projects` dan `GET /api/v1/projects/{slug}`
+### Usulan: `GET /api/v1/projects` dan `GET /api/v1/projects/{slug}`
 
 Bentuk data mengikuti tipe `Project` di `frontend/src/types/content.ts` (termasuk `isDemo`, `results`, `metricsToTrack`, `cover`). Tambahan yang disarankan: `images[]` (url, alt, width, height) untuk visual hasil, dan `publishedAt`.
 
-### `GET /api/v1/services`
+### Usulan: `GET /api/v1/services`
 
 Bentuk data mengikuti tipe `Service`.
 
@@ -55,7 +46,7 @@ Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dib
 
 | Tahap | Fitur (di sistem ekosistem, bukan website ini) | Dampak ke website ini |
 |---|---|---|
-| 1 | Inquiry via API website, panel admin website | Kanal `api` di form kontak (backend website ini); inquiry diteruskan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
+| 1 | Inquiry via API website, panel admin website | Endpoint inquiry sudah dibangun (B1). Berikutnya: kanal `api` di form kontak (B2), panel admin website, lalu penerusan ke OpsHub lewat event/webhook bila OpsHub sudah ada |
 | 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain sistem klien; tidak ada route `/portal/*` di website ini |
 | 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di sistem ekosistem |
 | 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di sistem ekosistem |

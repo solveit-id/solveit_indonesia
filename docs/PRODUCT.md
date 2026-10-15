@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Pinned by the brief: one repository for this website only, with `frontend/` (React, TypeScript strict, Vite, GSAP) and the website's own `backend/` (Laravel 13 on PHP 8.5, later phase). Other Solveit systems are separate repositories. Styling, routing, and prerendering were delegated: Tailwind CSS v4, React Router 7 framework mode with static prerendering (`ssr: false`).
+Pinned by the brief: one repository for this website only, with `frontend/` (React, TypeScript strict, Vite, GSAP) and the website's own `backend/` (Laravel 13 API, PHP ^8.3, developed on PHP 8.5; inquiry endpoint built, not yet deployed or connected). Other Solveit systems are separate repositories. Styling, routing, and prerendering were delegated: Tailwind CSS v4, React Router 7 framework mode with static prerendering (`ssr: false`).
 
 ## Users
 
@@ -27,7 +27,7 @@ Tagline (official, English): "We Don't Just Build Software. We Build Digital Sol
 ## Capabilities and Constraints
 
 - Services: website development, web applications, information systems, custom software, technical support and maintenance.
-- No backend yet. Forms must never pretend to submit; contact happens through confirmed channels (email, WhatsApp) until the Laravel API exists.
+- The Laravel API stores inquiries (`POST /api/v1/inquiries`, contract in `docs/api/inquiries.md`) but is not deployed and the website does not call it yet. Forms must never pretend to submit; contact happens through confirmed channels (email, WhatsApp) until the API is deployed and the form's `api` channel is built.
 - Content language: Indonesian (natural, professional). Tagline stays in English.
 - Domain: not yet available (inferred to be set later via configuration). Physical address: not available.
 

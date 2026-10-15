@@ -1,0 +1,76 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [staging, main]
+    paths: ["backend/**", "frontend/src/types/**", ".github/workflows/backend-ci.yml"]
+  push:
+    branches: [backend]
+    paths: ["backend/**", "frontend/src/types/**", ".github/workflows/backend-ci.yml"]
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  verify:
+    name: verify (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lowest version allowed by composer.json (and config.platform.php) and the team's version.
+        php: ["8.3", "8.5"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, bcmath, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer:v2
+      - name: Locate the Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-
+      - run: composer validate --strict
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
+      - name: Migrations up, down, and up again (throwaway SQLite file)
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ${{ github.workspace }}/backend/database/ci.sqlite
+        run: |
+          touch "$DB_DATABASE"
+          php artisan migrate --force --no-interaction
+          php artisan migrate:rollback --force --no-interaction
+          php artisan migrate --force --no-interaction
+          php artisan migrate:status
+      - name: Tests (in-memory SQLite from phpunit.xml)
+        run: php artisan test
+      - name: Route check (exactly /api/v1/inquiries, no double prefix)
+        run: php artisan route:list --method=POST --path=api --no-ansi | grep -E "POST +api/v1/inquiries "
+      - name: Dependency security audit
+        run: composer audit
+      - name: Production install without dev packages (Boost absent)
+        run: |
+          composer install --no-dev --no-interaction --no-progress --prefer-dist
+          php artisan route:list --path=api
+          if php artisan list --raw | grep -q '^boost:'; then echo "Boost commands present in a --no-dev install" >&2; exit 1; fi
