@@ -11,9 +11,10 @@ Status (2026-10-15): **inquiry dibangun (B1), sisanya usulan.** `POST /api/v1/in
 
 ## Backend
 
-- Laravel 13 (13.36 saat dibangun), REST JSON di bawah `/api/v1`. PHP `^8.3` sesuai minimum Laravel 13; tim dan mesin pengembang memakai 8.5 (8.5.7), CI menguji 8.3 dan 8.5. Target patch untuk produksi diputuskan bersama hosting.
+- Laravel 13 (13.36 saat dibangun), REST JSON di bawah `/api/v1`. PHP 8.5, minimal 8.5.7 (keputusan pemilik, B1.1); CI menegaskan minimum dan mencatat patch yang diuji. Database MySQL 8.4 LTS untuk pengembangan, tes, dan produksi (keputusan pemilik, B1.1); hosting belum dipilih.
 - Dikembangkan di branch `backend`, folder `backend/`. Rincian setup: `backend/README.md`.
 - Autentikasi: hanya untuk admin website (mis. Laravel Sanctum, belum dipasang). Autentikasi klien dan portal klien milik sistem ekosistem yang terpisah, bukan backend ini.
+- Rancangan yang belum dibangun: dashboard admin (`admin-dashboard.md`), analitik pengunjung first-party (`visitor-analytics.md`), dan batas integrasi GitHub organisasi `solveit-id` (`github-integration.md`; dimiliki OpsHub, bukan website).
 - Laravel Boost adalah alat pengembangan untuk coding agent (dev dependency), bukan runtime, bukan sistem bisnis, dan tidak terhubung ke OpsHub.
 
 ## Titik tukar di frontend
@@ -50,7 +51,7 @@ Solveit OpsHub (pusat operasional internal) dan bagian ekosistem untuk klien dib
 | 2 | Akun klien, pemesanan layanan | Tautan "Masuk portal" ke domain/subdomain sistem klien; tidak ada route `/portal/*` di website ini |
 | 3 | Proposal dan kontrak digital | Tidak ada; dokumen hidup di sistem ekosistem |
 | 4 | Invoice dan pembayaran | Tidak ada; integrasi payment gateway di sistem ekosistem |
-| 5 | Progres dan revisi | Opsional: studi kasus nyata dapat menampilkan data yang dipublikasikan lewat API publik, setelah izin klien; pratinjau responsif studi kasus dapat memakai tangkapan layar nyata (`preview.kind: "screenshots"`) |
+| 5 | Progres dan revisi, termasuk repository GitHub proyek klien (`github-integration.md`) | Opsional: studi kasus nyata dapat menampilkan data yang dipublikasikan lewat API publik, setelah izin klien; pratinjau responsif studi kasus dapat memakai tangkapan layar nyata (`preview.kind: "screenshots"`) |
 | 6 | Pemeliharaan dan tiket | Tautan ke kanal dukungan |
 
 Halaman publik website tetap prerender statis. Autentikasi klien (mis. Sanctum atau OIDC) adalah tanggung jawab sistem ekosistem; website tidak menyimpan sesi klien. Repository `solveit_opshub` dan identifier-nya tidak diganti nama.
