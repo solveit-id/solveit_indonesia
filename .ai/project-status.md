@@ -37,7 +37,7 @@ Status key: Implemented and Verified unless stated otherwise. Evidence: `docs/qa
 - `staging`: `7e936b5` (merge of PR #19, handoff docs).
 - `backend`: `8991ebd`, three B1.1 commits on top of `7e936b5` (`f19be27` feat, `7b27794` chore, `8991ebd` docs) plus this status update; PR #20 to `staging`.
 - `frontend`: `7729d17`; no frontend application file changed in B1.1.
-- CI for `8991ebd` (PR #20 and push): **green**. Backend CI runs 38709084941 (PR) and 38709043589 (push): `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, 94 tests and 249 assertions passed, migrations up/down/up, HTTP smoke test, no audit advisories, `--no-dev` boot without Boost. Frontend CI run 38709084923 (triggered by the workflow permission change): pass. PR #20 mergeable, no review yet. The status-only commit after it touches no CI path, so it triggers no new run.
+- CI for `8991ebd` (PR #20 and push): **green**. Backend CI runs 38709084941 (PR) and 38709043589 (push): `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, 94 tests and 249 assertions passed, migrations up/down/up, HTTP smoke test, no audit advisories, `--no-dev` boot without Boost. Frontend CI run 38709084923 (triggered by the workflow permission change): pass. PR #20 mergeable, no review yet. On `fb2e434` (CI results recorded) both workflows ran again, because `pull_request` path filters look at the whole PR diff: Backend CI run 38710263746 and Frontend CI run 38710263734 pass (same PHP 8.5.11, MySQL 8.4.11, 94 tests).
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
