@@ -73,8 +73,8 @@ Cakupan: fondasi backend di branch `backend` (fast-forward dari `main` `7e37a77`
 
 ### CI dan frontend
 
-- **Backend CI** baru (`.github/workflows/backend-ci.yml`). Hasil run di GitHub dicatat di `.ai/project-status.md` dan di PR setelah push.
-- Frontend tidak diubah (`git status frontend/` bersih). Hasil pemeriksaan frontend di bawah.
+- **Backend CI** baru (`.github/workflows/backend-ci.yml`), run 38698395762 pada push `745a852`: **lulus** di PHP 8.3 dan 8.5 (setiap langkah: validate, install, Pint, migrasi naik-turun-naik, `Tests: 89 passed (227 assertions)`, cek route, `composer audit` tanpa advisory, instalasi `--no-dev` tanpa perintah Boost). Anotasi hanya pemberitahuan GitHub (aksi `@v4` berbasis Node 20, migrasi label `ubuntu-latest`), sama dengan workflow frontend yang sudah ada.
+- Frontend tidak diubah (`git status frontend/` bersih, tidak ada file `frontend/` di diff). `npm run check` (lint, typecheck, unit test, build, dirangkai `&&`) keluar dengan kode 0; unit test 12 file, 69/69 lulus; build mem-prerender 22 halaman terindeks. `npm run format:check` hanya memperingatkan `frontend/.impeccable/hook.cache.json`, file cache lokal yang tidak dilacak Git (sama dengan catatan sebelumnya). E2E tidak dijalankan ulang karena tidak ada perubahan UI. Frontend CI tidak dipicu oleh PR ini (path `frontend/**` tidak berubah).
 
 ### Keterbatasan
 
