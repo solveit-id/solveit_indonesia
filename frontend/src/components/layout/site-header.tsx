@@ -25,6 +25,15 @@ const EXPAND_AT = 40;
 
 type MenuState = "closed" | "open" | "closing";
 
+/** Writes the header's scroll states for scroll position `y`, only when one flips. */
+function syncHeader(header: HTMLElement, y: number) {
+  const scrolled = y > SURFACE_AT ? "true" : "false";
+  const wasCompact = header.dataset.compact === "true";
+  const compact = (wasCompact ? y > EXPAND_AT : y > COMPACT_AT) ? "true" : "false";
+  if (header.dataset.scrolled !== scrolled) header.dataset.scrolled = scrolled;
+  if (header.dataset.compact !== compact) header.dataset.compact = compact;
+}
+
 export function SiteHeader() {
   const [menu, setMenu] = useState<MenuState>("closed");
   const open = menu === "open";
@@ -98,6 +107,23 @@ export function SiteHeader() {
     };
   }, [place]);
 
+  // A page that opens already scrolled (reload, restored position) starts in
+  // the right state at hydration, without playing the morph. GSAP arrives
+  // later and only keeps the state in step from there.
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header || window.scrollY <= SURFACE_AT) return;
+    header.dataset.instant = "";
+    syncHeader(header, window.scrollY);
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => delete header.dataset.instant);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      delete header.dataset.instant;
+    };
+  }, []);
+
   // Adaptive header: open over the hero, a surface once content passes
   // under it, a floating capsule further down. Attributes are written only
   // when a state flips, so scrolling never restyles the header per frame.
@@ -105,19 +131,12 @@ export function SiteHeader() {
     ({ ScrollTrigger }) => {
       const header = headerRef.current;
       if (!header) return;
-      const update = (y: number) => {
-        const scrolled = y > SURFACE_AT ? "true" : "false";
-        const wasCompact = header.dataset.compact === "true";
-        const compact = (wasCompact ? y > EXPAND_AT : y > COMPACT_AT) ? "true" : "false";
-        if (header.dataset.scrolled !== scrolled) header.dataset.scrolled = scrolled;
-        if (header.dataset.compact !== compact) header.dataset.compact = compact;
-      };
-      update(window.scrollY);
+      syncHeader(header, window.scrollY);
       ScrollTrigger.create({
         start: 0,
         end: "max",
-        onUpdate: (self) => update(self.scroll()),
-        onRefresh: (self) => update(self.scroll()),
+        onUpdate: (self) => syncHeader(header, self.scroll()),
+        onRefresh: (self) => syncHeader(header, self.scroll()),
       });
       return () => {
         header.dataset.scrolled = "false";
@@ -220,7 +239,7 @@ export function SiteHeader() {
           <ThemeToggle />
           <NavLink
             to={path("contact")}
-            className="btn btn-primary btn-nav hidden min-h-11 md:inline-flex"
+            className="btn btn-primary btn-slice btn-nav hidden min-h-11 md:inline-flex"
           >
             {t.common.consult}
             <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
@@ -291,7 +310,7 @@ export function SiteHeader() {
           <div data-menu-foot className="grid gap-5">
             <LanguageSwitch variant="full" className="sm:hidden" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <NavLink to={path("contact")} className="btn btn-primary btn-nav w-full">
+              <NavLink to={path("contact")} className="btn btn-primary btn-slice btn-nav w-full">
                 {t.common.consult}
                 <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
               </NavLink>

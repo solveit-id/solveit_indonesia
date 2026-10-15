@@ -1,8 +1,16 @@
+import { ecosystemParts } from "~/data/ecosystem";
 import { content } from "~/data/locales";
 import { processStepIds } from "~/data/process";
 import { serviceIds } from "~/data/services";
 import type { Locale } from "~/i18n/config";
-import type { FaqItem, ProcessStep, ProjectCategory, Service, ServiceId } from "~/types/content";
+import type {
+  EcosystemPart,
+  FaqItem,
+  ProcessStep,
+  ProjectCategory,
+  Service,
+  ServiceId,
+} from "~/types/content";
 
 /**
  * Localized content access. Reads the typed local dataset today; when the
@@ -23,6 +31,8 @@ export const getProcessSteps = (locale: Locale): ProcessStep[] =>
   processStepIds.map((id) => ({ id, ...content[locale].process[id] }));
 
 export const getProcessFaq = (locale: Locale): FaqItem[] => content[locale].processFaq;
+
+export const getEcosystem = (locale: Locale): EcosystemPart[] => ecosystemParts(locale);
 
 export const categoryLabel = (locale: Locale, id: ProjectCategory): string =>
   content[locale].categories[id];

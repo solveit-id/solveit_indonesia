@@ -48,6 +48,24 @@ export interface ProjectCover {
   seed: number;
 }
 
+export type PreviewDevice = "desktop" | "tablet" | "mobile";
+
+/** One real screenshot per device class (static files under public/). */
+export interface PreviewShot {
+  src: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * What the case study's responsive preview shows. `concept` renders an
+ * illustrative wireframe from the case study's own narrative and must be
+ * labelled as such; `screenshots` is for real, published application
+ * screens only, never mockups presented as real.
+ */
+export type ProjectPreview =
+  { kind: "concept" } | { kind: "screenshots"; shots: Record<PreviewDevice, PreviewShot> };
+
 /** Language-independent facts about a case study. */
 export interface ProjectBase {
   /** Stable key (the original Indonesian slug). */
@@ -63,6 +81,7 @@ export interface ProjectBase {
   year?: number;
   technologies: readonly string[];
   cover: ProjectCover;
+  preview: ProjectPreview;
 }
 
 /** Localized narrative for a case study. */
@@ -94,6 +113,22 @@ export interface ProjectCopy {
 export interface Project extends ProjectBase, ProjectCopy {
   /** Slug in the language being rendered. */
   slug: string;
+}
+
+/**
+ * Development status of an ecosystem part. There is deliberately no
+ * "available" state: the roadmap shows plans, never shipped products.
+ */
+export type EcosystemStatus = "current" | "design" | "planned";
+
+export interface EcosystemPart {
+  key: string;
+  /** Proposed working name, except the company website. */
+  name: string;
+  /** Foundation (this website), the internal hub, or a client-facing module. */
+  tier: "foundation" | "hub" | "module";
+  status: EcosystemStatus;
+  role: string;
 }
 
 export interface FaqItem {

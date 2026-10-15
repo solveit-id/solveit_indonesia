@@ -3,6 +3,7 @@ import { Link, type MetaFunction, useLocation } from "react-router";
 import { ArrowLeft } from "@phosphor-icons/react/dist/ssr/ArrowLeft";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import { DemoLabel } from "~/components/portfolio/demo-label";
+import { DevicePreview } from "~/components/portfolio/device-preview";
 import { ProjectCover } from "~/components/portfolio/project-cover";
 import { SystemMap } from "~/components/portfolio/system-map";
 import {
@@ -58,12 +59,21 @@ export default function Project() {
 }
 
 type ChapterId =
-  "context" | "problem" | "solution" | "system" | "flow" | "features" | "technology" | "measure";
+  | "context"
+  | "problem"
+  | "solution"
+  | "preview"
+  | "system"
+  | "flow"
+  | "features"
+  | "technology"
+  | "measure";
 
 const chapterIds: ChapterId[] = [
   "context",
   "problem",
   "solution",
+  "preview",
   "system",
   "flow",
   "features",
@@ -98,7 +108,8 @@ function ChapterHead({
 
 /*
  * Case study as an editorial sequence read top to bottom: context, then the
- * problem, then the solution on the cobalt field, how its parts connect,
+ * problem, then the solution on the cobalt field, how its layout adapts
+ * across devices (an illustration for concepts), how its parts connect,
  * how a user moves through it, what it can do, what it would be built with,
  * and what would prove it works. Wide screens keep a chapter rail in view
  * that follows the reader. Everything is readable without JavaScript;
@@ -503,6 +514,13 @@ function CaseStudy({ project }: { project: ProjectData }) {
               <p className="mt-6 max-w-[46ch] text-[clamp(1.25rem,2vw,1.6rem)] leading-snug font-medium text-field-ink">
                 {project.solution}
               </p>
+            </div>
+          </section>
+
+          <section {...chapter("preview")}>
+            <ChapterHead id="preview">{copy.preview.title}</ChapterHead>
+            <div className="mt-10">
+              <DevicePreview project={project} />
             </div>
           </section>
 

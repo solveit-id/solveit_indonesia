@@ -65,7 +65,7 @@ export function ProcessRail() {
               {t.home.processTitle}
             </h2>
             <p className="mt-6 max-w-[36ch] text-ink-muted">{t.home.processLede}</p>
-            <Link to={path("process")} className="btn btn-secondary mt-8">
+            <Link to={path("process")} className="btn btn-secondary btn-slice mt-8">
               {t.home.processCta}
               <ArrowRight aria-hidden className="btn-icon size-4" weight="bold" />
             </Link>

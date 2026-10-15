@@ -41,9 +41,6 @@ export const pageKeys = Object.keys(pagePaths) as PageKey[];
 /** Query parameter that preselects a service on the contact page. */
 export const serviceParam: Record<Locale, string> = { id: "layanan", en: "service" };
 
-export const isLocale = (value: unknown): value is Locale =>
-  typeof value === "string" && (locales as readonly string[]).includes(value);
-
 export const normalizePath = (pathname: string): string => pathname.replace(/\/+$/, "") || "/";
 
 export const localeFromPath = (pathname: string): Locale => {

@@ -4,6 +4,7 @@ import { locales } from "~/i18n/config";
 import { getProcessSteps, getServices } from "~/services/content";
 import { getProjects } from "~/services/projects";
 import { company } from "./company";
+import { ecosystemParts } from "./ecosystem";
 import { assistant as enAssistant } from "./locales/en/assistant";
 import { assistant as idAssistant } from "./locales/id/assistant";
 import { testimonialPlaceholders } from "./testimonials";
@@ -91,6 +92,24 @@ describe("content integrity", () => {
 
   it("links the official Instagram account over HTTPS", () => {
     expect(company.instagram.url).toBe("https://www.instagram.com/solveit.id/");
+  });
+
+  it("presents the ecosystem honestly: one live part, nothing launched", () => {
+    for (const locale of locales) {
+      const parts = ecosystemParts(locale);
+      expect(parts.filter((part) => part.status === "current").map((part) => part.key)).toEqual([
+        "website",
+      ]);
+      expect(parts.find((part) => part.key === "opshub")?.name).toBe("Solveit OpsHub");
+      for (const part of parts) {
+        expect(["current", "design", "planned"]).toContain(part.status);
+        expect(part.role.length).toBeGreaterThan(10);
+        expect(part.role).not.toMatch(/[–—]/);
+        if (part.tier !== "foundation") expect(part.name).toMatch(/^Solveit [A-Z][a-zA-Z]+$/);
+      }
+    }
+    // Orbit is the ecosystem's name, never an application of its own.
+    expect(ecosystemParts("id").some((part) => part.name.includes("Orbit"))).toBe(false);
   });
 
   it("contains no em or en dashes in visible copy", () => {

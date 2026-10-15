@@ -61,7 +61,7 @@ export const processFaq: FaqItem[] = [
   {
     question: "Apakah saya bisa melihat progres selama pengembangan?",
     answer:
-      "Bisa. Pengembangan dilakukan bertahap dan setiap tahap dapat ditinjau melalui versi pratinjau. Ke depan, progres dan revisi akan dapat dipantau langsung melalui Solveit OpsHub.",
+      "Bisa. Pengembangan dilakukan bertahap dan setiap tahap dapat ditinjau melalui versi pratinjau. Ke depan, kami merencanakan agar progres dan revisi dapat dipantau langsung di ekosistem Solveit Orbit.",
   },
   {
     question: "Bagaimana jika ada revisi di tengah pengerjaan?",
