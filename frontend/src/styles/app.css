@@ -13,7 +13,7 @@
 
 /*
  * Solveit Indonesia design tokens, derived from the logo SVGs.
- * See docs/design-system.md for the rationale and contrast checks.
+ * See docs/design/design-system.md for the rationale and contrast checks.
  *
  * Shape rule: anything single-line and interactive is a full capsule (the
  * logo's own geometry); containers and multi-line fields use --radius-panel.
@@ -58,7 +58,7 @@
   --logo-word: #082a56;
   --logo-sub: #5c7392;
 
-  /* Motion vocabulary (docs/design-system.md): feedback, state, overlay, and
+  /* Motion vocabulary (docs/design/design-system.md): feedback, state, overlay, and
      authored moments. Exits run faster than entrances. */
   --dur-instant: 100ms;
   --dur-quick: 180ms;

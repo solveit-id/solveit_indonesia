@@ -16,7 +16,7 @@ Status: **usulan kerja** (2026-10-14). Nama-nama di bawah belum diperiksa sebaga
 | Solveit Pulse | Usulan | Progres, milestone, dan revisi | Direncanakan |
 | Solveit Care | Usulan | Dukungan dan pemeliharaan | Direncanakan |
 
-Hubungan Orbit dan OpsHub: Orbit adalah nama ekosistemnya, OpsHub adalah pusat operasional internal di dalamnya. Bagian untuk klien (Connect sampai Care) dapat menjadi aplikasi atau modul tersendiri, bergantung pada lingkup produk yang sudah tervalidasi; keputusan itu belum dibuat. Semua sistem tetap terpisah dari website ini dan terhubung lewat kontrak API atau event (lihat `integration-plan.md`).
+Hubungan Orbit dan OpsHub: Orbit adalah nama ekosistemnya, OpsHub adalah pusat operasional internal di dalamnya. Bagian untuk klien (Connect sampai Care) dapat menjadi aplikasi atau modul tersendiri, bergantung pada lingkup produk yang sudah tervalidasi; keputusan itu belum dibuat. Semua sistem tetap terpisah dari website ini dan terhubung lewat kontrak API atau event (lihat `docs/architecture/integration-plan.md`).
 
 ## Yang tidak berubah
 

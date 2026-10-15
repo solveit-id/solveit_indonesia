@@ -5,7 +5,7 @@ export type Timeline = "fleksibel" | "1-3-bulan" | "segera";
 
 /**
  * Project inquiry. Field names match the proposed `POST /api/v1/inquiries`
- * contract in docs/integration-plan.md so the form can switch to the API
+ * contract in docs/architecture/integration-plan.md so the form can switch to the API
  * without reshaping data.
  */
 export interface InquiryPayload {

@@ -2,6 +2,20 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## Kerapian struktur repository (2026-10-15)
+
+Cakupan: permintaan pemilik setelah rilis putaran 6. Tanpa perubahan fitur, desain, atau motion.
+
+| Perubahan | Bukti |
+|---|---|
+| Folder `brand/` di root dihapus | Kedua file identik byte (`cmp`) dengan salinan di `frontend/public/brand/`, yang kini menjadi satu-satunya salinan |
+| Logo publik diberi nama jelas: `logo-solveit-primary.svg` menjadi `solveit-logo-full.svg`, `logo-solveit-icon.svg` menjadi `solveit-logo-icon.svg` | `git mv`; rujukan di `seo.ts` (logo JSON-LD), `generate-brand-assets.mjs`, `logo-paths.ts`, dan dokumen diperbarui. Build tidak lagi memuat nama lama (0 rujukan di `build/client`); JSON-LD menunjuk `/brand/solveit-logo-full.svg` |
+| `PRODUCT.md` dan `DESIGN.md` pindah ke `docs/`; dokumen lain dikelompokkan ke `architecture/`, `design/`, `development/`, `product/`, `seo/`, `qa/`; peta di `docs/README.md` | `impeccable context` menemukan `docs\PRODUCT.md` dan `docs\DESIGN.md`. Uji terpisah: di subfolder `docs/` keduanya tidak ditemukan, jadi keduanya tetap di tingkat atas `docs/`. Keputusan "wajib di root" pada tabel putaran 6 digantikan oleh hasil ini |
+| `CLAUDE.local.md` dan `.claude/settings.local.json` digabung lalu dihapus | Catatan lingkungan ke `AGENTS.md` (dimuat `CLAUDE.md`), catatan Playwright MCP ke `CLAUDE.md`, `enabledMcpjsonServers` ke `.claude/settings.json`. `allow` di file lokal kosong, jadi izin tidak berubah |
+| `.ai/` (handoff agent), `docs/project-structure.md` (aturan struktur), `AGENTS.md` diperbarui | Semua tautan Markdown relatif dan path dokumen di 20 file Markdown diperiksa skrip: tidak ada yang rusak (sisa temuan hanya path yang sengaja disebut sebagai contoh, file yang diabaikan Git, atau folder backend yang direncanakan) |
+
+Verifikasi: lint, typecheck, unit 69/69, build lulus; e2e Chromium desktop untuk SEO, halaman, dan axe: 51 lulus, 0 gagal. `format:check` hanya memperingatkan `frontend/.impeccable/hook.cache.json`, file cache lokal yang tidak dilacak Git.
+
 ## Putaran 6 (2026-10-14/15): morph logo, navbar kaca, slice CTA, Tentang Kami, FAQ, pratinjau responsif, formulir, penamaan ekosistem, kerapian repository
 
 Cakupan: brief "Final experience refinement" fase 1 sampai 12. Baseline: `main` dan `frontend` pada `9338a2a`, `staging` `302542b`, `backend` `1c9ec51` (diverifikasi lokal dan remote sebelum mulai). Tanpa perubahan backend, tanpa dependensi baru, layar pemuatan tidak diubah, SEO/GEO final tetap ditunda ke fase deployment.
@@ -81,8 +95,8 @@ Tidak ada error konsol pada sesi screenshot.
 
 - **Lulus terverifikasi**: format, lint, typecheck, unit 69/69, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse lima halaman sebelum/sesudah, bukti visual.
 - **Lulus terverifikasi (lintas browser)**: suite penuh WebKit desktop dan WebKit iPhone 14 di GitHub Actions. Run pertama pada `ebc9a97` gagal di satu tes baru di kedua project: tes "muat ulang di tengah scroll" bergantung pada kapan router menyimpan posisi scroll sebelum reload, dan di runner WebKit halaman kembali di atas. Lokal (WebKit dan Chromium) posisi pulih dan header benar. Tes diganti dengan deep link yang discroll browser sebelum hydration di semua engine, dan kini juga memastikan tidak ada transisi lockup yang berjalan; tidak ada perubahan kode produk.
-- **Keputusan pemilik** (diselesaikan 2026-10-15): visi resmi diganti dengan redaksi pemilik yang tidak lagi menyebut "melalui Solveit OpsHub"; lihat `docs/product-naming.md`.
-- **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
+- **Keputusan pemilik** (diselesaikan 2026-10-15): visi resmi diganti dengan redaksi pemilik yang tidak lagi menyebut "melalui Solveit OpsHub"; lihat `docs/product/product-naming.md`.
+- **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo/seo-geo.md`.
 
 ## Putaran 5 (2026-10-14): navbar compact, label demo, bab studi kasus, motion bab, Principles, CTA slice
 
@@ -172,7 +186,7 @@ Tidak ada error konsol pada sesi screenshot.
 
 - **Lulus terverifikasi**: format, lint, typecheck, unit 66/66, build, e2e Chromium (desktop, tablet, Pixel 7) dan Firefox tanpa kegagalan, axe 0 pelanggaran, Lighthouse empat halaman sebelum/sesudah, bukti visual.
 - **Lulus terverifikasi (lintas browser)**: suite penuh WebKit desktop dan WebKit iPhone 14 di GitHub Actions, lihat bagian "WebKit lintas browser" di atas.
-- **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo-geo.md`.
+- **Ditunda (fase deployment)**: optimasi SEO/GEO final, lihat `docs/seo/seo-geo.md`.
 
 ## Putaran 4 (2026-10-13): layar pemuatan bermerek, morph navbar, kontrol mengambang, detail portofolio
 

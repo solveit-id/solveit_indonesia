@@ -7,7 +7,7 @@ import type { BudgetRange, InquiryErrors, InquiryPayload, Timeline } from "~/typ
  * Inquiry delivery. There is no backend yet, so an inquiry is never "sent" by
  * this site: it is composed into a message the visitor sends themselves via
  * WhatsApp or email. When the Laravel API exists, add an `api` channel that
- * POSTs the same payload (docs/integration-plan.md).
+ * POSTs the same payload (docs/architecture/integration-plan.md).
  */
 export type InquiryChannel = "whatsapp" | "email";
 
