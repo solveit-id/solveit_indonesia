@@ -2,6 +2,65 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## MySQL 8.4 lokal permanen dan uji integrasi nyata B2 (2026-10-16)
+
+Lingkungan pengembangan di mesin pemilik, tanpa mengubah XAMPP. Kode backend dan frontend tidak berubah; yang di-commit hanya `backend/docker/mysql/` dan dokumentasi.
+
+### Kondisi awal
+
+- PHP CLI `C:\xampp\php\php.exe` 8.5.7 (ZTS, x64), `php.ini` `C:\xampp\php\php.ini`, `pdo_mysql` dan `mysqlnd` aktif. Composer 2.8.12 memakai PHP yang sama.
+- MariaDB XAMPP 10.4.32 mendengarkan di 3306 (`mysqld.exe`). Klien `mysql` di `PATH` adalah klien MariaDB itu. Tidak ada layanan Windows MySQL.
+- Docker 29.8.2 (Linux, amd64), Compose 5.6.0. Port 3307 kosong. Belum ada container `solveit-mysql` maupun volume `solveit-mysql-data`. Container proyek lain (berhenti) tidak disentuh.
+- `backend/.env` masih memilih SQLite; `backend/.env.testing` belum ada.
+
+### Instalasi
+
+- `backend/docker/mysql/compose.yaml`: image `mysql:8.4.11` (digest sama dengan `mysql:8.4`), container `solveit-mysql`, `127.0.0.1:3307->3306`, volume bernama `solveit-mysql-data`, `restart: unless-stopped`, health check `mysqladmin ping` lewat TCP. Kata sandi acak (48 karakter heksadesimal) sebagai Docker secret dari `secrets/` yang diabaikan Git; `docker inspect` hanya menampilkan `MYSQL_ROOT_PASSWORD_FILE`. `root` hanya `root@localhost` di dalam container.
+- `initdb/10-solveit-databases.sh` berjalan pada start pertama dan membuat kedua database dan kedua pengguna.
+- Restart container: kembali `healthy`, keempat migrasi tetap tercatat.
+
+### Verifikasi SQL
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `VERSION()`, `@@version_comment` | `8.4.11`, `MySQL Community Server - GPL` (bukan MariaDB) |
+| `sql_mode`, engine, charset server | `STRICT_TRANS_TABLES` dan mode default 8.4 lainnya, InnoDB, `utf8mb4` |
+| Database | `solveit_indonesia` dan `solveit_indonesia_testing`, keduanya `utf8mb4_unicode_ci` |
+| `SHOW GRANTS` `solveit_dev@%` | `USAGE ON *.*`, `ALL PRIVILEGES ON `` `solveit\_indonesia`.* `` |
+| `SHOW GRANTS` `solveit_test@%` | `USAGE ON *.*`, `ALL PRIVILEGES ON `` `solveit\_indonesia\_testing`.* `` |
+| PDO dari PHP 8.5.7 (mysqlnd 8.5.7) | Kedua pengguna tersambung ke 8.4.11 dan memilih database masing-masing; `USE` ke database yang lain ditolak (SQLSTATE 42000) |
+
+### Laravel
+
+- `backend/.env` diubah dengan izin pemilik oleh script yang hanya mengganti `DB_*` dan menambah `CORS_ALLOWED_ORIGINS` (cadangan `backend/.env.backup`); nilai tidak ditampilkan. `.env.testing` dibuat baru (`APP_KEY` sendiri, `solveit_test`).
+- `php artisan db:show`: MySQL 8.4.11, `solveit_indonesia`, `127.0.0.1:3307`, `solveit_dev`, 0 tabel. `php artisan migrate`: 4 migrasi, batch 1.
+- `php artisan test`: **109 tes, 275 assertion, lulus** pada `solveit_indonesia_testing` (pengaman menerima grant yang di-escape).
+- Pint lulus; `composer validate --strict` valid; `composer check-platform-reqs` semua sukses (php 8.5.7); `composer audit`: tidak ada advisory (perlu `COMPOSER_IPRESOLVE=4`; lewat IPv6 permintaan ke Packagist timeout di jaringan ini); `route:list --except-vendor`: `POST api/v1/inquiries`, `GET|HEAD up`.
+- Laravel Boost MCP: `application-info` melaporkan Laravel 13.36.0, PHP 8.5, engine `mysql`; `database-schema` membaca tabel hasil migrasi.
+
+### Integrasi nyata frontend ke Laravel ke MySQL (B2, tanpa mock)
+
+Frontend `frontend` di `1ef187c` dibangun dengan `VITE_INQUIRY_API_ENABLED=true` dan `VITE_API_BASE_URL=http://127.0.0.1:8000` ke `build/inquiry-api-local`, disajikan di `http://localhost:4174`; Laravel `php artisan serve` di `127.0.0.1:8000`. Data sintetis saja.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Preflight `OPTIONS` dari `http://localhost:4174` | `204`, `Access-Control-Allow-Origin: http://localhost:4174`, metode `GET, POST` |
+| Preflight dari origin lain | `204` tanpa header `Access-Control-Allow-Origin` (browser menolak) |
+| Membuka `/kontak` | 0 request ke API |
+| Klik ganda **Kirim melalui website** (Chromium) | Tepat 1 `POST /api/v1/inquiries`, `201` `{"id":"INQ-DXJA-G0DD-MFXE","status":"received"}`; referensi yang tampil sama dengan respons; tidak ada `window.open`, tidak ada pesan konsol |
+| Database | Tepat 1 baris dengan `public_id` itu (`website`, `belum-tahu`, `fleksibel`, `received`) |
+| `422` data tidak valid (curl, header `Origin`) | Galat untuk `name`, `contact`, `service`, `budget`, `timeline`, `message`; header CORS ada |
+| `422` honeypot terisi | Galat hanya `homepage`; jumlah baris tetap 1 |
+| Build bawaan (tanpa variabel) | `/kontak` tanpa tombol website dan honeypot, tidak ada rujukan ke API lokal |
+
+Sebelum service dipilih, validasi formulir di browser menolak kiriman dan tidak ada request. Baris uji dihapus setelahnya berdasarkan referensinya (sisa 0 baris). Penghitung rate limit di tabel `cache` kedaluwarsa sendiri (paling lama 1 jam).
+
+### Belum diverifikasi
+
+- Tampilan `422` dari server sungguhan di browser: validasi klien menolak data yang sama lebih dulu. Pemetaan `422`, `429`, `503`, dan galat jaringan tetap dibuktikan dengan respons tiruan (bagian B2 di PR #22).
+- Rate limit `429` nyata tidak dipicu, agar tidak mengisi cache dengan percobaan tambahan.
+- WebKit dan Firefox tidak dipakai untuk uji nyata ini (hanya Chromium).
+
 ## B1.1: review akhir dan penyelarasan konfigurasi QA (2026-10-15)
 
 Cakupan: temuan review PR #20, tanpa memperluas B1.1. Baseline yang diverifikasi: `origin/backend` = lokal `258dae4`, `origin/staging` `7e936b5`, `origin/main` dan `origin/frontend` `7729d17`; PR #20 open, mergeable, Backend CI run 38711417910 dan Frontend CI run 38711417888 lulus pada `258dae4`. Server uji: container `mysql:8.4` sekali pakai baru (MySQL 8.4.11, `127.0.0.1:3307`, tmpfs), dihapus di akhir sesi.
