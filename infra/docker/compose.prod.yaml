@@ -1,0 +1,182 @@
+# Production-oriented, provider-independent Docker deployment of Solveit Indonesia for a
+# Docker-capable VPS or container host. Prepared and validated locally and in CI; NOT deployed:
+# no hosting, domain, certificate, or production database exists yet.
+# Guide (secrets, first deploy, migrations, backup, rollback): docs/development/docker-production.md.
+#
+#   gateway   nginx, the only published service: static site + /api/* and /up over FastCGI
+#   frontend  static prerendered site (nginx, no Node at runtime)
+#   backend   Laravel on PHP-FPM, no dev packages, never published
+#   migrate   one-off `php artisan migrate --force` as the migration user (profile ops)
+#   mysql     optional MySQL 8.4 on this host (profile bundled-db); otherwise set DB_HOST to a
+#             managed MySQL 8.4 in the env file
+#
+# Never put credentials in this file or in the env file: they are Docker secrets read from
+# ${SOLVEIT_SECRETS_DIR:-./secrets}/ (ignored by Git).
+name: solveit-indonesia-prod
+
+x-hardened: &hardened
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+x-backend-env: &backend-env
+  env_file:
+    - path: ${SOLVEIT_ENV_FILE:-./production.env}
+      required: true
+
+# Laravel writes only here; the rest of the container is read-only. uid/gid 33 is www-data.
+x-backend-tmpfs: &backend-tmpfs
+  tmpfs:
+    - /tmp:uid=33,gid=33,mode=0700
+    - /var/www/html/storage:uid=33,gid=33,mode=0700
+    - /var/www/html/bootstrap/cache:uid=33,gid=33,mode=0700
+
+services:
+  gateway:
+    <<: *hardened
+    image: nginxinc/nginx-unprivileged:1.30.6-alpine
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    # Loopback by default. On a server, set SOLVEIT_HTTP_BIND to the address a TLS-terminating
+    # proxy or load balancer reaches (docs/development/docker-production.md, TLS).
+    ports:
+      - "${SOLVEIT_HTTP_BIND:-127.0.0.1}:${SOLVEIT_HTTP_PORT:-8080}:8080"
+    networks: [edge, internal]
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 128M }
+
+  frontend:
+    <<: *hardened
+    build:
+      context: ../..
+      dockerfile: infra/docker/frontend/Dockerfile
+      target: prod
+      args:
+        VITE_SITE_URL: ${SOLVEIT_SITE_URL:-}
+        VITE_API_BASE_URL: ${SOLVEIT_API_BASE_URL:-}
+        # Fixed on purpose: the inquiry API channel stays off until the owner approves its
+        # activation (privacy notice, retention, hosting, database). Change it only then.
+        VITE_INQUIRY_API_ENABLED: "false"
+        VITE_GOOGLE_SITE_VERIFICATION: ${SOLVEIT_GOOGLE_SITE_VERIFICATION:-}
+    image: solveit-indonesia/frontend:${SOLVEIT_IMAGE_TAG:-local}
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp
+    networks: [internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 128M }
+
+  backend:
+    <<: [*hardened, *backend-env, *backend-tmpfs]
+    build:
+      context: ../..
+      dockerfile: infra/docker/backend/Dockerfile
+      target: prod
+    image: solveit-indonesia/backend:${SOLVEIT_IMAGE_TAG:-local}
+    environment:
+      APP_KEY_FILE: /run/secrets/app_key
+      DB_PASSWORD_FILE: /run/secrets/db_app_password
+    secrets: [app_key, db_app_password]
+    read_only: true
+    cap_drop: [ALL]
+    # PHP-FPM finishes running requests on SIGQUIT before it exits.
+    stop_signal: SIGQUIT
+    stop_grace_period: 30s
+    networks: [internal]
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+    deploy:
+      resources:
+        limits: { cpus: "1.00", memory: 512M }
+
+  migrate:
+    <<: [*backend-env, *backend-tmpfs]
+    image: solveit-indonesia/backend:${SOLVEIT_IMAGE_TAG:-local}
+    profiles: [ops]
+    environment:
+      APP_KEY_FILE: /run/secrets/app_key
+      DB_USERNAME: ${SOLVEIT_DB_MIGRATOR_USERNAME:-solveit_migrator}
+      DB_PASSWORD_FILE: /run/secrets/db_migrator_password
+    secrets: [app_key, db_migrator_password]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    restart: "no"
+    networks: [internal]
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+
+  mysql:
+    <<: *hardened
+    image: mysql:8.4.11
+    profiles: [bundled-db]
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      # root exists only inside the container; the application never uses it.
+      MYSQL_ROOT_HOST: localhost
+    secrets: [mysql_root_password, db_migrator_password, db_app_password]
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/initdb-production:/docker-entrypoint-initdb.d:ro
+    # No ports: reachable only from the internal network.
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--host=127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    deploy:
+      resources:
+        limits: { cpus: "1.00", memory: 1G }
+
+networks:
+  # Only the gateway joins edge, the network with a published port.
+  edge:
+  # No route to the internet or the host: backend, frontend, and MySQL talk only to each other.
+  internal:
+    internal: true
+
+volumes:
+  mysql-data:
+
+# Files must be readable by the container user: www-data (uid 33) for app_key and the two
+# database passwords, root inside the MySQL container for all of them. Compose bind-mounts
+# them as they are; it does not encrypt them. See docs/development/docker-production.md.
+secrets:
+  app_key:
+    file: ${SOLVEIT_SECRETS_DIR:-./secrets}/app_key
+  db_app_password:
+    file: ${SOLVEIT_SECRETS_DIR:-./secrets}/db_app_password
+  db_migrator_password:
+    file: ${SOLVEIT_SECRETS_DIR:-./secrets}/db_migrator_password
+  mysql_root_password:
+    file: ${SOLVEIT_SECRETS_DIR:-./secrets}/mysql_root_password
