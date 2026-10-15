@@ -54,7 +54,9 @@ Jumlah: **94 tes, 249 assertion** (sebelumnya 90 dan 230): minus 1 tes SQLite, p
 
 ### Backend CI
 
-`.github/workflows/backend-ci.yml` ditulis ulang: satu job PHP 8.5 dengan service container `mysql:8.4`. Langkah: kebijakan PHP (8.5, minimal 8.5.7, `pdo_mysql`, versi aktual ke ringkasan run), versi MySQL 8.4.x dan bukan MariaDB (ke ringkasan), dua database sekali pakai dan tiga pengguna dengan kata sandi acak yang disamarkan, `composer validate`, `install`, `check-platform-reqs`, Pint, migrasi naik-turun-naik sebagai pengguna migrasi, smoke test HTTP sebagai pengguna DML saja, tes, cek route, `composer audit`, instalasi `--no-dev`. `actionlint` 1.7.7: tidak ada temuan pada workflow ini. Hasil run di GitHub dicatat di `.ai/project-status.md` setelah PR dibuat.
+`.github/workflows/backend-ci.yml` ditulis ulang: satu job PHP 8.5 dengan service container `mysql:8.4`. Langkah: kebijakan PHP (8.5, minimal 8.5.7, `pdo_mysql`, versi aktual ke ringkasan run), versi MySQL 8.4.x dan bukan MariaDB (ke ringkasan), dua database sekali pakai dan tiga pengguna dengan kata sandi acak yang disamarkan, `composer validate`, `install`, `check-platform-reqs`, Pint, migrasi naik-turun-naik sebagai pengguna migrasi, smoke test HTTP sebagai pengguna DML saja, tes, cek route, `composer audit`, instalasi `--no-dev`. `actionlint` 1.7.7: tidak ada temuan pada workflow ini.
+
+Hasil di GitHub untuk `8991ebd` (PR #20): Backend CI run 38709084941 (PR) dan 38709043589 (push) **lulus**. Ringkasan run: `Tested PHP: 8.5.11` (patch terbaru runner, lolos syarat minimal 8.5.7; CI tidak mengklaim 8.5.7 persis) dan `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`. Migrasi naik-turun-naik 4 `Ran`, smoke test HTTP lulus, `Tests: 94 passed (249 assertions)`, route `POST api/v1/inquiries`, tidak ada advisory, instalasi `--no-dev` tanpa perintah Boost. Frontend CI run 38709084923 (dipicu perubahan izin workflow) lulus.
 
 ### Agent
 
