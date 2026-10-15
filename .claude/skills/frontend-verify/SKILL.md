@@ -10,5 +10,6 @@ Run from `frontend/` and report the actual output of each step; stop at the firs
 3. `npm test`
 4. `npm run build` (without `VITE_SITE_URL` it warns that the sitemap is skipped; that is expected)
 5. `npm run test:e2e` (builds with `VITE_SITE_URL=http://localhost:4173` and serves `build/client`; first run needs `npx playwright install chromium`)
+6. `npm run test:e2e:api` (a second build with the inquiry API channel enabled, `build/inquiry-api` on port 4174; every API response is mocked). The default build in step 5 proves the disabled mode, this one the enabled mode.
 
 For performance numbers, serve the build (`npm run preview`) and run Lighthouse against `http://localhost:4173/`, stating device preset and throttling with every score.

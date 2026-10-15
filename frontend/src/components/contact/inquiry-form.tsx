@@ -1,8 +1,11 @@
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { CaretDown } from "@phosphor-icons/react/dist/ssr/CaretDown";
+import { CircleNotch } from "@phosphor-icons/react/dist/ssr/CircleNotch";
 import { EnvelopeSimple } from "@phosphor-icons/react/dist/ssr/EnvelopeSimple";
+import { PaperPlaneTilt } from "@phosphor-icons/react/dist/ssr/PaperPlaneTilt";
 import { WhatsappLogo } from "@phosphor-icons/react/dist/ssr/WhatsappLogo";
+import { siteConfig } from "~/config/site";
 import { company, primaryWhatsApp } from "~/data/company";
 import { isServiceId } from "~/data/services";
 import { useHydrated } from "~/hooks/use-hydrated";
@@ -11,22 +14,33 @@ import { cn } from "~/lib/cn";
 import { getServices } from "~/services/content";
 import {
   budgetValues,
+  type ComposedChannel,
   composeInquiryMessage,
   emptyInquiry,
-  type InquiryChannel,
+  inquiryFields,
   inquiryHref,
   timelineValues,
   validateInquiry,
   whatsappUrl,
 } from "~/services/inquiry";
+import { submitInquiry } from "~/services/inquiry-api";
 import type { InquiryErrors, InquiryPayload } from "~/types/inquiry";
+
+type NotSentReason = "blocked" | "too-large" | "rate-limited" | "unavailable" | "failed";
 
 type Status =
   | { kind: "idle" }
-  | { kind: "invalid"; count: number }
-  | { kind: "opened"; channel: InquiryChannel; href: string; message: string };
+  | { kind: "invalid"; count: number; fromServer?: boolean }
+  | { kind: "opened"; channel: ComposedChannel; href: string; message: string }
+  /** The previous feedback stays (dimmed) while sending, so nothing jumps. */
+  | { kind: "submitting"; previous: Status }
+  /** `sent` is what the server stored, so later edits can be flagged as unsent. */
+  | { kind: "received"; reference: string; sent: InquiryPayload }
+  | { kind: "not-sent"; reason: NotSentReason; minutes: number | null }
+  | { kind: "uncertain" };
 
-const fieldOrder: (keyof InquiryPayload)[] = ["name", "contact", "service", "message"];
+const sameInquiry = (a: InquiryPayload, b: InquiryPayload) =>
+  inquiryFields.every((key) => a[key] === b[key]);
 
 /** A titled block of related fields; the index capsule echoes the process rail. */
 function FormGroup({
@@ -73,6 +87,9 @@ function SelectField({ children }: { children: ReactNode }) {
 export function InquiryForm() {
   const { t, locale } = useI18n();
   const copy = t.form;
+  const api = copy.api;
+  // Fixed at build time: a default build has no website channel at all.
+  const apiUrl = siteConfig.inquiryApiUrl;
   const id = `inq${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const [params] = useSearchParams();
   const [values, setValues] = useState<InquiryPayload>(emptyInquiry);
@@ -82,6 +99,10 @@ export function InquiryForm() {
   const [copied, setCopied] = useState(false);
   const statusRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  // Set synchronously, so a second click before React re-renders cannot
+  // start another POST; the request is aborted if the form unmounts.
+  const pending = useRef(false);
+  const request = useRef<AbortController | null>(null);
   const services = getServices(locale);
 
   // Prefill the service chosen in the hero or on the services page. Only after
@@ -111,28 +132,84 @@ export function InquiryForm() {
   }, []);
 
   useEffect(() => {
-    if (status.kind !== "idle") statusRef.current?.focus();
+    if (status.kind !== "idle" && status.kind !== "submitting") statusRef.current?.focus();
   }, [status]);
+
+  useEffect(() => () => request.current?.abort(), []);
 
   const update = <K extends keyof InquiryPayload>(key: K, value: InquiryPayload[K]) => {
     setValues((current) => ({ ...current, [key]: value }));
     if (errors[key]) setErrors((current) => ({ ...current, [key]: undefined }));
   };
 
+  const submitting = status.kind === "submitting";
+  // After a confirmed receipt the same details cannot be sent again by
+  // accident; any edit makes the form sendable (and the receipt says so).
+  const unchangedSinceReceipt = status.kind === "received" && sameInquiry(payload, status.sent);
+  const shown = status.kind === "submitting" ? status.previous : status;
+
+  const sendThroughWebsite = async (endpoint: string, sent: InquiryPayload) => {
+    pending.current = true;
+    const controller = new AbortController();
+    request.current = controller;
+    // An outdated "fields missing" summary is not kept: it would be wrong.
+    setStatus((previous) => ({
+      kind: "submitting",
+      previous: previous.kind === "invalid" ? { kind: "idle" } : previous,
+    }));
+    const homepage = String(new FormData(formRef.current ?? undefined).get("homepage") ?? "");
+    const result = await submitInquiry(endpoint, sent, homepage, { signal: controller.signal });
+    // Unmounted, or superseded: drop the answer.
+    if (request.current !== controller || controller.signal.aborted) return;
+    request.current = null;
+    pending.current = false;
+    switch (result.kind) {
+      case "accepted":
+        setStatus({ kind: "received", reference: result.reference, sent });
+        return;
+      case "invalid": {
+        // Localized text for each field the server named; the visitor's
+        // values stay in place.
+        const local = validateInquiry(sent, locale);
+        const next: InquiryErrors = {};
+        for (const key of result.fields) next[key] = local[key] ?? copy.errors.server;
+        setErrors(next);
+        setStatus({ kind: "invalid", count: result.fields.length, fromServer: true });
+        return;
+      }
+      case "uncertain":
+        setStatus({ kind: "uncertain" });
+        return;
+      case "rate-limited": {
+        const seconds = result.retryAfterSeconds;
+        const minutes = seconds === null ? null : Math.max(1, Math.ceil(seconds / 60));
+        setStatus({ kind: "not-sent", reason: "rate-limited", minutes });
+        return;
+      }
+      default:
+        setStatus({ kind: "not-sent", reason: result.kind, minutes: null });
+    }
+  };
+
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (pending.current) return;
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-    const channel: InquiryChannel = submitter?.value === "email" ? "email" : "whatsapp";
     const nextErrors = validateInquiry(payload, locale);
     setErrors(nextErrors);
-    const invalid = fieldOrder.filter((key) => nextErrors[key]);
+    const invalid = inquiryFields.filter((key) => nextErrors[key]);
     if (invalid.length > 0) {
       setStatus({ kind: "invalid", count: invalid.length });
       return;
     }
+    if (submitter?.value === "api") {
+      if (apiUrl && !unchangedSinceReceipt) void sendThroughWebsite(apiUrl, payload);
+      return;
+    }
+    const channel: ComposedChannel = submitter?.value === "email" ? "email" : "whatsapp";
     const href = inquiryHref(channel, payload, { locale, recipient });
     if (channel === "whatsapp") window.open(href, "_blank", "noopener,noreferrer");
-    else window.location.href = href;
+    else window.location.assign(href);
     setCopied(false);
     setStatus({ kind: "opened", channel, href, message: composeInquiryMessage(payload, locale) });
   };
@@ -140,16 +217,16 @@ export function InquiryForm() {
   // Switching the WhatsApp number after opening keeps the same composed
   // message: the "open again" link always targets the number selected now.
   const reopenHref =
-    status.kind === "opened"
-      ? status.channel === "whatsapp"
-        ? whatsappUrl(recipient, status.message)
-        : status.href
+    shown.kind === "opened"
+      ? shown.channel === "whatsapp"
+        ? whatsappUrl(recipient, shown.message)
+        : shown.href
       : "";
 
   const copyMessage = async () => {
-    if (status.kind !== "opened") return;
+    if (shown.kind !== "opened") return;
     try {
-      await navigator.clipboard.writeText(status.message);
+      await navigator.clipboard.writeText(shown.message);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -185,24 +262,40 @@ export function InquiryForm() {
       aria-describedby={`${id}-intro`}
     >
       <p id={`${id}-intro`} className="max-w-[60ch] text-[0.95rem] text-ink-muted">
-        {copy.intro}
+        {apiUrl ? api.intro : copy.intro}
       </p>
 
-      {status.kind !== "idle" && (
+      {/* Honeypot for the website channel (docs/api/inquiries.md): out of
+          sight, out of the tab order, hidden from assistive technology. */}
+      {apiUrl && (
+        <div aria-hidden className="absolute -left-[9999px] size-px overflow-hidden">
+          <label htmlFor={`${id}-homepage`}>Homepage</label>
+          <input id={`${id}-homepage`} name="homepage" tabIndex={-1} autoComplete="off" />
+        </div>
+      )}
+
+      {shown.kind !== "idle" && shown.kind !== "submitting" && (
         <div
           ref={statusRef}
           tabIndex={-1}
-          role={status.kind === "invalid" ? "alert" : "status"}
+          role={shown.kind === "opened" || shown.kind === "received" ? "status" : "alert"}
           className={cn(
             "rounded-[var(--radius-field)] border p-6 outline-none",
-            status.kind === "invalid" ? "border-danger bg-danger/5" : "border-accent bg-accent/5",
+            shown.kind === "invalid" || shown.kind === "not-sent"
+              ? "border-danger bg-danger/5"
+              : shown.kind === "uncertain"
+                ? "border-line-strong bg-paper-sunken"
+                : "border-accent bg-accent/5",
+            submitting && "opacity-60",
           )}
         >
-          {status.kind === "invalid" ? (
+          {shown.kind === "invalid" ? (
             <>
-              <p className="font-semibold">{copy.invalid(status.count)}</p>
+              <p className="font-semibold">
+                {shown.fromServer ? api.invalid(shown.count) : copy.invalid(shown.count)}
+              </p>
               <ul className="mt-2 list-disc pl-5 text-ink-muted">
-                {fieldOrder
+                {inquiryFields
                   .filter((key) => errors[key])
                   .map((key) => (
                     <li key={key}>
@@ -213,17 +306,50 @@ export function InquiryForm() {
                   ))}
               </ul>
             </>
+          ) : shown.kind === "received" ? (
+            <>
+              <p className="font-semibold">{api.received}</p>
+              <dl className="mt-3">
+                <dt className="text-[0.875rem] text-ink-muted">{api.reference}</dt>
+                <dd className="mt-1 text-[1.25rem] font-semibold tracking-wide tabular-nums select-all">
+                  {shown.reference}
+                </dd>
+              </dl>
+              <p className="mt-3 text-ink-muted">{api.receivedNext}</p>
+              {!sameInquiry(payload, shown.sent) && <p className="mt-3 font-medium">{api.stale}</p>}
+            </>
+          ) : shown.kind === "not-sent" ? (
+            <>
+              <p className="font-semibold">
+                {shown.reason === "rate-limited"
+                  ? api.rateLimited(shown.minutes)
+                  : shown.reason === "too-large"
+                    ? api.tooLarge
+                    : shown.reason === "unavailable"
+                      ? api.unavailable
+                      : shown.reason === "blocked"
+                        ? api.blocked
+                        : api.failed}
+              </p>
+              <p className="mt-2 text-ink-muted">{api.kept}</p>
+            </>
+          ) : shown.kind === "uncertain" ? (
+            <>
+              <p className="font-semibold">{api.uncertain}</p>
+              <p className="mt-2 text-ink-muted">{api.uncertainDetail}</p>
+              <p className="mt-2 text-ink-muted">{api.kept}</p>
+            </>
           ) : (
             <>
               <p className="font-semibold">
-                {status.channel === "whatsapp" ? copy.openedWhatsApp : copy.openedEmail}
+                {shown.channel === "whatsapp" ? copy.openedWhatsApp : copy.openedEmail}
               </p>
-              <p className="mt-2 text-ink-muted">{copy.sendReminder(status.channel)}</p>
+              <p className="mt-2 text-ink-muted">{copy.sendReminder(shown.channel)}</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <a
                   href={reopenHref}
-                  target={status.channel === "whatsapp" ? "_blank" : undefined}
-                  rel={status.channel === "whatsapp" ? "noopener noreferrer" : undefined}
+                  target={shown.channel === "whatsapp" ? "_blank" : undefined}
+                  rel={shown.channel === "whatsapp" ? "noopener noreferrer" : undefined}
                   className="btn btn-secondary min-h-11"
                 >
                   {copy.reopen}
@@ -269,7 +395,10 @@ export function InquiryForm() {
               className="field-input"
               value={values.organization}
               onChange={(event) => update("organization", event.target.value)}
+              aria-invalid={Boolean(errors.organization)}
+              aria-describedby={describe("organization")}
             />
+            {error("organization")}
           </div>
         </div>
 
@@ -334,6 +463,8 @@ export function InquiryForm() {
                 onChange={(event) =>
                   update("budget", event.target.value as InquiryPayload["budget"])
                 }
+                aria-invalid={Boolean(errors.budget)}
+                aria-describedby={describe("budget")}
               >
                 {budgetValues.map((value) => (
                   <option key={value} value={value}>
@@ -342,6 +473,7 @@ export function InquiryForm() {
                 ))}
               </select>
             </SelectField>
+            {error("budget")}
           </div>
           <div className="field">
             <label htmlFor={`${id}-timeline`} className="field-label">
@@ -356,6 +488,8 @@ export function InquiryForm() {
                 onChange={(event) =>
                   update("timeline", event.target.value as InquiryPayload["timeline"])
                 }
+                aria-invalid={Boolean(errors.timeline)}
+                aria-describedby={describe("timeline")}
               >
                 {timelineValues.map((value) => (
                   <option key={value} value={value}>
@@ -364,6 +498,7 @@ export function InquiryForm() {
                 ))}
               </select>
             </SelectField>
+            {error("timeline")}
           </div>
         </div>
 
@@ -391,10 +526,54 @@ export function InquiryForm() {
       </FormGroup>
 
       <FormGroup index={3} title={copy.groupSend}>
+        {apiUrl && (
+          <div className="grid gap-3">
+            <p id={`${id}-api-hint`} className="field-hint">
+              {api.hint}
+            </p>
+            <div data-floating-avoid className="flex flex-col sm:flex-row">
+              {/* aria-disabled rather than disabled while sending, so focus
+                  stays on the button; the ref guard blocks repeats. */}
+              <button
+                type="submit"
+                name="channel"
+                value="api"
+                disabled={!hydrated || unchangedSinceReceipt}
+                aria-disabled={submitting || undefined}
+                aria-busy={submitting || undefined}
+                aria-describedby={`${id}-api-hint`}
+                className="btn btn-primary btn-slice"
+              >
+                {submitting ? (
+                  <CircleNotch
+                    aria-hidden
+                    weight="bold"
+                    className="size-5 motion-safe:animate-spin"
+                  />
+                ) : (
+                  <PaperPlaneTilt aria-hidden weight="bold" className="size-5" />
+                )}
+                {submitting ? api.sending : api.send}
+              </button>
+            </div>
+            <p role="status" className="sr-only">
+              {submitting ? api.submitting : ""}
+            </p>
+          </div>
+        )}
+
+        {/* A quiet divider: everything below belongs to the visitor's own
+            WhatsApp or email, including the number picker. */}
+        {apiUrl && (
+          <h4 className="border-t border-line pt-6 text-[0.875rem] font-semibold text-ink-muted">
+            {api.manualTitle}
+          </h4>
+        )}
+
         <fieldset className="field" aria-describedby={`${id}-recipient-hint`}>
           <legend className="field-label">{copy.recipient}</legend>
           <p id={`${id}-recipient-hint`} className="field-hint">
-            {copy.recipientHint}
+            {apiUrl ? api.recipientHint : copy.recipientHint}
           </p>
           <div className="flex flex-wrap gap-2">
             {company.whatsapp.map((number) => (
@@ -425,7 +604,8 @@ export function InquiryForm() {
             name="channel"
             value="whatsapp"
             disabled={!hydrated}
-            className="btn btn-primary btn-slice"
+            aria-disabled={submitting || undefined}
+            className={cn("btn btn-slice", apiUrl ? "btn-secondary" : "btn-primary")}
           >
             <WhatsappLogo aria-hidden className="size-5" weight="bold" />
             {copy.sendWhatsApp}
@@ -435,6 +615,7 @@ export function InquiryForm() {
             name="channel"
             value="email"
             disabled={!hydrated}
+            aria-disabled={submitting || undefined}
             className="btn btn-secondary btn-slice"
           >
             <EnvelopeSimple aria-hidden className="size-5" weight="bold" />

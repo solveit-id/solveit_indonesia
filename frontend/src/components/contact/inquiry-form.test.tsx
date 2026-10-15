@@ -3,7 +3,15 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type * as SiteModule from "~/config/site";
 import { InquiryForm } from "./inquiry-form";
+
+// The default build: no website channel, whatever a local .env says.
+// API mode is covered in inquiry-form.api.test.tsx.
+vi.mock("~/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof SiteModule>();
+  return { ...actual, siteConfig: { ...actual.siteConfig, inquiryApiUrl: null } };
+});
 
 const renderForm = (url = "/kontak") => {
   const router = createMemoryRouter(
@@ -80,6 +88,24 @@ describe("InquiryForm", () => {
     expect(reopen.startsWith("https://wa.me/6282335501778?text=")).toBe(true);
     expect(reopen.split("?text=")[1]).toBe(first.split("?text=")[1]);
     expect(screen.getByLabelText(/^nama/i)).toHaveValue("Rina Wulandari");
+  });
+
+  it("has no website channel and never calls an API by default", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = renderForm("/kontak?layanan=website");
+    expect(screen.getByText(/Formulir ini tidak mengirim atau menyimpan data/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /kirim melalui website/i })).toBeNull();
+    expect(container.querySelector('[name="homepage"]')).toBeNull();
+    await userEvent.type(screen.getByLabelText(/^nama/i), "Rina Wulandari");
+    await userEvent.type(screen.getByLabelText(/email atau nomor whatsapp/i), "rina@example.com");
+    await userEvent.type(
+      screen.getByLabelText(/ceritakan kebutuhan anda/i),
+      "Kami butuh website profil dengan katalog produk.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /kirim lewat whatsapp/i }));
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("speaks English on the English contact page", async () => {

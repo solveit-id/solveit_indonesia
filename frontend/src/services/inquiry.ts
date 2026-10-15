@@ -1,15 +1,17 @@
 import { company, primaryWhatsApp } from "~/data/company";
+import { isServiceId } from "~/data/services";
 import { defaultLocale, getMessages, type Locale } from "~/i18n";
 import { getService } from "~/services/content";
 import type { BudgetRange, InquiryErrors, InquiryPayload, Timeline } from "~/types/inquiry";
 
 /**
- * Inquiry delivery. There is no backend yet, so an inquiry is never "sent" by
- * this site: it is composed into a message the visitor sends themselves via
- * WhatsApp or email. When the Laravel API exists, add an `api` channel that
- * POSTs the same payload (docs/architecture/integration-plan.md).
+ * Inquiry delivery. WhatsApp and email are composed into a message the
+ * visitor sends themselves; this site sends nothing for them. The `api`
+ * channel POSTs the same payload to the Laravel API (src/services/inquiry-api.ts)
+ * and exists only when the build enables it (`siteConfig.inquiryApiUrl`).
  */
-export type InquiryChannel = "whatsapp" | "email";
+export type ComposedChannel = "whatsapp" | "email";
+export type InquiryChannel = ComposedChannel | "api";
 
 export const budgetValues: BudgetRange[] = [
   "belum-tahu",
@@ -32,7 +34,32 @@ export const emptyInquiry: InquiryPayload = {
 };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const PHONE = /^\+?[0-9][0-9\s-]{7,16}$/;
+// Plain spaces only, like the server (backend/app/Rules/EmailOrPhone.php).
+const PHONE = /^\+?[0-9][0-9 -]{7,16}$/;
+
+/**
+ * Limits of `POST /api/v1/inquiries` (StoreInquiryRequest). Lengths count
+ * Unicode characters after trimming, as Laravel does, not UTF-16 units.
+ */
+export const inquiryLimits = {
+  name: { min: 2, max: 120 },
+  organization: { max: 160 },
+  contact: { max: 254 },
+  message: { min: 20, max: 5000 },
+} as const;
+
+const chars = (value: string) => [...value.trim()].length;
+
+/** Field order used for summaries and focus: the order of the form. */
+export const inquiryFields: (keyof InquiryPayload)[] = [
+  "name",
+  "organization",
+  "contact",
+  "service",
+  "budget",
+  "timeline",
+  "message",
+];
 
 export function validateInquiry(
   payload: InquiryPayload,
@@ -40,12 +67,21 @@ export function validateInquiry(
 ): InquiryErrors {
   const messages = getMessages(locale).form.errors;
   const errors: InquiryErrors = {};
-  if (payload.name.trim().length < 2) errors.name = messages.name;
+  const name = chars(payload.name);
+  if (name < inquiryLimits.name.min) errors.name = messages.name;
+  else if (name > inquiryLimits.name.max) errors.name = messages.nameTooLong;
+  if (chars(payload.organization) > inquiryLimits.organization.max)
+    errors.organization = messages.organizationTooLong;
   const contact = payload.contact.trim();
   if (!contact) errors.contact = messages.contactMissing;
+  else if (chars(contact) > inquiryLimits.contact.max) errors.contact = messages.contactTooLong;
   else if (!EMAIL.test(contact) && !PHONE.test(contact)) errors.contact = messages.contactInvalid;
-  if (!payload.service) errors.service = messages.service;
-  if (payload.message.trim().length < 20) errors.message = messages.message;
+  if (!isServiceId(payload.service)) errors.service = messages.service;
+  if (!budgetValues.includes(payload.budget)) errors.budget = messages.budget;
+  if (!timelineValues.includes(payload.timeline)) errors.timeline = messages.timeline;
+  const message = chars(payload.message);
+  if (message < inquiryLimits.message.min) errors.message = messages.message;
+  else if (message > inquiryLimits.message.max) errors.message = messages.messageTooLong;
   return errors;
 }
 
@@ -90,7 +126,7 @@ interface DeliveryOptions {
 }
 
 export function inquiryHref(
-  channel: InquiryChannel,
+  channel: ComposedChannel,
   payload: InquiryPayload,
   { locale = defaultLocale, recipient = primaryWhatsApp.e164 }: DeliveryOptions = {},
 ): string {

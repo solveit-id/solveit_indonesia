@@ -23,6 +23,7 @@ Jalankan dari `frontend/`:
 | `npm run typecheck` | Typegen React Router + `tsc` |
 | `npm test` | Unit dan component test (Vitest) |
 | `npm run test:e2e` | Playwright di 3 viewport (desktop 1440, tablet 820, Pixel 7), termasuk axe di kedua tema dan kedua bahasa |
+| `npm run test:e2e:api` | Playwright untuk build kedua dengan kanal API inquiry aktif (`playwright.api.config.ts`, `tests/e2e-api/`, port 4174, output `build/inquiry-api/client`). Semua respons API di-mock dengan `page.route`; tidak ada request yang keluar. Nilai `VITE_*` ditanam saat build, jadi mode aktif dan nonaktif hanya bisa dibuktikan dengan dua build |
 | `PW_ALL_BROWSERS=1 npm run test:e2e` | Menambahkan Firefox dan WebKit desktop (butuh `npx playwright install firefox webkit`) |
 | GitHub Actions: **Cross-browser QA** | Suite penuh di WebKit desktop dan WebKit iPhone 14 pada runner bersih (1 worker, tanpa retry, laporan sebagai artefak). Jalankan lewat tab Actions atau `gh workflow run cross-browser-qa.yml -f ref=<sha>` setelah workflow ada di `main`. CI reguler tetap hanya Chromium |
 | `npm run format` / `format:check` | Prettier (dengan pengurutan kelas Tailwind) |
@@ -35,7 +36,8 @@ Salin `frontend/.env.example` menjadi `frontend/.env.local` bila perlu. Semua va
 | Variabel | Kapan diisi |
 |---|---|
 | `VITE_SITE_URL` | Setelah domain dikonfirmasi. Mengaktifkan canonical, `og:url`, `og:image` absolut, BreadcrumbList, dan `sitemap.xml` |
-| `VITE_API_BASE_URL` | Saat API backend di-deploy dan kanal `api` formulir dibangun (B2). Lokal: `http://localhost:8000` |
+| `VITE_API_BASE_URL` | Origin API Laravel saja (skema, host, port opsional; tanpa path, query, atau kredensial). HTTPS wajib, kecuali `http://localhost`, `http://127.0.0.1`, atau `http://[::1]` untuk pengembangan. Nilai yang tidak valid dianggap kosong. Lokal: `http://localhost:8000` |
+| `VITE_INQUIRY_API_ENABLED` | Kanal **Kirim melalui website** hanya aktif bila nilainya persis `true` **dan** `VITE_API_BASE_URL` valid; formulir lalu mengirim ke `<origin>/api/v1/inquiries`. Default `false`. Jangan diaktifkan di produksi sebelum pemilik menyetujui pemberitahuan privasi, masa simpan, hosting, database, dan penanganan operasional (`docs/api/inquiries.md`). Nilai ini publik (ditanam di bundle): jangan pernah menaruh rahasia atau kredensial Laravel di variabel `VITE_*` |
 | `VITE_GOOGLE_SITE_VERIFICATION` | Token verifikasi Search Console |
 
 Jangan commit file `.env*` selain `.env.example`.

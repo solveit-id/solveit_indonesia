@@ -10,6 +10,27 @@ const style = (page: Page, selector: string, property: string) =>
     .first()
     .evaluate((el, prop) => getComputedStyle(el).getPropertyValue(prop), property);
 
+type IconLog = Window & { __iconRuns?: string[] };
+
+/**
+ * Logs theme icon transitions ("sun:transform", "moon:opacity") as they are
+ * created, once the dark theme is applied. A hover roll before the switch is
+ * left out, so it cannot stand in for the theme roll on pointer devices.
+ */
+const recordIconTransitions = (page: Page) =>
+  page.evaluate(() => {
+    const seen: string[] = [];
+    (window as IconLog).__iconRuns = seen;
+    document.addEventListener("transitionrun", (event) => {
+      const icon = event.target as Element;
+      if (!icon.classList?.contains("theme-icon")) return;
+      if (document.documentElement.dataset.theme !== "dark") return;
+      const name = icon.classList.contains("theme-icon-sun") ? "sun" : "moon";
+      seen.push(`${name}:${event.propertyName}`);
+    });
+  });
+const iconTransitions = (page: Page) => page.evaluate(() => (window as IconLog).__iconRuns ?? []);
+
 test.describe("branded load sequence", () => {
   test.use({ bootLoader: true });
 
@@ -190,12 +211,23 @@ test.describe("preference switches", () => {
     const toggle = page.getByRole("button", { name: "Tema gelap" });
     expect(await style(page, ".theme-toggle", "view-transition-name")).toBe("theme-toggle");
     expect(await style(page, ".theme-toggle", "cursor")).toBe("pointer");
+    await recordIconTransitions(page);
     await toggle.click();
-    // Mid-roll the sun is on its way out: translated, not just faded.
-    const moving = await toggle
-      .locator(".theme-icon-sun")
-      .evaluate((el) => getComputedStyle(el).transform);
-    expect(moving).not.toBe("none");
+    // setTheme() applies the theme inside the View Transition update
+    // callback, a frame or more after the click (later in WebKit), so the
+    // computed style right after click() may still be the old state. Wait
+    // for the theme, then check what actually ran: both icons roll on a
+    // transform transition, not just a fade.
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect
+      .poll(() => iconTransitions(page))
+      .toEqual(expect.arrayContaining(["sun:transform", "moon:transform"]));
+    // The sun settles out of the cell, below it and hidden: translated, not just faded.
+    const sun = toggle.locator(".theme-icon-sun");
+    await expect
+      .poll(() => sun.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).f))
+      .toBeGreaterThan(0);
+    await expect.poll(() => sun.evaluate((el) => getComputedStyle(el).opacity)).toBe("0");
     await expect
       .poll(() => toggle.locator(".theme-icon-moon").evaluate((el) => getComputedStyle(el).opacity))
       .toBe("1");
@@ -206,6 +238,23 @@ test.describe("preference switches", () => {
         toggle.locator(".theme-icon-moon").evaluate((el) => getComputedStyle(el).transform),
       )
       .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+  });
+
+  test.describe("under reduced motion", () => {
+    test.use({ reducedMotion: "reduce" });
+
+    test("the theme icons only crossfade", async ({ page }) => {
+      await page.goto("/");
+      await recordIconTransitions(page);
+      const toggle = page.getByRole("button", { name: "Tema gelap" });
+      await toggle.click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+      const moon = toggle.locator(".theme-icon-moon");
+      await expect.poll(() => moon.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+      expect(await moon.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+      const runs = await iconTransitions(page);
+      expect(runs.filter((run) => run.endsWith(":transform"))).toEqual([]);
+    });
   });
 
   test("language labels roll in opposite directions on a switch", async ({ page, viewport }) => {
