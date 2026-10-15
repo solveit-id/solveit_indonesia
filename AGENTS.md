@@ -1,13 +1,14 @@
 # AGENTS.md
 
-Shared instructions for every coding agent working in this repository (Claude Code, Codex, Cursor, and others). `CLAUDE.md` loads this file, so it is the single source of agent rules. Current project status and handoff notes live in [`.ai/`](.ai/README.md).
+Shared instructions for the two coding agents used in this repository: Claude Code and OpenAI Codex. `CLAUDE.md` loads this file, so it is the single source of agent rules. Current project status and handoff notes live in [`.ai/`](.ai/README.md).
 
 ## Project
 
 Solveit Indonesia company profile and portfolio. This repository holds only the website and its own backend; Solveit OpsHub and other Solveit systems live in separate repositories and integrate through API contracts or events, never a shared database (see `docs/architecture/integration-plan.md`).
 
 - `frontend/`: React 19, TypeScript strict, Vite 8, React Router 7 (framework mode, static prerender), Tailwind CSS v4, GSAP. Built and released.
-- `backend/`: Laravel 13 JSON API (PHP ^8.3, developed on 8.5), `backend` branch. Built: `POST /api/v1/inquiries` and `GET /up` (contracts in `docs/api/`). Not deployed and not called by the frontend yet. Add only endpoints that really work, never fake ones.
+- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` and `GET /up` (contracts in `docs/api/`). Not deployed and not called by the frontend yet. Add only endpoints that really work, never fake ones.
+- Planned, not built: website admin dashboard, first-party visitor analytics, GitHub integration boundary (`docs/architecture/`). Never describe them as available.
 
 ## Read first
 
@@ -25,7 +26,7 @@ Solveit Indonesia company profile and portfolio. This repository holds only the 
 
 ## Development environment
 
-- Owner machine: Windows 11, Git Bash and PowerShell, Node 22.23 (`.nvmrc`: 22, `engines`: >=22.12), PHP 8.5.7, Composer 2.8.
+- Owner machine: Windows 11, Git Bash and PowerShell, Node 22.23 (`.nvmrc`: 22, `engines`: >=22.12), PHP 8.5.7 (XAMPP), Composer 2.8. The XAMPP database is MariaDB 10.4, which is not MySQL: never use it for this project. Run MySQL 8.4 separately (`backend/README.md`).
 - Git normalises text files to LF (`.gitattributes`); Windows working copies may show CRLF. Match the existing line ending when editing a file with scripts.
 - Memory is limited: run Playwright one project at a time with `--workers=1`. WebKit (desktop and iPhone 14) runs on GitHub Actions through the **Cross-browser QA** workflow (`gh workflow run cross-browser-qa.yml -f ref=<full sha>`).
 
@@ -38,15 +39,16 @@ Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix
 ## Laravel backend and Laravel Boost
 
 - **The official Laravel Boost package (`laravel/boost`, in `require-dev`) is mandatory for any work on the Laravel backend.** Read `backend/AGENTS.md` (Boost guidelines plus Solveit backend rules) and use the `laravel-boost` MCP tools, above all `search-docs` for Laravel 13 APIs and `application-info`, before writing framework-dependent code. Activate the Boost skills (`laravel-best-practices`, `testing-best-practices`) when they apply.
-- MCP from the repository root: `php backend/artisan boost:mcp`, registered in `.mcp.json` (Claude Code), `.codex/config.toml` (Codex, after trusting the repository), and `.cursor/mcp.json` (Cursor). Start agent sessions at the repository root or in `backend/`. If the server does not appear, restart the session; never report MCP tools that did not respond.
-- Use Boost database and log tools only on the local SQLite database. Never print `.env` values, tokens, or inquiry contents (names, contacts, messages).
+- MCP from the repository root: `php backend/artisan boost:mcp`, registered in `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex, after trusting the repository). Claude Code: start at the repository root; it loads `backend/CLAUDE.md` and the Boost skills when it works under `backend/`. Codex: start **in `backend/`** for backend work, because Codex reads `AGENTS.md` only from the root down to the working directory and skills only from the working directory up; there it uses `backend/.codex/config.toml` and `backend/.agents/skills/` (both generated, see `docs/project-structure.md` section 9). If the server does not appear, restart the session; never report MCP tools that did not respond.
+- Use Boost database and log tools only on this project's local development or testing MySQL database. Never print `.env` values, tokens, or inquiry contents (names, contacts, messages).
+- Tests run only on a disposable MySQL database whose name contains `_testing`; never run `migrate:fresh`, `rollback`, `db:wipe`, or `DROP` elsewhere.
 - `backend/.ai/` holds Boost sources (guidelines, skills, rules) for the Laravel app; the root `.ai/` holds repository handoff. Do not mix them. Full standard: `docs/project-structure.md` section 9.
 - Endpoints never return success unless the data is stored, and inquiries never get a public read, update, or delete endpoint. Out of scope for this repository: OpsHub, client portal, proposals, contracts, invoices, payments, project tracking.
 
 ## Verification before a commit
 
 1. Frontend changes: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. UI changes also: `npx playwright test --project=<desktop|tablet|mobile> --workers=1` (axe runs inside the suite). `PW_ALL_BROWSERS=1` adds `firefox`.
-2. Backend changes: `vendor/bin/pint --test`, `php artisan test`, `composer validate --strict`, `composer audit`; after dependency or guideline changes, `php artisan boost:update --no-discover` and commit the resulting `backend/AGENTS.md`.
+2. Backend changes: `vendor/bin/pint --test`, `php artisan test` (MySQL testing database), `composer validate --strict`, `composer audit`; after dependency or guideline changes, `php artisan boost:update --no-discover` and commit the resulting `backend/AGENTS.md`.
 3. Report real output. Never weaken a test to make it pass.
 
 ## Rules
@@ -58,6 +60,7 @@ Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix
 - Motion: use `useMotion` from `src/lib/motion.ts` (lazy GSAP, auto-revert); gate effects with `gsap.matchMedia()` and `motionQueries.motion`; animate transform/opacity/colour only; content visible by default.
 - SEO: every page exports `meta` built with `buildMeta()` from `src/lib/seo.ts`. Final SEO/GEO work waits for the domain and hosting.
 - Naming: Solveit OpsHub is established; Solveit Orbit and the six client-facing names are proposals (`docs/product/product-naming.md`). Do not rename the `solveit_opshub` repository or its identifiers.
-- Structure: follow `docs/project-structure.md`; no loose files in the repository root, no duplicate assets, no secrets in Git.
+- Structure: follow `docs/project-structure.md`; no loose files in the repository root, no duplicate assets, no secrets in Git (keys, `.env*` other than `.env.example`, database dumps; see `.gitignore`).
+- Agents: only Claude Code and Codex are supported. Do not add configuration for other agents.
 - Handoff: at the end of a task, update `.ai/project-status.md` (state, branch SHAs, next step).
 - Git: branches `frontend` and `backend` feed `staging` via PR, then `staging` to `main` via PR. Commit format `(type) short description`. No force push, no destructive reset, no `Co-authored-by` trailers or automatic attribution in commits or PRs.
