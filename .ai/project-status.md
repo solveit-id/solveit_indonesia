@@ -1,10 +1,10 @@
 # Project status
 
-Last updated: 2026-10-16 (B1.1 released on `main` as `88db528`; B2 merged into `staging` through PR #22 as `5449bcc`, not yet on `main`; local MySQL 8.4 setup on `backend`, PR #23 to `staging` open, awaiting review).
+Last updated: 2026-10-16 (B1.1 released on `main` as `88db528`. On `staging`: B2 through PR #22 (`5449bcc`) and the local MySQL 8.4 setup through PR #23 (`f277caf`). Release PR #24 `staging` to `main` open, awaiting owner review).
 
 ## In one paragraph
 
-The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main` through six refinement rounds. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS** (B1.1, released). Supported coding agents: **Claude Code and Codex** only. B2 (on `staging`, not yet released to `main`) adds the contact form's **Send through website** channel, built and tested but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`): the public build still composes WhatsApp or email messages and never calls the API. A real browser to Laravel to MySQL submission has been verified on the owner machine against a local Docker MySQL 8.4.11 (PR #23). The API is **not deployed**; no domain or hosting exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`).
+The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main` through six refinement rounds. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS** (B1.1, released). Supported coding agents: **Claude Code and Codex** only. B2 (on `staging`, release PR #24 to `main` open) adds the contact form's **Send through website** channel, built and tested but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`): the public build still composes WhatsApp or email messages and never calls the API. A real browser to Laravel to MySQL submission has been verified on the owner machine against a local Docker MySQL 8.4.11 (PR #23). The API is **not deployed**; no domain or hosting exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`).
 
 ## Shipped (on `main`)
 
@@ -40,7 +40,7 @@ Status: Implemented and Verified with mocked API responses in CI; real HTTP inte
   - Evidence: reproduced deterministically by delaying the callback; 40/40 local WebKit repeats pass.
 - **Build dir**: `BUILD_DIR` (default `build`) lets the API-enabled variant build into `build/inquiry-api` without touching `build/client`.
 
-## Local MySQL 8.4 environment (PR #23, `backend` to `staging`, awaiting review)
+## Local MySQL 8.4 environment (PR #23, merged into `staging` as `f277caf`)
 
 Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-report.md`, section "MySQL 8.4 lokal permanen". No application code changed.
 
@@ -68,9 +68,9 @@ Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-rep
 ## Branches
 
 - `main`: `88db528` (release B1.1, PR #21).
-- `staging`: `5449bcc`, the merge of PR #22 into `22f6853`; same tree as `frontend` `1ef187c`.
+- `staging`: `f277caf`, the merge of PR #23 on top of `5449bcc` (the merge of PR #22). Release PR #24 to `main` is open and left unmerged for the owner's review; `main` has no commit missing from `staging`.
 - `frontend`: `1ef187c` (B2: `fe6d272` test, `b4748d9` feat, `b843531` docs, `09efbc0` chore, `8eed02d` and `1ef187c` status). Merged.
-- `backend`: `88db528` plus `e7f5b6f` (chore, local MySQL setup) and `45da75e` (docs, QA and status), then a merge of `origin/staging` (`5449bcc`) that resolved the two expected documentation conflicts, then a docs commit aligning `AGENTS.md`, the development guide, and the inquiry contract with the merged state. PR #23 to `staging`, left unmerged for the owner's review. No application code changed on `backend`.
+- `backend`: `f277caf` (fast-forwarded to `staging`) plus this status update, in a docs PR to `staging`. Before that: `e7f5b6f` (chore, local MySQL setup), `45da75e` (docs), the merge of `origin/staging` `3a3feb0` that resolved the two documentation conflicts, and `b490185` (docs, consistency); merged as PR #23. No application code changed on `backend`.
 - CI before B2 (on `88db528`): Frontend CI 38723671948 and Cross-browser QA 38723672210 green (WebKit 175 passed; WebKit iPhone 14 143 passed after one re-run of the flaky theme test, fixed in B2). Backend CI for B1.1 green on PHP 8.5.11 and MySQL 8.4.11.
 - CI for PR #22 (all green):
   - Frontend CI run 38734922594 on `8eed02d`: default build e2e 488 passed; API build e2e 24 passed.
@@ -79,7 +79,8 @@ Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-rep
     - WebKit iPhone 14: 145 passed, 0 failed, 0 flaky.
     - API build: 7 passed per project, with the email test skipped on WebKit.
   - Last PR #22 head `1ef187c`: Frontend CI run 38738309596 green. Pushes to `staging` run no workflow, so the merge commit `5449bcc` has no run of its own; its tree is identical to `1ef187c`.
-- CI for PR #23: Backend CI runs 38780162208 and 38780171874 on `45da75e` green (PHP 8.5.11, MySQL 8.4.11, 109 tests). The head after the `staging` merge is checked on PR #23.
+- CI for PR #23: Backend CI run 38783110473 on the final head `b490185` green (PHP 8.5.11, MySQL 8.4.11, 109 tests, 275 assertions, no advisories). The tree of `staging` `f277caf` is identical to `b490185`, and `frontend/` and `.github/` are identical to `1ef187c`.
+- Release PR #24: Frontend CI and Backend CI run on the PR head; Cross-browser QA run 38784441899 dispatched on `f277caf`.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
@@ -96,7 +97,8 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 - **Local MySQL on the owner machine**: Done (section above). After a Windows restart Docker Desktop must be running; the container then starts by itself.
 - **API activation** (owner decision): enabling `VITE_INQUIRY_API_ENABLED` in any shipped build needs approval of the privacy notice text, retention period, hosting, the production MySQL database, `CORS_ALLOWED_ORIGINS`, and who handles inquiries.
-- **Merge PR #23** after review, then a `staging` to `main` release PR (B2 and the local MySQL setup) with owner approval.
+- **Release**: merge this status PR into `staging`, then release PR #24 to `main`, after review. Nothing is merged to `main` without the owner.
+- **Security hardening (pending, owner approval)**: on the owner machine, `backend/docker/mysql/secrets/` and `backend/.env` inherit the D: drive ACL (`Authenticated Users` and `CodexSandboxUsers` can read). Change ACLs only after an effective-permissions audit, a decision about the Codex sandbox group, and specific owner approval.
 - **Production limits**: the API is not deployed and has no production database, domain, or CORS origin; the inquiry channel stays off in every shipped build until the owner decisions below.
 
 ## Open decisions (owner)
@@ -111,6 +113,10 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 ## Next task
 
-1. Owner: review and merge PR #23 into `staging` (it already contains `staging`; no conflicts left).
-2. Then a `staging` to `main` release PR with owner approval, and fast-forward `frontend` and `backend` to the release.
-3. **B3, after owner decisions:** the admin foundation (`docs/architecture/admin-dashboard.md`, section 9). Optionally, backend idempotency for inquiries before the API is activated.
+1. Owner: merge this status PR into `staging`, then review and merge release PR #24 (`staging` to `main`).
+2. After the release merge, sync: verify the `main` merge commit, fast-forward `frontend` and `backend` to `main` without force, and record the release here.
+3. Recommended next phase, in order:
+   1. **Inquiry idempotency** (backend): an idempotency key on `POST /api/v1/inquiries`, so a visitor who retries after an uncertain outcome cannot create a duplicate. Needed before any public activation.
+   2. **Inquiry privacy and operational readiness** (owner decisions above): privacy notice, retention, export and deletion, hosting, production database, CORS origin, who handles inquiries.
+   3. **B3: secure admin authentication and dashboard foundation** (`docs/architecture/admin-dashboard.md`, section 9), then inquiry management inside it.
+   4. Later: visitor analytics after the UU PDP review (`docs/architecture/visitor-analytics.md`); ecosystem services integrate through versioned APIs or events, never a shared database (`docs/architecture/integration-plan.md`).
