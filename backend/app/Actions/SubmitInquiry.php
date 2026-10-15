@@ -43,8 +43,10 @@ class SubmitInquiry
                 throw InquiryNotStoredException::fromQueryException($exception);
             }
 
-            // Only the public reference: never log names, contacts, or messages.
-            Log::info('Inquiry received.', ['inquiry' => $inquiry->public_id]);
+            // Only the public reference: never log names, contacts, or messages. The row is
+            // already stored, so a failing log channel must not turn it into an error response
+            // (the visitor would resubmit). Not reported: reporting writes to the same log.
+            rescue(fn () => Log::info('Inquiry received.', ['inquiry' => $inquiry->public_id]), report: false);
 
             return $inquiry;
         }

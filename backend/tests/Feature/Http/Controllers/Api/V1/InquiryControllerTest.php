@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
+use UnexpectedValueException;
 
 class InquiryControllerTest extends TestCase
 {
@@ -85,6 +86,15 @@ class InquiryControllerTest extends TestCase
         $id = $this->postJson(self::ENDPOINT, $this->payload())->assertCreated()->json('id');
 
         Log::shouldHaveReceived('info')->once()->with('Inquiry received.', ['inquiry' => $id]);
+    }
+
+    public function test_failing_log_channel_still_returns_201_for_a_stored_inquiry(): void
+    {
+        Log::shouldReceive('info')->once()->andThrow(new UnexpectedValueException('The stream or file could not be opened'));
+
+        $response = $this->postJson(self::ENDPOINT, $this->payload());
+
+        $response->assertCreated()->assertJsonPath('id', Inquiry::sole()->public_id);
     }
 
     #[DataProvider('emptyOrganizations')]
