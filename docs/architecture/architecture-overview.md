@@ -17,7 +17,7 @@ solveit_indonesia/
 
 Rancangan yang belum dibangun (status Planned): dashboard admin website (`admin-dashboard.md`), analitik pengunjung first-party (`visitor-analytics.md`), dan batas integrasi GitHub organisasi (`github-integration.md`, dimiliki OpsHub).
 
-Frontend publik sudah dirilis. Backend berisi fondasi API, endpoint inquiry (B0, B1), dan idempotensinya (B2.1), dites secara lokal dan di CI, tetapi **belum di-deploy**. Klien frontend (B2) sudah dibangun di balik flag yang nonaktif, jadi build yang dirilis tidak memanggil API: formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email. Klien belum mengirim `Idempotency-Key` (B2.2, belum dibangun).
+Frontend publik sudah dirilis. Backend berisi fondasi API, endpoint inquiry (B0, B1), dan idempotensinya (B2.1), dites secara lokal dan di CI, tetapi **belum di-deploy**. Klien frontend (B2) sudah dibangun di balik flag yang nonaktif, jadi build yang dirilis tidak memanggil API: formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email. Sejak B2.2 klien mengirim `Idempotency-Key` per kiriman logis dan memeriksa hasil yang tidak pasti dengan kunci yang sama.
 
 ### Batas sistem
 

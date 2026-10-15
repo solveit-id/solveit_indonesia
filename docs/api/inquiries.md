@@ -124,7 +124,7 @@ Tidak ada `id` dan tidak ada `status`. Frontend B2 harus menganggapnya gagal dan
 
 ## Idempotensi (B2.1)
 
-Status: **dibangun dan dites di backend (B2.1); belum dipakai frontend.** Klien B2 belum mengirim header ini, jadi website belum terlindungi dari kiriman ganda sampai B2.2 selesai.
+Status: **dibangun dan dites di backend (B2.1); dipakai klien website sejak B2.2.** Setiap kiriman lewat kanal **Kirim melalui website** membawa kunci (lihat [Penerapan di frontend](#penerapan-di-frontend-b22)). Kanal itu tetap nonaktif secara default, jadi build yang dirilis belum mengirim apa pun ke API.
 
 **Masalah yang diselesaikan.** Bila jaringan putus setelah server menyimpan inquiry, pengunjung tidak menerima nomor referensi dan mungkin mengirim lagi. Dengan kunci idempotensi, kiriman ulang yang sama mengembalikan hasil pertama alih-alih membuat inquiry kedua.
 
@@ -150,41 +150,52 @@ Status: **dibangun dan dites di backend (B2.1); belum dipakai frontend.** Klien 
 
 **Siklus hidup kunci.** Hash melekat pada baris inquiry dan hilang bersamanya. Tidak ada kedaluwarsa terpisah dan tidak ada penghapusan otomatis; masa simpan inquiry masih keputusan pemilik (bagian Privasi). Akibat teknisnya: selama baris ada, kunci yang sama selalu mengembalikan inquiry itu. Bila suatu saat inquiry dihapus sesuai kebijakan retensi, kunci lamanya dapat dipakai lagi dan akan membuat inquiry baru. Bila admin (fase B3) mengubah field yang dikirim pengunjung, percobaan ulang dengan isi asli akan mendapat `409`, jadi field kiriman pengunjung sebaiknya tidak diubah. Rotasi kunci tidak relevan bagi server: setiap kiriman logis membawa kunci baru dari klien.
 
-### Panduan untuk B2.2 (frontend, belum dibangun)
+### Penerapan di frontend (B2.2)
 
-1. Buat satu kunci (`crypto.randomUUID()`) untuk setiap **kiriman logis**: saat pengunjung menekan **Kirim melalui website** dengan isian tertentu.
-2. Simpan kunci itu di memori bersama salinan isian yang dikirim selama formulir terbuka. Bila hasilnya **tidak pasti** (galat jaringan, timeout, `5xx` termasuk `502`, `503`, atau `504` yang dibuat gateway atau proxy, `2xx` yang tidak terbaca), percobaan ulang atas isian yang **tidak berubah** memakai kunci yang **sama**.
-3. Buat kunci **baru** bila isian berubah, dan setelah `201` bila pengunjung memulai kiriman lain. Setelah `400`, `413`, `422`, atau `503` dengan body JSON dari Laravel, tidak ada yang tersimpan; cara paling sederhana dan aman tetap kunci baru setiap kali isian berubah.
-4. `409` berarti bug klien (kunci dipakai ulang untuk isian lain): tampilkan pesan umum, buat kunci baru, dan jangan kirim ulang otomatis.
-5. Tidak ada retry otomatis tanpa batas. Percobaan ulang dilakukan pengunjung (tombol), atau paling banyak satu kali otomatis untuk galat jaringan setelah jeda, dan selalu dengan kunci yang sama. Batas laju tetap menghitung setiap percobaan.
-6. Kunci dan isi inquiry tidak boleh masuk analitik, log konsol, URL, atau penyimpanan permanen browser.
-7. `201` dengan `Idempotent-Replayed: true` diperlakukan sama dengan `201` biasa: tampilkan nomor referensinya.
+Implementasi: `nextSubmission`, `keepsSubmission`, `createIdempotencyKey`, dan `submitInquiry` di `frontend/src/services/inquiry-api.ts`; `canonicalInquiry` dan `sameInquiry` di `frontend/src/services/inquiry.ts`; siklusnya di `frontend/src/components/contact/inquiry-form.tsx`.
+
+1. **Kiriman logis.** Satu kiriman logis adalah pasangan kunci dan salinan kanonis isian yang dikirim bersamanya (`LogicalSubmission`). Kunci dibuat dengan `crypto.randomUUID()` hanya saat pengunjung menekan **Kirim melalui website** dan validasi lokal lolos; WhatsApp, email, dan merender formulir tidak pernah membuat kunci. Salinan itu tidak berubah setelah kunci dibuat, sehingga satu kunci tidak pernah dikirim dengan isi lain.
+2. **Kanonis.** Isian dibandingkan dengan nilai yang diterima Laravel: string di-trim, `organization` kosong tetap `""` (server menyimpannya sebagai `null`), nilai enum apa adanya, huruf besar dan kecil berpengaruh, per field (urutan field dan identitas objek tidak berpengaruh). `Str::trim` Laravel membuang semua karakter yang dibuang `String.prototype.trim` dan beberapa lagi, jadi isian yang sama menurut frontend juga sama menurut server: memakai ulang kunci tidak pernah menghasilkan `409` karena perbedaan trim.
+3. **Memakai ulang atau membuat kunci.** Saat dikirim, isian yang sama dengan kiriman logis yang masih disimpan memakai kunci yang **sama** (termasuk bila pengunjung sempat mengubah lalu mengembalikan isian). Isian lain mendapat kunci **baru**.
+4. **Kapan kiriman logis dilepas.** Setelah `201` (selesai; tombol website nonaktif sampai isian berubah), `400`, dan `409` (kuncinya sendiri bermasalah). Setelah hasil tidak pasti kiriman disimpan untuk percobaan ulang. Setelah penolakan yang tidak memakai kunci (`413`, `422`, `429`, `503` dari Laravel, `4xx` lain) kiriman juga disimpan; memakai kunci yang sama lagi untuk isi yang sama tidak berbahaya.
+5. **Tidak ada retry otomatis**, sama sekali. Hasil tidak pasti menampilkan tombol **Kirim ulang permintaan yang sama** / **Retry the same request** selama isian sama dengan percobaan tadi; tombol **Kirim melalui website** melakukan hal yang sama. Bila isian sudah berubah, tombol ulang disembunyikan dan formulir menjelaskan bahwa isian baru dicatat sebagai permintaan terpisah.
+6. **Sedang mengirim.** Satu request pada satu waktu (`ref` sinkron, `aria-busy`, `aria-disabled`). Perubahan isian selama request berjalan tetap ada di formulir, tidak masuk request itu, dan ditandai belum terkirim setelah jawabannya datang. Jawaban yang datang setelah formulir di-unmount atau dibatalkan diabaikan.
+7. **`409`**: pesan umum tanpa teks server, kunci dilepas, tidak ada pengiriman ulang otomatis; menekan tombol lagi adalah kiriman baru dengan kunci baru. **`400`**: sama, dengan pesan bahwa tidak ada yang tercatat.
+8. **`429`**: `Retry-After` dihormati. Sebelum waktunya lewat, menekan tombol hanya mengulang pesan batas laju tanpa request. Kiriman logis tetap disimpan, jadi percobaan setelahnya memakai kunci yang sama.
+9. **`201` dengan `Idempotent-Replayed: true`** ditampilkan sama dengan `201` biasa (nomor referensi asli, satu kali), ditambah satu kalimat bahwa percobaan sebelumnya ternyata sudah tercatat. Tanpa header itu (CORS tidak mengeksposnya) tampilannya sama dengan `201` biasa.
+10. **Tanpa Web Crypto** (browser lama atau halaman yang bukan secure context, misalnya `http://` ke alamat IP LAN): tidak ada request; formulir menyarankan WhatsApp atau email. Tidak ada cadangan `Math.random`, timestamp, atau penghitung.
+11. **Privasi.** Kunci dan isian hanya ada di memori komponen. Tidak masuk URL, body, log konsol, analitik, `localStorage`, `sessionStorage`, IndexedDB, atau cookie (dites).
+
+**Keterbatasan yang disengaja.** Kunci hilang bila halaman dimuat ulang, tab ditutup, atau pengunjung berpindah halaman. Bila percobaan pertama ternyata tersimpan dan pengunjung mengirim lagi setelah memuat ulang, itu menjadi inquiry kedua. Menyimpan kunci dan isian di penyimpanan browser akan menutup celah itu tetapi menaruh data pribadi di perangkat, jadi tidak dilakukan. Hanya satu kiriman logis disimpan: setelah pengunjung mengirim isian lain, percobaan yang tidak pasti sebelumnya tidak dapat diperiksa lagi dari formulir.
 
 ## Klien frontend (B2)
 
-Implementasi: `frontend/src/config/site.ts` (konfigurasi), `frontend/src/services/inquiry-api.ts` (klien), `frontend/src/components/contact/inquiry-form.tsx` (formulir). Tes: `src/config/site.test.ts`, `src/services/inquiry-api.test.ts`, `src/components/contact/inquiry-form.api.test.tsx`, `tests/e2e-api/inquiry-api.spec.ts`.
+Implementasi: `frontend/src/config/site.ts` (konfigurasi), `frontend/src/services/inquiry-api.ts` (klien), `frontend/src/components/contact/inquiry-form.tsx` (formulir). Tes: `src/config/site.test.ts`, `src/services/inquiry.test.ts`, `src/services/inquiry-api.test.ts`, `src/components/contact/inquiry-form.api.test.tsx`, `tests/e2e-api/inquiry-api.spec.ts`.
 
 **Aktivasi.** `siteConfig.inquiryApiUrl` berisi `<origin>/api/v1/inquiries` hanya bila `VITE_INQUIRY_API_ENABLED` persis `true` dan `VITE_API_BASE_URL` adalah origin yang valid: tanpa path, query, fragment, atau kredensial; HTTPS, kecuali `localhost`, `127.0.0.1`, atau `[::1]` lewat HTTP untuk pengembangan. Selain itu kanal tidak dirender dan tidak ada request. Nilai dibaca saat build (Vite), sehingga mode aktif dan nonaktif dites dengan dua build terpisah. Merender formulir tidak pernah memanggil API; request hanya dikirim setelah pengunjung menekan **Kirim melalui website** dan validasi lokal lolos.
 
-**Request.** `fetch` bawaan: `POST`, `Accept` dan `Content-Type` `application/json`, `credentials: "omit"`, `cache: "no-store"`, `redirect: "error"`, tanpa token. Body berisi field `InquiryPayload` yang sudah di-trim plus `homepage` dari input honeypot (kosong untuk manusia). Batas waktu 15 detik lewat `AbortController`; request juga dibatalkan bila formulir di-unmount. **Tidak ada retry otomatis** dan belum ada header `Idempotency-Key`: backend mendukungnya sejak B2.1, tetapi klien baru memakainya di B2.2 (panduan di bagian Idempotensi). Isi inquiry tidak pernah di-log atau dikirim ke analitik.
+**Request.** `fetch` bawaan: `POST`, `Accept` dan `Content-Type` `application/json`, `credentials: "omit"`, `cache: "no-store"`, `redirect: "error"`, tanpa token. Body berisi field `InquiryPayload` yang sudah dikanonkan (`canonicalInquiry`) plus `homepage` dari input honeypot (kosong untuk manusia). Header `Idempotency-Key` berisi kunci kiriman logis (B2.2); `submitInquiry` menolak mengirim tanpa UUID v4 yang valid. Batas waktu 15 detik lewat `AbortController`; request juga dibatalkan bila formulir di-unmount. **Tidak ada retry otomatis.** Kunci dan isi inquiry tidak pernah di-log atau dikirim ke analitik.
 
 **Pemetaan respons.**
 
 | Respons | Arti bagi formulir |
 |---|---|
-| `201` dengan `id` berpola `INQ-XXXX-XXXX-XXXX` (Crockford base32) dan `status: "received"` | Diterima. Nomor referensi asli ditampilkan; tidak ada klaim sudah dibaca, dibalas, atau ada notifikasi |
-| `201` dengan body lain atau tidak terbaca | Hasil tidak pasti (bukan sukses) |
+| `201` dengan `id` berpola `INQ-XXXX-XXXX-XXXX` (Crockford base32) dan `status: "received"` | Diterima. Nomor referensi asli ditampilkan; tidak ada klaim sudah dibaca, dibalas, atau ada notifikasi. Dengan `Idempotent-Replayed: true` ditambah kalimat bahwa percobaan sebelumnya sudah tercatat |
+| `201` dengan body lain atau tidak terbaca (juga bila replay) | Hasil tidak pasti (bukan sukses) |
+| `400` | Tidak tersimpan; kunci dilepas, kiriman berikutnya memakai kunci baru |
+| `409` | Tidak tersimpan; pesan umum tanpa teks server, kunci dilepas, tidak ada pengiriman ulang otomatis |
 | `422` dengan field yang dikenal | Galat per field dengan teks lokal (ID/EN) milik frontend; teks server tidak pernah ditampilkan |
 | `422` `errors.homepage` | Ditolak; disarankan WhatsApp atau email |
-| `429` | Batas laju; `Retry-After` (detik atau tanggal HTTP, maksimal 24 jam) dibulatkan ke menit, tanpa hitung mundur |
+| `429` | Batas laju; `Retry-After` (detik atau tanggal HTTP, maksimal 24 jam) dibulatkan ke menit, tanpa hitung mundur. Sebelum waktunya lewat tidak ada request baru |
 | `413` | Pesan terlalu besar |
-| `503` | Tidak tersimpan; coba lagi nanti atau pakai WhatsApp atau email |
+| `503` dengan body Laravel yang terdokumentasi (persis) | Tidak tersimpan; coba lagi nanti atau pakai WhatsApp atau email |
+| `503` lain (gateway, proxy, mode maintenance, body tidak terbaca) | Hasil tidak pasti, karena hanya jawaban Laravel sendiri yang membuktikan tidak ada yang tersimpan |
 | `4xx` lain | Tidak terkirim; pakai WhatsApp atau email |
-| `500`, `5xx` lain, `2xx` lain, galat jaringan, timeout | Hasil tidak pasti: permintaan mungkin sudah sampai; pengunjung diminta memastikan lewat WhatsApp atau email sebelum mengirim lagi |
+| `500`, `502`, `504`, `5xx` lain, `2xx` lain, galat jaringan, timeout | Hasil tidak pasti: permintaan mungkin sudah sampai. Pengunjung dapat mengirim ulang isian yang sama dengan kunci yang sama untuk memeriksanya, atau bertanya lewat WhatsApp atau email |
 
 Pada semua kegagalan isian formulir tetap ada. WhatsApp dan email tetap pilihan terpisah yang hanya dibuka oleh pengunjung sendiri, tidak pernah otomatis. Selama request berjalan, tombol memakai `aria-busy` dan `aria-disabled` dan sebuah `ref` sinkron menolak kiriman kedua. Setelah `201`, tombol website nonaktif sampai isian berubah; perubahan setelah pengiriman ditandai belum terkirim.
 
-**CORS.** Origin website harus masuk `CORS_ALLOWED_ORIGINS` di backend; `Retry-After` sudah termasuk header yang dapat dibaca (README). Lokal, `http://localhost:4174` (build varian dengan kanal aktif) sudah ada di `.env.example`; uji nyata browser ke Laravel ke MySQL tercatat di `docs/qa/qa-report.md` (bagian MySQL 8.4 lokal permanen).
+**CORS.** Origin website harus masuk `CORS_ALLOWED_ORIGINS` di backend. Konfigurasi CORS mengizinkan header request `Idempotency-Key` (tanpanya browser memblokir setiap kiriman B2.2 di preflight) dan mengekspos `Idempotent-Replayed` serta `Retry-After` (README). Lokal, `http://localhost:4174` (build varian dengan kanal aktif) sudah ada di `.env.example`; uji nyata browser ke Laravel ke MySQL tercatat di `docs/qa/qa-report.md` (bagian B2.2 dan MySQL 8.4 lokal permanen).
 
 ## Proteksi spam
 

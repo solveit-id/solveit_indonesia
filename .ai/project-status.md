@@ -1,10 +1,10 @@
 # Project status
 
-Last updated: 2026-10-16 (B2.1 inquiry idempotency and the Docker environments released to `main` through PR #26 and release PR #27, merge commit `d22a079`).
+Last updated: 2026-10-16 (B2.2 frontend inquiry idempotency and safe retry, from `frontend` through `staging` to `main`; previous release B2.1 and Docker, merge commit `d22a079`, status follow-up `cf55c2f`).
 
 ## In one paragraph
 
-The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main`. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS**. Since B2.1 the inquiry endpoint is **idempotent per `Idempotency-Key`** (backend only; the frontend client does not send a key until B2.2). The contact form's **Send through website** channel (B2) is built but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`), so shipped builds never call the API. The repository now has a **full-Docker development environment** (`infra/docker/compose.dev.yaml`, reusing the existing MySQL container) and a **production-oriented Docker configuration** (`infra/docker/compose.prod.yaml`): production Docker configuration prepared and validated, **not publicly deployed**. No domain, hosting, certificate, or production database exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`). Supported coding agents: Claude Code and Codex.
+The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main`. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS**. Since B2.1 the inquiry endpoint is **idempotent per `Idempotency-Key`**, and since B2.2 the website client sends one key per logical submission and lets the visitor check an unconfirmed attempt with the same key. The contact form's **Send through website** channel (B2) is built but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`), so shipped builds never call the API. The repository now has a **full-Docker development environment** (`infra/docker/compose.dev.yaml`, reusing the existing MySQL container) and a **production-oriented Docker configuration** (`infra/docker/compose.prod.yaml`): production Docker configuration prepared and validated, **not publicly deployed**. No domain, hosting, certificate, or production database exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`). Supported coding agents: Claude Code and Codex.
 
 ## Shipped (on `main`)
 
@@ -20,7 +20,7 @@ Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies,
 
 ## B2.1: inquiry idempotency (backend)
 
-Status: Implemented and Tested (locally, in the Docker dev container, and in Backend CI). Not deployed. **Not yet used by the frontend** (B2.2). Contract: `docs/api/inquiries.md`, section Idempotensi (B2.1). Evidence: `docs/qa/qa-report.md`, section B2.1.
+Status: Implemented and Tested (locally, in the Docker dev container, and in Backend CI). Not deployed. Used by the website client since B2.2 (below). Contract: `docs/api/inquiries.md`, section Idempotensi (B2.1). Evidence: `docs/qa/qa-report.md`, section B2.1.
 
 - Optional header `Idempotency-Key`: exactly one UUID v4 (any case). Malformed: `400` before validation. Missing: B1 behaviour, no duplicate protection.
 - Same key and equivalent canonical payload: `201` with the original reference and `Idempotent-Replayed: true`, no new row. Same key, different content: `409`, nothing stored, no reference revealed. Different keys: independent inquiries.
@@ -28,6 +28,16 @@ Status: Implemented and Tested (locally, in the Docker dev container, and in Bac
 - Failed inserts (`503`) and rejected payloads (`422`) do not consume the key. Rate limiting still counts every retry. CORS allows the header only for the configured origins and exposes `Idempotent-Replayed`.
 - Key lifecycle: the hash lives and dies with the inquiry row; no separate expiry (retention is an owner decision).
 - Tests: 151 tests, 466 assertions (109 and 275 before), including five multi-process tests with independent MySQL connections and a mutation check that proved they fail without the key hash.
+
+## B2.2: inquiry idempotency and safe retry (frontend)
+
+Status: Implemented and Tested (unit, component, mocked E2E in Chromium and Firefox, and a real browser to Laravel to MySQL 8.4 smoke test with synthetic data). Not deployed; the channel stays **disabled by default** (`VITE_INQUIRY_API_ENABLED=false` in `.env.example`, default builds, and `compose.prod.yaml`). Design: `docs/api/inquiries.md`, section Penerapan di frontend (B2.2). Evidence: `docs/qa/qa-report.md`, section B2.2. Backend, CORS, and Docker unchanged.
+
+- One `LogicalSubmission` (key from `crypto.randomUUID()` plus the canonical values sent with it) per website submission, in component memory only. Same canonical content reuses the key (also after edit and restore); other content gets a new key. No fallback generator: without Web Crypto (old browser, or plain HTTP to a LAN IP) nothing is sent and WhatsApp or email is suggested.
+- Retired after `201`, `400`, `409`; kept after uncertain outcomes and after refusals that do not use up the key. No automatic retry at all: an uncertain result shows **Kirim ulang permintaan yang sama** / **Retry the same request** while the content is unchanged, and explains that changed content becomes a separate request.
+- Only Laravel's exact `503` body counts as "not stored"; any other `503`, `502`, `504`, `5xx`, unreadable `201`, network error, or timeout is uncertain. `429` blocks new requests until `Retry-After` passes. `Idempotent-Replayed: true` adds one sentence to the normal receipt.
+- Known limitation (deliberate): a reload, closed tab, or navigation forgets the key, so a resend after that can create a second inquiry. Persisting it would put personal data in browser storage.
+- Tests: 178 unit and component tests (125 before), API-build E2E 15 per project (9 before), default E2E 488 unchanged. Bundle: +866 bytes gzip in total.
 
 ## Docker environments (`infra/docker/`)
 
@@ -46,7 +56,8 @@ Status: Development Implemented and Verified (owner machine and Docker CI). Prod
 
 ## Branches and CI
 
-- Release: PR #26 (`backend` to `staging`) merged as `7b232f9`; release PR #27 (`staging` to `main`) merged as `d22a079`. `main` has no commit missing from `staging`, and `6474647` is an ancestor of `d22a079`.
+- B2.2 baseline: `main`, `frontend`, `backend` at `cf55c2f`, `staging` at `b6b429b` (same tree). B2.2 is developed on `frontend` and released through a `frontend` to `staging` PR and a `staging` to `main` release PR; the PR numbers, CI runs, and merge commits are in GitHub (`gh pr list --state merged --limit 5`).
+- Previous release (B2.1 and Docker): PR #26 (`backend` to `staging`) merged as `7b232f9`; release PR #27 (`staging` to `main`) merged as `d22a079`. `main` has no commit missing from `staging`, and `6474647` is an ancestor of `d22a079`.
 - After the release `main`, `frontend`, and `backend` were at `d22a079` and `staging` at `7b232f9`, all with tree `fca31d4` (fast-forward pushes, no force). This status update follows as a docs-only PR.
 - Commits in the release: `dcd653e` (feat, idempotency), `6418370` (chore, Docker development), `97c4be5` (feat, Docker production), `6c39e6f` (test, Docker CI), `73c2a1e`, `a126fbe`, `fc12e92`, `fe58a3d` (fixes found by Docker CI and QA), `3202aab` (docs).
 - CI on PR #26 head `3202aab` (all green):
@@ -60,12 +71,12 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 ## Quality baseline
 
-- Frontend: unchanged application code; `vite.config.ts` gained an opt-in polling switch (`SOLVEIT_WATCH_POLLING`, unset natively). Lint, typecheck, 125 unit tests pass on the host and in the container. Previous E2E, axe, and Lighthouse results (B2) stand; Frontend CI runs the full Chromium suite on the PR.
-- Backend: 151 tests, 466 assertions on MySQL 8.4.11 (native PHP 8.5.7 and container PHP 8.5.11); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally).
+- Frontend (B2.2, local): Prettier, ESLint, typecheck, build clean; 178 unit and component tests; default E2E 488 passed (desktop 180, tablet 161, mobile 147); API-build E2E 15 passed each on desktop, tablet, mobile, and Firefox, with axe on the new states. Lighthouse not rerun (less than 1 KB gzip added, contact page only). WebKit through the Cross-browser QA workflow on the PR head.
+- Backend (unchanged since B2.1): 151 tests, 466 assertions on MySQL 8.4.11 (native PHP 8.5.7 and container PHP 8.5.11); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally).
 
 ## Blocked or owner action required
 
-- **API activation** (owner decision): enabling `VITE_INQUIRY_API_ENABLED` in any shipped build needs approval of the privacy notice text, retention period, hosting, the production MySQL database, `CORS_ALLOWED_ORIGINS`, and who handles inquiries. B2.2 should land first.
+- **API activation** (owner decision): enabling `VITE_INQUIRY_API_ENABLED` in any shipped build needs approval of the privacy notice text, retention period, hosting, the production MySQL database, `CORS_ALLOWED_ORIGINS`, and who handles inquiries. B2.2 (client idempotency) is done, so nothing technical on the client side blocks it.
 - **Production deployment** (owner decision): hosting provider, domain, TLS, production database (bundled or managed), backup storage. The Docker setup is ready to be tried on an approved Docker-capable host; nothing has been deployed.
 - **Security hardening (pending, owner approval)**: on the owner machine, `backend/docker/mysql/secrets/` and `backend/.env` inherit the D: drive ACL (`Authenticated Users` and `CodexSandboxUsers` can read). Change ACLs only after an effective-permissions audit, a decision about the Codex sandbox group, and specific owner approval. Not changed in this task.
 
@@ -80,6 +91,5 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 ## Next task
 
-1. **B2.2: frontend idempotency** (`frontend` branch): send `Idempotency-Key` per logical submission, reuse it only for retries of unchanged data after an uncertain result, new key when the data changes, handle `409` and `Idempotent-Replayed`, no unbounded automatic retries, no key or inquiry data in logs or analytics (`docs/api/inquiries.md`, Panduan untuk B2.2). Tests in unit, component, and the API-build E2E.
-2. Inquiry privacy and operational readiness (owner decisions above), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host.
-3. **B3**: secure admin authentication and dashboard foundation (`docs/architecture/admin-dashboard.md`, section 9).
+1. **Inquiry privacy and operational readiness** (owner decisions above: privacy notice text on the form, retention period, who handles inquiries, hosting and domain), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host, with `CORS_ALLOWED_ORIGINS` set to the real website origin and a staging build that enables the channel.
+2. **B3**: secure admin authentication and dashboard foundation (`docs/architecture/admin-dashboard.md`, section 9).

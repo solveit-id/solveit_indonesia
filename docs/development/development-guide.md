@@ -23,7 +23,7 @@ Jalankan dari `frontend/`:
 | `npm run typecheck` | Typegen React Router + `tsc` |
 | `npm test` | Unit dan component test (Vitest) |
 | `npm run test:e2e` | Playwright di 3 viewport (desktop 1440, tablet 820, Pixel 7), termasuk axe di kedua tema dan kedua bahasa |
-| `npm run test:e2e:api` | Playwright untuk build kedua dengan kanal API inquiry aktif (`playwright.api.config.ts`, `tests/e2e-api/`, port 4174, output `build/inquiry-api/client`). Semua respons API di-mock dengan `page.route`; tidak ada request yang keluar. Nilai `VITE_*` ditanam saat build, jadi mode aktif dan nonaktif hanya bisa dibuktikan dengan dua build |
+| `npm run test:e2e:api` | Playwright untuk build kedua dengan kanal API inquiry aktif (`playwright.api.config.ts`, `tests/e2e-api/`, port 4174, output `build/inquiry-api/client`). Semua respons API di-mock dengan `page.route` (termasuk mock berstatus yang meniru idempotensi B2.1: menyimpan per kunci, replay, `409`, dan respons yang hilang setelah tersimpan); tidak ada request yang keluar. Nilai `VITE_*` ditanam saat build, jadi mode aktif dan nonaktif hanya bisa dibuktikan dengan dua build |
 | `PW_ALL_BROWSERS=1 npm run test:e2e` | Menambahkan Firefox dan WebKit desktop (butuh `npx playwright install firefox webkit`) |
 | GitHub Actions: **Cross-browser QA** | Suite penuh di WebKit desktop dan WebKit iPhone 14 pada runner bersih (1 worker, tanpa retry, laporan sebagai artefak). Jalankan lewat tab Actions atau `gh workflow run cross-browser-qa.yml -f ref=<sha>` setelah workflow ada di `main`. CI reguler tetap hanya Chromium |
 | `npm run format` / `format:check` | Prettier (dengan pengurutan kelas Tailwind) |
@@ -99,7 +99,7 @@ BUILD_DIR=build/inquiry-api-local VITE_INQUIRY_API_ENABLED=true VITE_API_BASE_UR
 BUILD_DIR=build/inquiry-api-local PORT=4174 node scripts/serve.mjs
 ```
 
-Buka `http://localhost:4174/kontak` dan kirim data sintetis saja: kiriman tersimpan di database pengembangan dan dihitung rate limit (5 per menit per IP). `npm run build` biasa membersihkan seluruh `build/`, termasuk folder varian ini. Jangan memakai variabel ini untuk build yang dirilis.
+Buka `http://localhost:4174/kontak` dan kirim data sintetis saja: kiriman tersimpan di database pengembangan dan dihitung rate limit (5 per menit per IP). Buka lewat `localhost` atau `127.0.0.1`: kunci idempotensi (B2.2) dibuat dengan `crypto.randomUUID()`, yang hanya tersedia di secure context, jadi dari alamat IP LAN lewat HTTP (misalnya ponsel di jaringan yang sama) kanal website menolak mengirim dan menyarankan WhatsApp atau email. `npm run build` biasa membersihkan seluruh `build/`, termasuk folder varian ini. Jangan memakai variabel ini untuk build yang dirilis.
 
 ### Perintah
 
