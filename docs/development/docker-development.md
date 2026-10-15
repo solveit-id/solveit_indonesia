@@ -91,6 +91,7 @@ Jangan pernah `docker compose ... down -v` dan jangan `docker volume rm solveit-
 | `backend` berhenti dengan "backend/.env is missing" | Jalankan `infra/docker/scripts/setup-dev.sh` |
 | `SQLSTATE[HY000] [1045]` di container | Kata sandi di `.env` atau `.env.testing` tidak sama dengan secret MySQL. Jalankan ulang provisioning (Setup pertama) atau samakan nilainya |
 | `SQLSTATE[HY000] [2002]` | MySQL belum `healthy`: `docker compose ... ps`, `docker compose ... logs mysql` |
+| `SQLSTATE[HY000] [1130] Host ... is not allowed` (Linux) | File secret MySQL tidak dapat dibaca oleh pengguna `mysql` di container, sehingga start pertama tidak membuat pengguna. Lihat `backend/README.md` (Masalah umum); `setup-dev.sh` membuat file `644` di folder `700` |
 | Tes berhenti dengan pesan TestDatabaseGuard | Lihat tabel pemecahan masalah di `development-guide.md`; jangan melemahkan pengaman |
 | `EACCES` atau "Permission denied" di `storage/`, `bootstrap/cache/`, atau `frontend/` (Linux) | UID container tidak sama dengan pemilik folder. `SOLVEIT_UID=$(id -u) SOLVEIT_GID=$(id -g) docker compose ... up -d --build` |
 | Perubahan frontend tidak muncul | `SOLVEIT_WATCH_POLLING` harus `true` di Windows; `docker compose ... logs frontend` |

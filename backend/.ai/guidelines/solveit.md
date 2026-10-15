@@ -6,7 +6,7 @@ These rules come from the repository and take precedence over the generic Larave
 
 - The repository root `AGENTS.md` applies first (content integrity, Git rules, handoff). This backend is only the API of the Solveit Indonesia company profile website. Solveit OpsHub, client portals, proposals, contracts, invoices, payments, and project tracking live in separate repositories and never in this application or its database.
 - Documentation is part of done in this repository: update `docs/api/`, `docs/architecture/`, `docs/qa/qa-report.md`, and `.ai/project-status.md` when behaviour changes. This replaces the generic rule to create documentation only on request.
-- The database is MySQL 8.4 LTS (Oracle MySQL, not MariaDB) for development, tests, and production; the runtime is PHP 8.5 (at least 8.5.7). Hosting is not decided: do not add deployment configuration or recommend a platform.
+- The database is MySQL 8.4 LTS (Oracle MySQL, not MariaDB) for development, tests, and production; the runtime is PHP 8.5 (at least 8.5.7). Hosting is not decided: do not recommend a platform or add provider-specific configuration. The provider-independent Docker setup (development and production) lives in `../infra/docker/` and follows `docs/project-structure.md` section 11; the application must keep working without it (native PHP and any MySQL 8.4).
 
 ## Database and tests
 
@@ -20,6 +20,7 @@ These rules come from the repository and take precedence over the generic Larave
 - Public JSON endpoints live in `routes/api.php` under `v1` (served at `/api/v1/...`). Contracts are documented in `docs/api/`; change the document in the same commit as the endpoint.
 - Validation in Form Requests under `app/Http/Requests/Api/V1`, business operations in `app/Actions`, responses through API Resources. Enum values must match the frontend types; `tests/Unit/Enums/FrontendContractTest.php` enforces it.
 - Never return 201 or a reference unless the row is stored. Never add a public endpoint that lists, reads, changes, or deletes inquiries.
+- `POST /api/v1/inquiries` is idempotent per `Idempotency-Key` (B2.1): the UNIQUE `idempotency_key_hash` column decides, never a read-before-insert. Keep that contract (docs/api/inquiries.md, Idempotensi) and its multi-process tests (`tests/Feature/Actions/SubmitInquiryConcurrencyTest.php`).
 
 ## Personal data
 

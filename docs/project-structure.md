@@ -32,6 +32,7 @@ Gunakan dokumen ini saat:
 ├── backend/             Aplikasi backend (Laravel)
 ├── docs/                Seluruh dokumentasi proyek
 ├── frontend/            Aplikasi frontend (React + Vite)
+├── infra/               Infrastruktur bersama: Docker Compose, Dockerfile, nginx, skrip (bagian 11)
 ├── .editorconfig        Indentasi, charset, akhir baris untuk semua editor
 ├── .gitattributes       Normalisasi akhir baris (LF) dan atribut file
 ├── .gitignore           Daftar file yang tidak di-commit
@@ -51,7 +52,7 @@ Repository yang hanya punya satu aplikasi boleh meletakkan aplikasi langsung di 
 | `README.md` | Ringkasan proyek, tabel folder utama, perintah mulai cepat, alur Git, tautan ke `docs/README.md` | Wajib |
 | `AGENTS.md` | Aturan untuk semua agent: konteks proyek, perintah, verifikasi, aturan konten, desain, Git. Dibaca langsung oleh Codex dan dimuat Claude Code lewat `CLAUDE.md` | Wajib bila memakai agent |
 | `CLAUDE.md` | Baris `@AGENTS.md` lalu hanya catatan khusus Claude Code (skill, MCP). Tidak mengulang isi `AGENTS.md` | Wajib bila memakai Claude Code |
-| `.gitignore` | Dependensi, hasil build, artefak dan cache tes, `.env*` (kecuali `.env.example`), kunci (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `auth.json`), file database dan dump (`*.sqlite`, `*.sql`, `*.dump`, `*.bak`), log, file lokal agent, file OS/editor. Pola tidak boleh menyembunyikan file proyek: setelah mengubahnya, `git ls-files -ci --exclude-standard` harus kosong | Wajib |
+| `.gitignore` | Dependensi, hasil build, artefak dan cache tes, `.env*` dan `*.env` (kecuali template `.env.example` dan `*.env.example`), folder secret, kunci (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `auth.json`), file database dan dump (`*.sqlite`, `*.sql`, `*.dump`, `*.bak`), log, file lokal agent, file OS/editor. Pola tidak boleh menyembunyikan file proyek: setelah mengubahnya, `git ls-files -ci --exclude-standard` harus kosong | Wajib |
 | `.gitattributes` | `* text=auto eol=lf` dan atribut biner bila perlu | Wajib |
 | `.editorconfig` | UTF-8, LF, indentasi 2 spasi (4 untuk PHP dan Python), baris akhir kosong | Wajib |
 | `.nvmrc` | Versi mayor Node yang dipakai CI dan developer | Wajib bila ada Node |
@@ -156,7 +157,7 @@ Satu sumber per cakupan, tanpa menyalin aturan ke lokasi lain:
 Izin di `.claude/settings.json` mengikuti prinsip hak minimum:
 
 - `allow` hanya untuk perintah verifikasi yang aman dan tidak mengubah data (lint, test, build, `git status/diff/log`, `php artisan test`, `route:list`, `pint`, `composer validate/audit`).
-- `deny` menolak `git push --force`/`-f` dan pembacaan file rahasia: `.env`, `.env.local`, `.env.*.local`, `.env.{backup,bak,dev,development,prod,production,staging,test,testing}`, dan `auth.json` (token Composer). Aturan `deny` selalu mengalahkan `allow`, jadi pola lebar `.env.*` tidak dipakai: pola itu ikut memblokir `.env.example`, template tanpa rahasia yang harus dapat dibaca dan diubah agent (diverifikasi 2026-10-15). Bila tim memakai nama file rahasia baru, tambahkan polanya ke `deny`.
+- `deny` menolak `git push --force`/`-f` dan pembacaan file rahasia: `.env`, `.env.local`, `.env.*.local`, `.env.{backup,bak,dev,development,prod,production,staging,test,testing}`, `auth.json` (token Composer), file env produksi Docker (`production.env`), dan isi folder `secrets/`. Aturan `deny` selalu mengalahkan `allow`, jadi pola lebar `.env.*` tidak dipakai: pola itu ikut memblokir `.env.example`, template tanpa rahasia yang harus dapat dibaca dan diubah agent (diverifikasi 2026-10-15). Bila tim memakai nama file rahasia baru, tambahkan polanya ke `deny`.
 - `enabledMcpjsonServers` menyebut setiap server MCP proyek yang sudah ditinjau satu per satu (**proyek ini:** `playwright`, `laravel-boost`). Jangan memakai `enableAllProjectMcpServers: true`: server baru yang ditambahkan ke `.mcp.json` harus disetujui sadar, tidak otomatis.
 
 ## 7. `frontend/` (React, TypeScript, Vite, React Router)
@@ -226,7 +227,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── bootstrap/app.php           [W] Routing (api:), middleware, penanganan exception
 ├── config/                     [W] Ditambah config proyek (cors.php, trustedproxy.php, <domain>.php) dan boost.php [B]
 ├── database/                   [W] migrations, factories, seeders; *.sqlite tidak di-commit
-├── docker/mysql/               [P] Hanya pengembangan lokal: compose.yaml (MySQL 8.4) dan initdb/ (database dan pengguna). secrets/ [L], diabaikan Git
+├── docker/mysql/               [P] Hanya pengembangan lokal: compose.yaml (MySQL 8.4) dan initdb/ (database dan pengguna). secrets/ [L], diabaikan Git. Infrastruktur milik aplikasi; disertakan oleh infra/docker/compose.dev.yaml (bagian 11.1)
 ├── public/                     [W] index.php, .htaccess, robots.txt
 ├── resources/views/            [W] Boleh kosong (.gitkeep) pada aplikasi API
 ├── routes/                     [W] api.php (/api/v1/...), web.php, console.php
@@ -427,9 +428,93 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 - Setiap workflow menyatakan `permissions` minimum (`contents: read` bila hanya membaca); jangan bergantung pada izin bawaan repository.
 - CI Laravel minimal: kebijakan PHP (minimum ditegaskan, versi aktual dicatat), `composer validate --strict`, `composer install`, `composer check-platform-reqs`, Pint, migrasi naik-turun-naik pada database sekali pakai dengan engine yang sama dengan produksi (**proyek ini:** service container MySQL 8.4 yang versinya ditegaskan), `php artisan test` pada database tes terpisah, `composer audit`, dan instalasi `--no-dev` yang tetap boot. Kredensial database CI dibuat acak per run dan disamarkan; tidak pernah ditulis di repository dan tidak pernah memakai database produksi.
 - Workflow berat atau manual diberi nama sesuai tujuannya (`cross-browser-qa.yml`) dan dijalankan lewat `workflow_dispatch`.
+- Infrastruktur diuji di workflow sendiri (`docker-ci.yml`, bagian 11.8), dipicu oleh `infra/**` dan path aplikasi yang dibangun ke image.
 - Template PR atau issue (`pull_request_template.md`, `ISSUE_TEMPLATE/`) bila tim membutuhkannya.
 
-## 11. Di mana saya menaruh ...?
+## 11. Infrastruktur monorepo dan Docker
+
+Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitekturnya. Perintah operasional ada di dokumen pengembangan (**proyek ini:** `docs/development/docker-development.md` dan `docs/development/docker-production.md`).
+
+```text
+<repo>/
+├── infra/                              Infrastruktur bersama seluruh repository
+│   └── docker/
+│       ├── compose.dev.yaml            Lingkungan pengembangan lengkap
+│       ├── compose.prod.yaml           Deployment produksi berbasis Docker
+│       ├── production.env.example      Template konfigurasi runtime produksi, tanpa rahasia
+│       ├── <aplikasi>/                 Satu folder per image (backend/, frontend/, nanti admin/)
+│       │   ├── Dockerfile              Multi-stage, target bernama (dev, build, prod)
+│       │   ├── Dockerfile.dockerignore Allowlist build context untuk Dockerfile ini
+│       │   ├── entrypoint-<target>.sh  Entrypoint per target
+│       │   └── <runtime>/              Konfigurasi runtime yang di-bake (php/, php-fpm/)
+│       ├── nginx/<peran>.conf          Konfigurasi nginx atau reverse proxy (frontend.conf, gateway.conf)
+│       ├── mysql/initdb-<lingkungan>/  Provisioning database yang dikelola file Compose di folder ini
+│       ├── scripts/<kata-kerja>-<objek>.sh   Skrip operasional (setup-dev.sh, verify-production.sh)
+│       └── secrets/                    [L] Rahasia produksi, diabaikan Git
+└── <aplikasi>/docker/<layanan>/        Infrastruktur milik satu aplikasi yang juga dipakai tanpa infra/
+```
+
+### 11.1 Bersama atau milik aplikasi
+
+1. **Bersama** (menyangkut lebih dari satu aplikasi, atau seluruh deployment): `infra/`. Compose lengkap, gateway, Dockerfile semua aplikasi, skrip onboarding.
+2. **Milik satu aplikasi** dan berguna tanpa yang lain (misalnya database lokal untuk alur native backend): `<aplikasi>/docker/<layanan>/`. File Compose bersama **menyertakan** (`include`) file itu, tidak menyalinnya: satu layanan hanya punya satu definisi. **(proyek ini)** `backend/docker/mysql/compose.yaml` adalah satu-satunya definisi MySQL lokal; `infra/docker/compose.dev.yaml` menyertakannya dengan nama proyek yang sama, sehingga container dan volume yang sudah ada dipakai ulang (hash konfigurasi identik, diperiksa di CI).
+3. Lingkungan yang berbeda (pengembangan, produksi) boleh punya definisi database sendiri karena datanya memang terpisah; satu lingkungan tidak boleh punya dua.
+
+### 11.2 File Compose, Dockerfile, dan konteks build
+
+1. File Compose: `infra/docker/compose.<lingkungan>.yaml` (`dev`, `prod`), tidak di root repository (bagian 1, prinsip 2). Setiap file punya `name:` di tingkat atas. Perintah dijalankan dari root dengan `-f`.
+2. Dockerfile: satu per image di `infra/docker/<aplikasi>/Dockerfile`, multi-stage dengan target bernama: `dev` (server pengembangan, kode di-bind-mount), `build` atau `vendor` (dependensi dan kompilasi), `prod` (runtime minimum). Folder aplikasi tidak berisi Dockerfile.
+3. Konteks build adalah root repository. Setiap Dockerfile punya `Dockerfile.dockerignore` di sebelahnya yang dimulai dengan `*` lalu hanya membuka path yang dibutuhkan, dan tetap mengecualikan `.env*`, folder secret, `vendor/`, `node_modules/`, tes, dump, log, file agent, dan `.git`. Tidak ada `.dockerignore` di root.
+4. Image dasar dikunci ke tag patch resmi yang sudah diverifikasi ada (**proyek ini:** `php:8.5.11-fpm-bookworm`, `node:22.23.1-bookworm-slim`, `nginxinc/nginx-unprivileged:1.30.6-alpine`, `mysql:8.4.11`, `composer:2.10.3`), bukan `latest`. Versi minimum proyek (PHP 8.5.7, Node 22, MySQL 8.4) ditegaskan di dalam build atau di CI.
+5. Image produksi tidak berisi dev dependency, kode tes, server pengembangan, alat agent, atau rahasia; build gagal bila ada. Proses berjalan sebagai pengguna non-root bila image mendukungnya.
+
+### 11.3 Konfigurasi, entrypoint, dan skrip
+
+1. Konfigurasi nginx atau reverse proxy: `infra/docker/nginx/<peran>.conf`. Konfigurasi untuk image buatan proyek di-bake (`COPY`); untuk image resmi tanpa build di-mount read-only.
+2. Konfigurasi pengembangan dan produksi berada di file terpisah, tidak satu file yang bercabang menurut variabel. Pengembangan: bind mount kode, server dev, dev dependency, port loopback. Produksi: kode di dalam image, tanpa bind mount kode, `APP_DEBUG=false`, konfigurasi runtime di `<aplikasi>/<runtime>/production.*`.
+3. Entrypoint: `entrypoint-<target>.sh` di sebelah Dockerfile, POSIX `sh` dengan `set -eu`, diakhiri `exec "$@"`. Entrypoint tidak pernah menjalankan migrasi, menghapus data, atau mencetak rahasia; ia boleh memasang dependensi ke volume yang kosong dan membuat folder kerja.
+4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`.
+
+### 11.4 Rahasia, environment, dan data
+
+1. Rahasia adalah file (Docker secret) di folder yang diabaikan Git (`infra/docker/secrets/`, `<aplikasi>/docker/<layanan>/secrets/`) dan dibaca lewat variabel `*_FILE`. Tidak ada kredensial di file Compose, Dockerfile, build argument, image, atau file env yang di-commit.
+2. File env: template `*.env.example` (atau `.env.example` aplikasi) di-commit; file nyata (`*.env`, `.env`) diabaikan dan masuk daftar `deny` agent (bagian 6). Variabel `VITE_*` dan build argument lain bersifat publik.
+3. Secret Compose tanpa Swarm adalah bind mount biasa, tidak dienkripsi: izin file di host harus membatasi pembaca ke pengguna container.
+4. Data database ada di volume bernama, tidak pernah di bind mount folder repository. Volume yang berisi data nyata dan dipakai lintas proyek Compose diberi `name:` eksplisit (**proyek ini:** `solveit-mysql-data`); volume sekali pakai (dependensi, cache) cukup bercakupan proyek. `down -v` dilarang pada proyek yang memegang data nyata.
+5. Folder dependensi aplikasi yang di-bind-mount (`vendor/`, `node_modules/`) berada di volume bernama, sehingga paket Linux tidak bercampur dengan instalasi di host.
+
+### 11.5 Layanan, jaringan, dan health check
+
+1. Nama layanan adalah perannya, huruf kecil: `backend`, `frontend`, `gateway`, `mysql`, `migrate`. `container_name` hanya bila alat atau dokumentasi lain bergantung padanya (**proyek ini:** `solveit-mysql`).
+2. Setiap layanan yang berjalan lama punya health check yang hanya memeriksa dirinya sendiri; ketergantungan dinyatakan dengan `depends_on` dan `condition: service_healthy`. Ketersediaan aplikasi dan kesiapan database dibedakan (**proyek ini:** `/up` tanpa database; kesiapan database lewat health check MySQL dan `migrate:status`).
+3. Produksi: hanya satu layanan (gateway) yang mempublikasikan port; database dan PHP-FPM tidak pernah dipublikasikan dan berada di jaringan `internal: true`. Port dipublikasikan ke loopback secara default, termasuk pengembangan; alamat publik hanya lewat variabel yang disetel sadar.
+4. Migrasi adalah layanan sekali jalan di profil `ops` dengan pengguna database yang terpisah dari pengguna aplikasi, tidak pernah bagian dari start container. Worker queue dan scheduler hanya ditambahkan bila aplikasi benar-benar membutuhkannya.
+
+### 11.6 Penamaan
+
+| Jenis | Aturan | **(proyek ini)** |
+|---|---|---|
+| File Compose | `compose.<lingkungan>.yaml` | `compose.dev.yaml`, `compose.prod.yaml` |
+| Nama proyek Compose | `<repo>` untuk pengembangan, `<repo>-<lingkungan>` untuk lainnya | `solveit-indonesia`, `solveit-indonesia-prod` |
+| Image | `<repo>/<aplikasi>:<tag>`; `dev` untuk pengembangan, SHA Git atau `local` untuk produksi | `solveit-indonesia/backend:dev` |
+| Target build | `base`, `dev`, `build`/`vendor`, `prod` | |
+| Volume | `kebab-case` menurut isinya | `backend-vendor`, `frontend-node-modules`, `mysql-data` |
+| Variabel Compose | Prefiks proyek, huruf besar | `SOLVEIT_HTTP_PORT`, `SOLVEIT_UID` |
+| Entrypoint, skrip | `entrypoint-<target>.sh`, `<kata-kerja>-<objek>.sh` | `entrypoint-prod.sh`, `setup-dev.sh` |
+
+### 11.7 Beberapa aplikasi dan portabilitas
+
+1. Aplikasi baru di monorepo (**proyek ini:** rencana `admin/`) menambah `infra/docker/<aplikasi>/` dan layanannya di file Compose yang sama; gateway merutekan menurut path atau host. Tidak ada file Compose per aplikasi selain layanan milik aplikasi (11.1).
+2. Harus berjalan di Windows (Docker Desktop, Git Bash), Linux, dan macOS: skrip berakhiran LF (`.gitattributes`), path relatif, tanpa path mesin; Compose 2.20 atau lebih baru (`include`); UID/GID pengguna container dapat disetel (build argument) agar bind mount dapat ditulis di Linux; Docker Desktop tidak meneruskan event file dari folder Windows, jadi server dev menyediakan sakelar polling; port host dapat diubah lewat variabel agar tidak bentrok dengan layanan lain.
+3. Alur native tetap didukung dan didokumentasikan terpisah; Docker adalah alternatif, bukan syarat.
+
+### 11.8 CI, onboarding, dan batas rilis
+
+1. CI infrastruktur (`.github/workflows/docker-ci.yml`) dipicu oleh `infra/**` dan path aplikasi yang dibangun ke image: validasi file Compose dan skrip (shellcheck), onboarding pengembangan dari clone baru termasuk tes di container, build image produksi, dan smoke test dengan data dan rahasia sekali pakai. `permissions` hanya baca; tidak pernah push image, deploy, atau menyentuh database nyata.
+2. Onboarding developer baru: satu skrip eksplisit (`infra/docker/scripts/setup-dev.sh`) dan satu dokumen; `README.md` menautkannya.
+3. Rilis produksi: image ditandai SHA Git; backup sebelum migrasi; migrasi hanya lewat layanan sekali jalan; skema hanya maju (migrasi kompatibel dengan versi sebelumnya); rollback dengan menjalankan tag image sebelumnya. Deployment publik, DNS, sertifikat, dan database produksi butuh persetujuan pemilik dan tidak dilakukan oleh CI. Pemulihan backup diuji di proyek Compose terpisah.
+
+## 12. Di mana saya menaruh ...?
 
 | Saya punya | Letakkan di |
 |---|---|
@@ -452,10 +537,19 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 | Server MCP proyek | `.mcp.json` dan `.codex/config.toml` di root repository, dan nama server di `enabledMcpjsonServers` |
 | Rancangan fitur yang belum dibangun | `docs/architecture/<topik>.md` dengan status jelas (Planned, Owner decision required), tidak di `docs/api/` |
 | Skrip perawatan | `frontend/scripts/` atau `backend/` (perintah Artisan) |
-| Rahasia | `.env` lokal saja; nama variabelnya di `.env.example` |
+| File Compose | `infra/docker/compose.<lingkungan>.yaml` |
+| Dockerfile, `.dockerignore`, entrypoint | `infra/docker/<aplikasi>/Dockerfile`, `Dockerfile.dockerignore`, `entrypoint-<target>.sh` |
+| Konfigurasi PHP atau PHP-FPM untuk image | `infra/docker/backend/php/`, `infra/docker/backend/php-fpm/` |
+| Konfigurasi nginx atau reverse proxy | `infra/docker/nginx/<peran>.conf` |
+| Skrip setup atau verifikasi Docker | `infra/docker/scripts/<kata-kerja>-<objek>.sh` |
+| Layanan Docker milik satu aplikasi (misalnya database lokal alur native) | `<aplikasi>/docker/<layanan>/`, disertakan oleh Compose bersama |
+| Konfigurasi runtime produksi | Template `infra/docker/production.env.example`; file nyata `production.env` hanya di server |
+| Rahasia Docker | `infra/docker/secrets/` atau `<aplikasi>/docker/<layanan>/secrets/`, diabaikan Git |
+| Panduan Docker (perintah) | `docs/development/docker-development.md`, `docs/development/docker-production.md` |
+| Rahasia | `.env` lokal atau file secret Docker saja; nama variabelnya di `.env.example` atau `*.env.example` |
 | Screenshot atau bukti audit | Folder yang diabaikan Git, angkanya di laporan QA |
 
-## 12. Daftar periksa untuk proyek baru
+## 13. Daftar periksa untuk proyek baru
 
 1. Salin struktur root (bagian 2) dan isi `README.md`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.gitattributes`, `.editorconfig`, `.nvmrc`.
 2. Buat `docs/README.md`, `docs/PRODUCT.md`, dan folder topik yang dibutuhkan saja; jangan membuat folder kosong.
@@ -463,4 +557,5 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 4. Letakkan logo asli sekali saja di `frontend/public/brand/` dengan pola nama aset merek.
 5. Untuk aplikasi Laravel: scaffold ke folder kosong (bagian 8), tetapkan database dan versi PHP (8.1), pasang Laravel Boost sesuai bagian 9.2, daftarkan MCP (9.4), dan verifikasi (9.12) sebelum fitur pertama.
 6. Siapkan branch `main`, `staging`, dan branch per aplikasi, CI per aplikasi, dan proteksi branch bila tim lebih dari satu orang.
-7. Salin dokumen ini ke `docs/project-structure.md` dan sesuaikan bagian bertanda **(proyek ini)**.
+7. Bila memakai Docker: `infra/docker/` sesuai bagian 11 (Compose per lingkungan, Dockerfile multi-stage per aplikasi dengan allowlist `.dockerignore`, rahasia sebagai file yang diabaikan Git, port loopback), skrip onboarding, `docker-ci.yml`, dan dua panduan di `docs/development/`. Layanan yang sudah ada di folder aplikasi disertakan, tidak disalin.
+8. Salin dokumen ini ke `docs/project-structure.md` dan sesuaikan bagian bertanda **(proyek ini)**.
