@@ -168,9 +168,10 @@ networks:
 volumes:
   mysql-data:
 
-# Files must be readable by the container user: www-data (uid 33) for app_key and the two
-# database passwords, root inside the MySQL container for all of them. Compose bind-mounts
-# them as they are; it does not encrypt them. See docs/development/docker-production.md.
+# Compose bind-mounts each file as it is (not encrypted) with its host mode, which applies inside
+# the containers: www-data (uid 33) reads app_key and the database passwords, the MySQL image reads
+# its secrets as uid 999. Keep the files readable (0444) inside a folder only the deploy user can
+# open (0700). See docs/development/docker-production.md.
 secrets:
   app_key:
     file: ${SOLVEIT_SECRETS_DIR:-./secrets}/app_key

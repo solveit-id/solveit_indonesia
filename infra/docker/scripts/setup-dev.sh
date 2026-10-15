@@ -35,12 +35,16 @@ if (( major < 2 || (major == 2 && minor < 20) )); then
   exit 1
 fi
 
-# 1. MySQL secrets (only the missing ones).
+# 1. MySQL secrets (only the missing ones). The MySQL image reads them as its own user (uid 999)
+#    inside the container, so the files stay readable (0644); the folder (0700) keeps other users
+#    of this machine out. Compose bind-mounts each file, so the folder mode does not reach the
+#    container.
 mkdir -p "$secrets_dir"
+chmod 700 "$secrets_dir" 2>/dev/null || true
 for name in mysql_root_password solveit_dev_password solveit_test_password; do
   if [[ ! -e "$secrets_dir/$name" ]]; then
     random_hex > "$secrets_dir/$name"
-    chmod 600 "$secrets_dir/$name" 2>/dev/null || true
+    chmod 644 "$secrets_dir/$name" 2>/dev/null || true
     say "created secret $name"
   fi
 done

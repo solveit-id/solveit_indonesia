@@ -68,14 +68,14 @@ Variabel Compose (shell atau `infra/docker/.env`, keduanya tidak di-commit): `SO
 
 **Rahasia.** Entrypoint backend membaca `APP_KEY_FILE` dan `DB_PASSWORD_FILE` (path Docker secret), mengisi variabelnya hanya untuk proses itu, lalu `php artisan optimize` menyimpan konfigurasi ke cache di tmpfs. Worker PHP-FPM tidak mewarisi environment (`clear_env = yes`). Tidak ada rahasia di image, di `production.env`, atau di argumen perintah.
 
-Compose (tanpa Swarm) memasang file secret apa adanya sebagai bind mount: **tidak dienkripsi**, dan izin file di host berlaku di container. Di server:
+Compose (tanpa Swarm) memasang file secret apa adanya sebagai bind mount: **tidak dienkripsi**, dan mode file di host berlaku di dalam container. Backend membacanya sebagai `www-data` (uid 33) dan image MySQL sebagai `mysql` (uid 999, setelah entrypoint-nya melepas hak root), jadi file harus dapat dibaca keduanya. Perlindungan di host ada pada **folder**: hanya pengguna deploy yang dapat membukanya; mode folder tidak ikut ke container karena setiap file di-mount sendiri. Di server, sebagai pengguna deploy:
 
 ```bash
 cd infra/docker
 umask 077 && mkdir -p secrets
 printf 'base64:%s' "$(openssl rand -base64 32)" > secrets/app_key
 for name in db_app_password db_migrator_password mysql_root_password; do openssl rand -hex 24 > "secrets/$name"; done
-sudo chown -R root:33 secrets && sudo chmod 0750 secrets && sudo chmod 0640 secrets/*   # 33 = www-data di container backend
+chmod 0444 secrets/* && chmod 0700 secrets   # file terbaca di container, folder tertutup di host
 ```
 
 Simpan salinan rahasia di pengelola rahasia tim (bukan Git, bukan chat). Disk server sebaiknya terenkripsi dan hanya pengguna deploy yang punya akses shell. Platform dengan secret manager sendiri dapat memasang file di path yang sama, atau mengganti `APP_KEY_FILE`/`DB_PASSWORD_FILE` dengan path miliknya.

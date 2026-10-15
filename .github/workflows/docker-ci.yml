@@ -110,10 +110,10 @@ jobs:
           mkdir -p "$SOLVEIT_SECRETS_DIR"
           printf 'base64:%s' "$(openssl rand -base64 32)" > "$SOLVEIT_SECRETS_DIR/app_key"
           for name in db_app_password db_migrator_password mysql_root_password; do openssl rand -hex 24 > "$SOLVEIT_SECRETS_DIR/$name"; done
-          # Readable by www-data (gid 33) inside the backend container, by no other user.
-          sudo chown -R root:33 "$SOLVEIT_SECRETS_DIR"
-          sudo chmod 0750 "$SOLVEIT_SECRETS_DIR"
-          sudo chmod 0640 "$SOLVEIT_SECRETS_DIR"/*
+          # Same layout as the production guide: the folder (0700) protects the files on the host;
+          # the files are readable inside the containers by www-data (uid 33) and mysql (uid 999).
+          chmod 0444 "$SOLVEIT_SECRETS_DIR"/*
+          chmod 0700 "$SOLVEIT_SECRETS_DIR"
       - name: Build production images
         run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml build
       - name: Start the bundled database, migrate explicitly, start the stack
