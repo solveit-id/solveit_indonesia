@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-10-15 (backend B0 and B1 merged into `staging` via PR #16; logging fix PR to `staging` and release PR `staging` to `main` open for owner review).
+Last updated: 2026-10-15 (backend B0 and B1 released to `main` via PR #18; all branches synchronized at `7729d17`).
 
 ## In one paragraph
 
@@ -16,12 +16,13 @@ The public website (frontend) is built, bilingual (Indonesian at `/`, English at
 | 4 | #8 | Branded loader, navbar morph, floating controls, portfolio detail |
 | 5 | #10 | Compact navbar, demo labels, case study chapters and scrollspy, slice hover |
 | 6 | #13 | Navbar logo morph fix, glass navbar, About storytelling and ecosystem map, shared FAQ, responsive case study preview, consultation selects, ecosystem naming proposal, owner's new vision text |
+| B0, B1 | #18 (from #16, #17) | Laravel 13 backend foundation, Laravel Boost for Claude Code, Codex, Cursor, `POST /api/v1/inquiries` with tests and Backend CI; post-save logging fix (#17). Not deployed; the frontend does not call it yet |
 
 After round 6, the repository structure was tidied (#14, #15): documentation grouped under `docs/`, one copy of the logos (`frontend/public/brand/solveit-logo-{full,icon}.svg`), agent settings consolidated, this folder added.
 
 Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies, `/kontak`, 404, each mirrored under `/en/` with English slugs. Case studies are labelled demonstration concepts (`isDemo: true`, no results).
 
-## Backend B0 and B1 (on `staging`, release to `main` in review)
+## Backend B0 and B1 (released on `main`, not deployed)
 
 - Laravel Framework 13.36.0, PHP `^8.3` (lock installable on 8.3 to 8.5 via `config.platform.php` 8.3.0; team uses 8.5.7), Composer 2.8, SQLite locally and in tests. Production database and hosting not chosen.
 - `POST /api/v1/inquiries`: contract in `docs/api/inquiries.md`. Public reference `INQ-XXXX-XXXX-XXXX`, status `received`, 201 only after storage, 422 Laravel format, 429 rate limit (5/min, 20/h per IP), 413 above 64 KB, 503 on storage failure without personal data in logs, honeypot field `homepage`, CORS from `CORS_ALLOWED_ORIGINS`, proxies from `TRUSTED_PROXIES`. No public read, update, or delete of inquiries.
@@ -32,11 +33,11 @@ Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies,
 
 ## Branches
 
-- `main`: production line, `7e37a77` (round 6 plus repository cleanup). Receives only `staging` via PR.
-- `staging`: `09d05a4`, merge of PR #16 (B0 and B1: `b8658d5` implementation, `745a852` docs, `079ee88` handoff). Its tree equals `backend` at `079ee88`; `main` is an ancestor, so the release PR has no conflicts.
-- `frontend`: `7e37a77`, equal to `main`; no frontend file differs between `main` and `staging`.
-- `backend`: fast-forwarded to `09d05a4`, then the logging fix and this status update, proposed to `staging` by PR. The release PR `staging` to `main` is open at the same time; merge the fix PR first so the release includes it. **Neither PR is merged without the owner's review.**
-- After `main` merges: fast-forward `backend` to `origin/main` and push (no force); `frontend` only if an audit shows it is behind.
+- `main`: `7729d17`, merge of PR #18 (release B0 and B1). Receives only `staging` via PR.
+- `staging`: `3b83808` (merge of PR #17); same tree as `main` (`1933063`), it lacks only the release merge commit.
+- `frontend`: fast-forwarded to `7729d17`, so B2 starts from the baseline that contains the backend. No frontend file changed in B0 and B1.
+- `backend`: fast-forwarded to `7729d17`, plus this status update proposed to `staging` by PR.
+- Backend CI is green for every B0 and B1 commit that changed files (last: run 38700896831 on `3b83808`, 90 tests on PHP 8.3 and 8.5). The merge commit `7729d17` triggered no run because its tree is identical to `3b83808`.
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
@@ -59,7 +60,7 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 ## Next task
 
-**B2: frontend inquiry API integration** (start only after the backend PR is reviewed and merged):
+**B2: frontend inquiry API integration** on the `frontend` branch (B0 and B1 are on `main`):
 
 1. Add an `api` channel to `frontend/src/services/inquiry.ts` that POSTs the existing `InquiryPayload` to `${VITE_API_BASE_URL}/api/v1/inquiries` with an empty hidden `homepage` honeypot field.
 2. Show the `INQ-...` reference only from a real `201`; map `422` errors to `InquiryErrors`; on `429`, `503`, network errors, or when `VITE_API_BASE_URL` is unset, keep the WhatsApp and email channels as the path forward. Never claim a submission that did not happen.
