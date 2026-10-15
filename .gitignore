@@ -9,21 +9,37 @@ build/
 coverage/
 *.tsbuildinfo
 
-# Test artifacts
+# Test artifacts and caches
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
 .playwright-mcp/
+.phpunit.cache/
+.phpunit.result.cache
+.eslintcache
 
-# Environment & secrets
+# Environment & secrets (only .env.example templates are committed)
 .env
 .env.*
 !.env.example
-backend/.env
+auth.json
+*.pem
+*.key
+*.p12
+*.pfx
 
-# Local agent configuration
+# Local databases, dumps, and backups (schema lives in migrations, never in dumps)
+*.sqlite
+*.sqlite3
+*.sql
+*.sql.gz
+*.dump
+*.bak
+
+# Local agent configuration (shared settings stay tracked: .claude/settings.json, .codex/config.toml)
 CLAUDE.local.md
+AGENTS.override.md
 .claude/settings.local.json
 .claude/worktrees/
 .impeccable/config.local.json
@@ -31,10 +47,14 @@ CLAUDE.local.md
 .impeccable/build/
 .impeccable/mocks/
 
-# OS / editor
+# OS / editor (.cursor/ included: Cursor is not a supported agent for this repository)
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.swp
+*~
 .idea/
 .vscode/*
 !.vscode/extensions.json
+.cursor/
 *.log

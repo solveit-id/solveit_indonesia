@@ -2,6 +2,138 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B1.1: review akhir dan penyelarasan konfigurasi QA (2026-10-15)
+
+Cakupan: temuan review PR #20, tanpa memperluas B1.1. Baseline yang diverifikasi: `origin/backend` = lokal `258dae4`, `origin/staging` `7e936b5`, `origin/main` dan `origin/frontend` `7729d17`; PR #20 open, mergeable, Backend CI run 38711417910 dan Frontend CI run 38711417888 lulus pada `258dae4`. Server uji: container `mysql:8.4` sekali pakai baru (MySQL 8.4.11, `127.0.0.1:3307`, tmpfs), dihapus di akhir sesi.
+
+| Temuan | Tindakan | Bukti |
+|---|---|---|
+| `.claude/skills/backend-verify/SKILL.md` masih menyebut SQLite in-memory dan matriks PHP 8.3/8.5 | Ditulis ulang: PHP 8.5 minimal 8.5.7 dan `pdo_mysql`, tes hanya di `solveit_indonesia_testing` dengan pengaman, `check-platform-reqs`, migrasi di database pengembangan MySQL, CI PHP 8.5 + MySQL 8.4. Kali ini perubahan `.claude/` tidak ditolak (permintaan eksplisit pemilik) | Skill termuat ulang di sesi dengan deskripsi baru dan dipakai untuk verifikasi di bawah |
+| `.claude/rules/backend.md` (path `backend/**`) | Dihapus. Keempat butirnya sudah ada di sumber yang dimuat pada pemicu yang sama: `backend/CLAUDE.md` (`@AGENTS.md`), blok Boost (search-docs, `make:*`, Pint, tes), dan guideline Solveit (endpoint dan `docs/api/`). Perilaku pemuatan: di sesi ini, membaca file di `backend/` memuat `backend/CLAUDE.md`, `backend/AGENTS.md`, dan aturan itu bersamaan, sesuai pemuatan on-demand `CLAUDE.md` bertingkat. `.claude/rules/frontend.md` tetap | `.claude/rules/` kini hanya `frontend.md`; root `CLAUDE.md` tetap benar |
+| Pengaman tes hanya memeriksa substring `_testing` | `tests/Support/TestDatabaseGuard.php`, dipanggil dari `TestCase::setUpTraits()` sebelum `RefreshDatabase`, sekali per proses: `APP_ENV` `testing`; koneksi `mysql` dengan driver `mysql`; nama persis `solveit_indonesia_testing` tanpa `DB_URL`; `SELECT DATABASE()` dari server; `SHOW GRANTS FOR CURRENT_USER()` hanya `USAGE` global dan hak pada `` `solveit\_indonesia\_testing`.* ``. `phpunit.xml` kini juga mengunci `APP_ENV` dan `DB_DATABASE` di `$_SERVER` dan `$_ENV` | Lihat tabel uji di bawah |
+| Grant contoh di README dan CI memakai `solveit_indonesia_testing.*` tanpa escape; di MySQL `_` adalah wildcard pada grant tingkat database, sehingga grant juga berlaku untuk nama lain yang mirip | README dan CI memakai `` `solveit\_indonesia\_testing`.* `` (juga untuk database pengembangan dan CI). Pengaman menolak grant tanpa escape | `SHOW GRANTS` di MySQL 8.4.11: grant tanpa escape tampil sebagai `` `solveit_indonesia_testing`.* ``, yang di-escape sebagai `` `solveit\_indonesia\_testing`.* ``. SQL CI yang dihasilkan heredoc diperiksa lokal; `actionlint` bersih |
+
+### Uji pengaman terhadap server nyata
+
+Tabel penanda dibuat di database pengembangan `solveit_indonesia` sebelum percobaan.
+
+| Percobaan | Hasil |
+|---|---|
+| Pengguna dengan `ALL PRIVILEGES ON *.*` | Ditolak sebelum tes berjalan: "may only hold privileges on `` `solveit\_indonesia\_testing`.* ``; it also holds privileges on `*.*`" |
+| Pengguna dengan grant tanpa escape | Ditolak ("… privileges on `` `solveit_indonesia_testing`.* ``") |
+| `root` | Ditolak (hak `*.*`) |
+| `DB_DATABASE=solveit_indonesia`, `APP_ENV=local`, `DB_URL=mysql://…/solveit_indonesia`, `DB_CONNECTION=sqlite` dari shell | Diabaikan karena dikunci; tes berjalan di `solveit_indonesia_testing` dan `MySqlDatabaseTest` lulus |
+| Database pengembangan setelah semua percobaan | Tetap satu tabel penanda dengan barisnya; tidak ada file SQLite yang dibuat |
+
+Tes regresi baru `tests/Feature/Support/TestDatabaseGuardTest.php` (15 kasus): koneksi nyata lolos dan memilih database tes; database pengembangan, nama yang hanya mengandung `_testing` (`shop_testing_backup`), `DB_URL`, dan koneksi SQLite ditolak sebelum terhubung; environment selain `testing` ditolak; sesi di database lain ditolak; grant yang benar diterima; tujuh grant tidak aman ditolak (hak global, hak dinamis global, database pengembangan, grant wildcard, pola `%`, role, proxy). Uji mutasi: pemeriksaan grant dimatikan, tepat tujuh kasus grant tidak aman gagal; file dipulihkan.
+
+### Verifikasi (skill `backend-verify` yang diperbarui)
+
+| Langkah | Hasil |
+|---|---|
+| PHP | `PHP 8.5.7 (cli) … ZTS`, `pdo_mysql` dimuat |
+| Pint | Lulus |
+| `php artisan test` (pengguna `solveit_test` dengan grant yang di-escape; kredensial lewat environment, bukan `.env.testing`, agar tidak membuat file kredensial di working copy) | **109 lulus, 275 assertion**, juga dengan `--order-by=random`. Sebelumnya 94 dan 249: plus 15 kasus pengaman |
+| `composer validate --strict`, `check-platform-reqs` | Valid; `php 8.5.7 success` |
+| `composer audit` | Tidak ada advisory |
+| Route | `POST api/v1/inquiries`, `GET|HEAD up` |
+| `migrate:status` (database pengembangan di container sekali pakai) | 4 migrasi `Ran` |
+| `boost:update --no-discover` | Berhasil; `backend/AGENTS.md` berubah satu baris di blok Solveit |
+| MCP | `claude mcp list`: `laravel-boost` Connected. `playwright` kali ini timeout 30 detik (cold start `npx` di Windows, dicatat di `CLAUDE.md`; tidak terkait perubahan ini). `application-info`: Laravel 13.36.0, PHP 8.5, `database_engine sqlite`, karena server MCP membaca `backend/.env` lokal pemilik yang belum dipindah ke MySQL |
+
+### CI
+
+Pada `856c6f3`: Backend CI run 38713920726 (pull_request) dan 38713906937 (push) lulus, `Tested PHP: 8.5.11`, `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`, `109 passed (275 assertions)`; pengguna tes CI dengan grant yang di-escape diterima pengaman. Frontend CI run 38713920741 lulus.
+
+### Diff PR #20
+
+Terhadap `origin/staging`: 0 file `frontend/`; gitleaks pada 37 file yang berubah tidak menemukan kebocoran; tidak ada `.env` selain `.env.example`, kunci, file database, log, cache, atau salinan agent lokal (`backend/.claude/`, `.agents/`, `.codex/`, `.mcp.json`). Satu-satunya nama yang cocok dengan pola sensitif adalah penghapusan `.cursor/mcp.json`. Teks mirip kata sandi hanya root kosong service container CI sekali pakai dan placeholder `<kata-sandi-root-lokal>` di README.
+
+## B1.1: MySQL, PHP 8.5.7, konsolidasi agent, keamanan repository (2026-10-15)
+
+Cakupan: branch `backend`, fast-forward dari `origin/staging` `7e936b5` (merge PR #19; tree sama dengan `fbb537e`). Tanpa perubahan aplikasi frontend, desain, atau konten. Mesin: Windows 11, PHP 8.5.7 ZTS (XAMPP, `C:\xampp\php\php.exe`, juga dipakai Composer 2.8.12), Docker 29.8.2, Claude Code 2.1.300, Codex CLI 0.160.0.
+
+### Lingkungan database
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Server lokal yang ada | Port 3306 milik XAMPP: `mysqld --version` = **MariaDB 10.4.32**, bukan Oracle MySQL. Tidak dipakai dan tidak diubah |
+| Server uji | Container Docker sekali pakai `mysql:8.4` (digest `sha256:24989179…`), hanya di `127.0.0.1:3307`, data di tmpfs: `SELECT VERSION()` = **8.4.11**, `@@version_comment` = `MySQL Community Server - GPL`, `sql_mode` berisi `STRICT_TRANS_TABLES`, `utf8mb4`, InnoDB |
+| Database dan pengguna | `solveit_indonesia` (pengembangan, `solveit_dev` semua hak hanya di database ini), `solveit_indonesia_testing` (`solveit_test`), `solveit_app` (`SELECT, INSERT, UPDATE, DELETE` saja). Kata sandi acak di scratchpad sesi, tidak di repository |
+
+### Tes sebelum refactor: suite lama di MySQL
+
+Suite B1 dijalankan apa adanya terhadap MySQL: 89 lulus, 1 gagal (`test_tests_run_against_an_isolated_in_memory_database`, yang memang menegaskan SQLite). Dua tes kegagalan penyimpanan yang memakai `Schema::drop('inquiries')` **lulus, tetapi karena kebetulan**: di MySQL `DROP TABLE` melakukan commit implisit, transaksi `RefreshDatabase` putus, dan Laravel mendeteksi transaksi yang hilang lalu menjalankan `migrate:fresh` lagi sebelum tes berikutnya (`RefreshDatabase::beginDatabaseTransaction`, `RefreshDatabaseState::$migrated = false`). Biayanya migrasi ulang penuh dan ketergantungan pada efek samping; durasi suite sekitar 16 detik.
+
+### Perubahan tes
+
+| Perubahan | Alasan |
+|---|---|
+| `phpunit.xml`: `DB_CONNECTION=mysql` (dikunci di `<server>` dan `<env force>`), `DB_DATABASE=solveit_indonesia_testing` | Tes memakai MySQL, bukan SQLite in-memory. Ditemukan saat QA: `<env force="true">` saja tidak cukup, karena Laravel membaca `$_SERVER` lebih dulu; `DB_CONNECTION=sqlite` di shell masih memindahkan suite ke SQLite dan membuat file `backend/solveit_indonesia_testing` (dihapus). Setelah `<server>` ditambahkan, override itu diabaikan dan tidak ada file yang dibuat |
+| `tests/TestCase.php`: menolak nama database tanpa `_testing` sebelum trait tes berjalan | Diverifikasi: `DB_DATABASE=solveit_indonesia` menghasilkan galat "Tests only run against a disposable database…" sebelum ada tabel yang dihapus |
+| Tes kegagalan penyimpanan: `Schema::drop` diganti baris yang ditolak MySQL (`name` 121 karakter lewat event `creating`, SQLSTATE 22001 karena strict mode) | Tanpa DDL; transaksi tes utuh. Tes juga menegaskan `sqlstate` `22001`, tidak ada baris tersimpan, dan exception yang dilaporkan tanpa data pribadi |
+| `tests/Feature/Actions/SubmitInquiryTest.php` (2 tes baru) | Tabrakan nomor referensi terhadap indeks `UNIQUE` sungguhan (galat 1062): dua tabrakan lalu sukses pada percobaan ketiga; tiga tabrakan menghasilkan `InquiryNotStoredException` (`sqlstate` `23000`, tanpa exception sebelumnya) dan tidak ada baris baru. Uji mutasi: `MAX_ATTEMPTS = 1` membuat keduanya gagal; dikembalikan |
+| `tests/Feature/Database/MySqlDatabaseTest.php` (3 tes baru) | Server MySQL 8.4 atau lebih baru dan bukan MariaDB, database `_testing`; strict mode, `utf8mb4`, tabel `utf8mb4_unicode_ci` InnoDB; penghitung rate limit di cache store `database` (konfigurasi produksi) |
+| Tes SQLite in-memory dihapus | Digantikan tes MySQL di atas |
+
+Jumlah: **94 tes, 249 assertion** (sebelumnya 90 dan 230): minus 1 tes SQLite, plus 2 tes action, plus 3 tes MySQL; assertion bertambah dari tes baru dan pemeriksaan tambahan pada dua tes kegagalan penyimpanan.
+
+### Hasil lokal (MySQL 8.4.11, PHP 8.5.7)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `php artisan test` | 94 lulus, 249 assertion, sekitar 6 sampai 8 detik (sebelumnya sekitar 16 detik karena migrasi ulang). Dua kali berturut-turut, tiga kali `--order-by=random`, dan setiap tes baru sendiri-sendiri: semua lulus |
+| Migrasi | Database pengembangan: naik 4, rollback 4, naik 4, `migrate:status` 4 `Ran`. `migrate:rollback` sebagai `solveit_app` ditolak (`SQLSTATE[42000] 1142 DROP command denied`) dan tidak mengubah apa pun |
+| Skema | `SHOW CREATE TABLE inquiries`: `varchar` dengan panjang yang sama, `text`, `bigint unsigned`, `UNIQUE inquiries_public_id_unique`, index `status`, InnoDB, `utf8mb4_unicode_ci`. Migrasi tidak diubah |
+| HTTP nyata sebagai `solveit_app` (`APP_ENV=production`, `APP_DEBUG=false`, `CACHE_STORE=database`) | `/up` `{"status":"ok"}`; lima `POST /api/v1/inquiries` `201`, keenam `429 Too Many Attempts.`; baris tersimpan dengan referensi `INQ-…` valid, status `received`, `created_at` terisi; tabel `cache` berisi penghitung |
+| `vendor/bin/pint --test` | Lulus |
+| `composer validate --strict` | Valid |
+| `composer check-platform-reqs` | `php 8.5.7 success`, semua ekstensi terpenuhi |
+| `composer audit` | Tidak ada advisory |
+| `php artisan route:list --except-vendor` | `POST api/v1/inquiries`, `GET|HEAD up` |
+| Instalasi `--no-dev` (salinan bersih) | Boot, route terdaftar, 0 perintah `boost:`, `laravel/boost`, `laravel/mcp`, `laravel/roster`, PHPUnit tidak terpasang, `config:cache` berhasil, `database.default` = `mysql` |
+
+### PHP 8.5.7
+
+- `php -v`: 8.5.7 ZTS; `composer --version` melaporkan PHP 8.5.7 dari `C:\xampp\php\php.exe`. Ekstensi: `pdo_mysql`, `mysqlnd`, `mbstring`, `intl`, `bcmath`, `openssl`, `fileinfo`, `ctype`, `tokenizer`, `xml`.
+- `composer.json`: `"php": "^8.5.7"`, `config.platform.php` `8.5.7`. `composer update --lock --dry-run`: "Nothing to modify in lock file"; setelah dijalankan, diff `composer.lock` hanya `content-hash` dan dua baris platform. Tidak ada paket yang berubah: Laravel 13.36.0, Boost 2.10.3, MCP 1.0.2, PHPUnit 12.5.39, Pint 1.32.1, Symfony 7.4.x. Batas PHP paket-paket itu (`^8.3`, `>=8.2`, `^8.2`) semuanya menerima 8.5.7.
+- `vendor/composer/platform_check.php` kini menolak `PHP_VERSION_ID < 80507`.
+
+### Backend CI
+
+`.github/workflows/backend-ci.yml` ditulis ulang: satu job PHP 8.5 dengan service container `mysql:8.4`. Langkah: kebijakan PHP (8.5, minimal 8.5.7, `pdo_mysql`, versi aktual ke ringkasan run), versi MySQL 8.4.x dan bukan MariaDB (ke ringkasan), dua database sekali pakai dan tiga pengguna dengan kata sandi acak yang disamarkan, `composer validate`, `install`, `check-platform-reqs`, Pint, migrasi naik-turun-naik sebagai pengguna migrasi, smoke test HTTP sebagai pengguna DML saja, tes, cek route, `composer audit`, instalasi `--no-dev`. `actionlint` 1.7.7: tidak ada temuan pada workflow ini.
+
+Hasil di GitHub untuk `8991ebd` (PR #20): Backend CI run 38709084941 (PR) dan 38709043589 (push) **lulus**. Ringkasan run: `Tested PHP: 8.5.11` (patch terbaru runner, lolos syarat minimal 8.5.7; CI tidak mengklaim 8.5.7 persis) dan `Tested MySQL: 8.4.11 (MySQL Community Server - GPL)`. Migrasi naik-turun-naik 4 `Ran`, smoke test HTTP lulus, `Tests: 94 passed (249 assertions)`, route `POST api/v1/inquiries`, tidak ada advisory, instalasi `--no-dev` tanpa perintah Boost. Frontend CI run 38709084923 (dipicu perubahan izin workflow) lulus.
+
+### Agent
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Cursor | `.cursor/mcp.json` dihapus dari Git; `cursor` dihapus dari `backend/boost.json`; salinan lokal `backend/.cursor/` (dibuat Boost: `mcp.json` dan tiga skill yang identik dengan salinan Claude) dihapus; `.cursor/` ditambahkan ke `.gitignore` (`/.cursor/` bawaan Laravel di `backend/.gitignore` dipertahankan). Rujukan Cursor yang tersisa hanya aturan ignore, catatan B1.1 ini, dan bagian sejarah laporan QA yang menurut aturan tidak ditulis ulang |
+| `php artisan boost:update --no-discover` | "Boost guidelines and skills updated successfully". Diff `backend/AGENTS.md` hanya di blok Solveit (guideline MySQL dan tes); skill tetap untuk `.claude/skills/` dan `.agents/skills/` |
+| Claude Code | `claude mcp list` dari root: `playwright` dan `laravel-boost` Connected. Skill Boost `laravel-best-practices` dan `testing-best-practices` muncul di sesi saat bekerja di `backend/` |
+| Codex | Dengan `CODEX_HOME` sementara yang mempercayai root dan `backend/`: dari root `laravel-boost php backend/artisan boost:mcp enabled`, dari `backend/` `php artisan boost:mcp enabled`; tanpa kepercayaan tidak ada server. Dokumentasi Codex: `AGENTS.md` dibaca dari root turun ke folder kerja, skill dari folder kerja naik; maka Codex dimulai di `backend/` untuk pekerjaan backend. Pemanggilan tool dari sesi Codex yang login tidak diuji |
+| Struktur | Tidak ada `frontend/AGENTS.md` (aturan frontend cukup di root `AGENTS.md` dan aturan path-scoped). Perubahan di `.claude/` (aturan dan skill Claude Code) ditolak oleh pengaman mode otomatis sesi ini sebagai modifikasi diri, jadi `.claude/rules/backend.md` (rangkap dengan `backend/CLAUDE.md`) dan teks SQLite di `.claude/skills/backend-verify/SKILL.md` menunggu pemilik |
+
+### Keamanan repository
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Visibilitas | Repository **publik** (`gh api`), jadi riwayat diaudit penuh |
+| gitleaks 8.24.3 (Docker), riwayat semua ref, `--redact` | 23 commit non-merge (42 total), sekitar 1,94 MB: **tidak ada kebocoran** |
+| gitleaks pada pohon kerja yang akan di-commit (266 file terlacak dan baru, tanpa file yang diabaikan) | Tidak ada kebocoran |
+| Nama file sensitif di seluruh riwayat (`.env`, kunci, `sqlite`, `.sql`, dump, `auth.json`, log) | Hanya `backend/.env.example` dan `frontend/.env.example` |
+| `.gitignore` root | Ditambah kunci (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `auth.json`), file database dan dump (`*.sqlite`, `*.sqlite3`, `*.sql`, `*.sql.gz`, `*.dump`, `*.bak`), cache tes (`.phpunit.cache/`, `.phpunit.result.cache`, `.eslintcache`), `AGENTS.override.md`, `.cursor/`, `Desktop.ini`, `*.swp`, `*~`. `git ls-files -ci --exclude-standard` kosong; `.env.example`, lock file, `boost.json`, `.codex/config.toml`, `.claude/settings.json`, `.mcp.json` tidak diabaikan; contoh `.env`, `.env.testing`, `auth.json`, `*.pem`, `database.sqlite`, `dump.sql`, `laravel.log` diabaikan |
+| Document root | `backend/public/` hanya berisi `index.php`, `.htaccess`, `robots.txt`, `favicon.ico`; dokumentasi mewajibkan document root `public/` |
+| GitHub Actions | Ketiga workflow kini menyatakan `permissions: contents: read` (sebelumnya hanya Backend CI; izin bawaan repository tidak dapat dibaca dengan akses sesi ini). Tidak ada rahasia GitHub yang dipakai |
+| CORS, proxy, data inquiry | Tidak berubah dan tetap dites: origin dari daftar, `X-Forwarded-For` hanya dari proxy tepercaya, exception penyimpanan tanpa data pribadi (kini juga di MySQL) |
+
+### Keterbatasan
+
+- Database lokal pemilik: `backend/.env` (tidak dibuka) masih memakai SQLite, dan mesin pemilik hanya punya MariaDB XAMPP. Verifikasi lokal di atas memakai container sekali pakai yang dihapus di akhir sesi; pemilik perlu menjalankan MySQL 8.4 sendiri (`backend/README.md`) dan memperbarui `.env` serta membuat `.env.testing`.
+- Akses `gh` sesi ini tidak dapat membaca izin bawaan Actions dan proteksi branch repository.
+- Frontend tidak diubah; suite browser tidak dijalankan ulang. Frontend CI akan berjalan pada PR karena file workflow-nya berubah.
+
 ## Backend B0 dan B1: integrasi `staging` ke `main` (2026-10-15)
 
 Cakupan: audit setelah PR #16 (`backend` ke `staging`) di-merge pemilik sebagai `09d05a4`, dan satu perbaikan kecil sebelum PR `staging` ke `main`.

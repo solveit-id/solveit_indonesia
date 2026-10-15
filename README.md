@@ -7,9 +7,9 @@ Repository website company profile dan portofolio Solveit Indonesia: frontend da
 | Folder | Isi |
 |---|---|
 | [`frontend/`](frontend) | React + TypeScript + Vite + React Router (prerender statis) + Tailwind CSS v4 + GSAP |
-| [`backend/`](backend) | Laravel 13 API (PHP ^8.3, dikembangkan di 8.5): endpoint inquiry, belum di-deploy. Laravel Boost untuk coding agent |
+| [`backend/`](backend) | Laravel 13 API (PHP 8.5 minimal 8.5.7, MySQL 8.4 LTS): endpoint inquiry, belum di-deploy. Laravel Boost untuk Claude Code dan Codex |
 | [`docs/`](docs) | Fakta produk, spesifikasi desain, arsitektur, panduan pengembangan, SEO/GEO, laporan QA, aturan struktur proyek. Peta: [docs/README.md](docs/README.md) |
-| [`.ai/`](.ai) | Handoff untuk agent lain (Codex, Cursor, dan lainnya): status proyek dan alur kerja |
+| [`.ai/`](.ai) | Handoff antar-agent (Claude Code dan Codex): status proyek dan alur kerja |
 
 ## Mulai cepat
 
@@ -24,7 +24,8 @@ npm run test:e2e   # Playwright (desktop, tablet, mobile) + axe
 ```bash
 cd backend
 composer install && cp .env.example .env && php artisan key:generate
-php artisan test   # PHPUnit, SQLite in-memory
+php artisan migrate   # butuh MySQL 8.4, lihat backend/README.md
+php artisan test      # PHPUnit pada database MySQL solveit_indonesia_testing
 ```
 
 Detail: [docs/development/development-guide.md](docs/development/development-guide.md) dan [backend/README.md](backend/README.md).

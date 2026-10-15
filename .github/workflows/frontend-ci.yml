@@ -12,6 +12,10 @@ concurrency:
   group: frontend-ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only token: checkout and artifact upload need nothing more.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: frontend

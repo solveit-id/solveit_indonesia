@@ -7,7 +7,7 @@ Frontend (`frontend/`) di bagian atas; backend Laravel (`backend/`) di bagian [B
 - Node.js 22.12 atau lebih baru (diuji dengan 22.23), npm 10
 - Untuk e2e: browser Chromium Playwright (`npx playwright install chromium`)
 - Opsional, hanya untuk membuat ulang subset font: Python 3 dengan `fonttools` dan `brotli`
-- Backend: PHP 8.3 atau lebih baru (diuji dengan 8.5.7) dengan ekstensi `mbstring`, `intl`, `bcmath`, `pdo_sqlite`, `sqlite3`, `openssl`, `fileinfo`; Composer 2 (diuji dengan 2.8.12). Tidak butuh Docker, Redis, atau queue worker
+- Backend: PHP 8.5, minimal 8.5.7 (diuji dengan 8.5.7) dengan ekstensi `pdo_mysql`, `mbstring`, `intl`, `bcmath`, `openssl`, `fileinfo`; Composer 2 (diuji dengan 2.8.12); server **MySQL 8.4 LTS** (Oracle MySQL, bukan MariaDB; diuji dengan 8.4.11). Tidak butuh Redis atau queue worker. Docker opsional, hanya sebagai cara mudah menjalankan MySQL 8.4 lokal
 
 ## Perintah
 
@@ -74,15 +74,16 @@ Ringkasan untuk pengembangan harian. Rincian environment, struktur, dan keamanan
 
 ### Setup dari clone baru
 
+Siapkan dulu MySQL 8.4 dengan database `solveit_indonesia` (pengembangan) dan `solveit_indonesia_testing` (tes), masing-masing dengan pengguna sendiri: perintah dan SQL ada di `backend/README.md` bagian Database MySQL. Database MariaDB bawaan XAMPP tidak dipakai.
+
 ```bash
 cd backend
 composer install
-cp .env.example .env
+cp .env.example .env                  # isi DB_* untuk database pengembangan
 php artisan key:generate
-touch database/database.sqlite        # PowerShell: New-Item database/database.sqlite
 php artisan migrate
-php artisan boost:update --no-discover   # salinan skill Boost untuk Claude Code, Codex, Cursor
-php artisan test
+php artisan boost:update --no-discover   # salinan skill Boost untuk Claude Code dan Codex
+php artisan test                      # database solveit_indonesia_testing (kredensial di .env.testing)
 php artisan serve                     # http://localhost:8000
 ```
 
@@ -94,7 +95,7 @@ Jalankan dari `backend/`:
 
 | Perintah | Fungsi |
 |---|---|
-| `php artisan test` | Semua tes, SQLite in-memory (tidak menyentuh `database/database.sqlite`) |
+| `php artisan test` | Semua tes, hanya pada database MySQL sekali pakai `solveit_indonesia_testing` (nama dikunci di `phpunit.xml`; pengaman menolak environment, database, atau hak pengguna yang lain) |
 | `php artisan test --filter=<NamaTes>` | Tes tertentu |
 | `vendor/bin/pint --test` / `vendor/bin/pint` | Cek / perbaiki gaya kode |
 | `composer validate --strict` | Validasi `composer.json` dan lock |
@@ -103,29 +104,38 @@ Jalankan dari `backend/`:
 | `php artisan migrate` / `migrate:status` | Migrasi database lokal |
 | `composer run dev` | `serve` dan `queue:listen` bersamaan |
 
-Jangan menjalankan `migrate:fresh`, `migrate:reset`, `migrate:rollback`, atau `db:wipe` pada database yang bukan milik Anda. CI menguji rollback pada file SQLite sekali pakai.
+Jangan menjalankan `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, atau `DROP` selain pada database sekali pakai yang memang dibuat untuk itu. CI menguji rollback pada database MySQL sekali pakai.
 
 ### CI
 
-**Backend CI** (`.github/workflows/backend-ci.yml`) berjalan pada PR ke `staging` atau `main` dan push ke `backend` bila `backend/**`, `frontend/src/types/**`, atau workflow-nya berubah. Matriks PHP 8.3 dan 8.5: `composer validate --strict`, `composer install`, Pint, migrasi naik, turun, naik pada SQLite sekali pakai, `php artisan test`, cek route, `composer audit`, lalu `composer install --no-dev` yang harus tetap boot tanpa Boost. Tidak butuh rahasia. Frontend CI dan Cross-browser QA tidak berubah dan tidak dipicu oleh perubahan backend saja.
+**Backend CI** (`.github/workflows/backend-ci.yml`) berjalan pada PR ke `staging` atau `main` dan push ke `backend` bila `backend/**`, `frontend/src/types/**`, atau workflow-nya berubah. Satu job, PHP 8.5 dan service container MySQL 8.4 yang hanya hidup selama job:
+
+1. Kebijakan PHP: seri 8.5, minimal 8.5.7, `pdo_mysql` ada; versi yang benar-benar diuji ditulis ke ringkasan run.
+2. Versi MySQL dipastikan 8.4.x dan bukan MariaDB, juga ditulis ke ringkasan. Dua database sekali pakai (`solveit_indonesia_ci` untuk migrasi dan smoke test, `solveit_indonesia_testing` untuk tes) dengan pengguna terpisah: migrasi (semua hak di database CI), aplikasi (`SELECT, INSERT, UPDATE, DELETE` saja), tes. Kata sandi dibuat acak per run dan disamarkan di log; tidak ada kredensial di repository.
+3. `composer validate --strict`, `composer install`, `composer check-platform-reqs`, Pint.
+4. Migrasi naik, turun, naik sebagai pengguna migrasi.
+5. Smoke test HTTP nyata (`php artisan serve`, `APP_ENV=production`, `APP_DEBUG=false`) sebagai pengguna aplikasi tanpa hak DDL: `/up` dan `POST /api/v1/inquiries` harus `201` dengan nomor referensi, dan barisnya ada di MySQL.
+6. `php artisan test`, cek route, `composer audit`, lalu `composer install --no-dev` yang harus tetap boot tanpa Boost.
+
+Tidak butuh rahasia GitHub. Frontend CI dan Cross-browser QA tidak dipicu oleh perubahan backend saja.
 
 ### Laravel Boost dan MCP untuk agent
 
-Laravel Boost (`laravel/boost`, dev dependency) wajib untuk pekerjaan backend berbantuan AI. Server MCP-nya didaftarkan untuk sesi yang dimulai di **root repository**:
+Laravel Boost (`laravel/boost`, dev dependency) wajib untuk pekerjaan backend berbantuan AI. Tim hanya memakai **Claude Code** dan **Codex**; konfigurasi agent lain tidak disediakan.
 
-| Agent | File | Perintah | Langkah pertama |
-|---|---|---|---|
-| Claude Code | `.mcp.json` (bersama Playwright) | `php backend/artisan boost:mcp` | Sudah diizinkan lewat `enabledMcpjsonServers` di `.claude/settings.json` |
-| Codex | `.codex/config.toml` | `php backend/artisan boost:mcp` | Percayai repository saat Codex menanyakannya; konfigurasi proyek tidak dimuat sebelum itu |
-| Cursor | `.cursor/mcp.json` | `php ${workspaceFolder}/backend/artisan boost:mcp` | Aktifkan `laravel-boost` di pengaturan MCP Cursor (belum diuji di mesin ini) |
+| Agent | Mulai sesi di | File MCP | Perintah | Langkah pertama |
+|---|---|---|---|---|
+| Claude Code | Root repository | `.mcp.json` (bersama Playwright) | `php backend/artisan boost:mcp` | Sudah diizinkan lewat `enabledMcpjsonServers` di `.claude/settings.json`. `backend/CLAUDE.md` dan skill di `backend/.claude/skills/` dimuat saat Claude bekerja di `backend/` |
+| Codex, pekerjaan backend | `backend/` | `backend/.codex/config.toml` (dibuat `boost:install --mcp`) | `php artisan boost:mcp` | Percayai repository dan `backend/`. Codex membaca `AGENTS.md` dari root **turun** ke folder kerja dan skill dari folder kerja **naik**, jadi `backend/AGENTS.md` dan `backend/.agents/skills/` hanya terbaca bila sesi dimulai di `backend/` |
+| Codex, pekerjaan lain | Root repository | `.codex/config.toml` | `php backend/artisan boost:mcp` | Percayai repository; konfigurasi proyek tidak dimuat sebelum itu |
 
-Untuk sesi yang dimulai di `backend/`, jalankan `php artisan boost:install --mcp --no-interaction` sekali; Boost menulis `backend/.mcp.json`, `backend/.codex/config.toml`, dan `backend/.cursor/mcp.json` (diabaikan Git) dengan `php artisan boost:mcp`.
+Setelah clone, jalankan sekali di `backend/`: `php artisan boost:update --no-discover` (skill) dan `php artisan boost:install --mcp --no-interaction` (menulis `backend/.mcp.json` dan `backend/.codex/config.toml`, diabaikan Git).
 
 Memeriksa bahwa MCP berfungsi:
 
 ```bash
 claude mcp list          # dari root: "laravel-boost: php backend/artisan boost:mcp - Connected"
-codex mcp list           # dari root, setelah repository dipercaya: laravel-boost terdaftar
+codex mcp list           # setelah dipercaya; dari root: php backend/artisan boost:mcp, dari backend/: php artisan boost:mcp
 php backend/artisan list boost
 ```
 
@@ -143,9 +153,14 @@ Lihat tabel di `backend/README.md`. Yang paling penting: `APP_DEBUG=false` di lu
 |---|---|
 | `claude mcp list` melaporkan `laravel-boost` gagal | Sesi tidak dimulai di root repository, atau `php` tidak ada di `PATH`. Jalankan `php backend/artisan boost:mcp` dari root: perintah itu harus menunggu input tanpa galat (hentikan dengan Ctrl+C) |
 | `playwright` timeout di `claude mcp list` pada Windows | Unduhan `npx` pertama lebih lama dari batas health check 30 detik; servernya sendiri berjalan. Bila gagal di sesi, pakai `cmd /c npx -y @playwright/mcp@0.0.83` (lihat `CLAUDE.md`) |
-| `codex mcp list` tidak menampilkan `laravel-boost` | Repository belum dipercaya di Codex, atau sesi dimulai di folder lain |
+| `codex mcp list` tidak menampilkan `laravel-boost` | Repository (atau `backend/`) belum dipercaya di Codex, atau `backend/.codex/config.toml` belum dibuat (`php artisan boost:install --mcp --no-interaction`) |
 | `boost:update` meminta "set up Boost first" | `backend/boost.json` hilang; pulihkan dari Git |
-| Galat `could not find driver` | Ekstensi `pdo_sqlite` belum aktif di `php.ini` |
-| `composer install` gagal di PHP 8.3 karena Symfony | Lock dibuat tanpa `config.platform.php`; jangan hapus pengaturan itu dari `composer.json` |
+| Galat `could not find driver` | Ekstensi `pdo_mysql` belum aktif di `php.ini` (`extension=pdo_mysql`) |
+| `SQLSTATE[HY000] [2002]` saat tes | MySQL tidak berjalan, atau host/port di `.env.testing` salah (Docker contoh: port 3307) |
+| `SQLSTATE[HY000] [1045]` atau `[1044]` | Pengguna atau kata sandi salah, atau pengguna tidak punya hak pada database itu. Tes memakai `solveit_test` pada `solveit_indonesia_testing` |
+| Tes berhenti dengan "The test database user may only hold privileges on …" | Pengguna di `.env.testing` punya hak di luar database tes (misalnya `root`, `GRANT ... ON *.*`, database lain, atau grant tanpa escape `solveit_indonesia_testing.*`). Pakai pengguna `solveit_test` dengan grant persis di `backend/README.md`; jangan melemahkan pengaman |
+| Tes berhenti dengan "selected … instead of solveit_indonesia_testing" atau "Tests only run …" | Koneksi tidak sampai ke database tes yang diharapkan (misalnya `DB_URL` di `.env.testing`). Hapus `DB_URL` dan periksa host serta port |
+| Versi MySQL terdeteksi MariaDB | Tes `MySqlDatabaseTest` gagal: server yang dipakai adalah MariaDB (misalnya XAMPP). Jalankan MySQL 8.4 terpisah |
+| Composer menolak PHP | `composer.json` mewajibkan PHP 8.5.7 atau lebih baru; perbarui PHP. Jangan menurunkan `config.platform.php` |
 | Agent tidak dapat membaca `.env.example` | Pola `deny` di `.claude/settings.json` terlalu lebar; lihat `docs/project-structure.md` bagian 6 |
 | Skill Boost tidak muncul di agent | Jalankan `php artisan boost:update --no-discover`; salinan skill tidak di-commit |

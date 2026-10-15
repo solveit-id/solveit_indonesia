@@ -111,19 +111,21 @@ Keputusan yang menunggu deployment: CAPTCHA tanpa biaya (misalnya Cloudflare Tur
 
 ## Penyimpanan
 
-Tabel `inquiries` (migrasi `backend/database/migrations/*_create_inquiries_table.php`):
+Tabel `inquiries` di MySQL 8.4 (migrasi `backend/database/migrations/*_create_inquiries_table.php`, tidak berubah pada B1.1). InnoDB, `utf8mb4` dengan collation `utf8mb4_unicode_ci`, strict mode; tipe di bawah adalah hasil `SHOW CREATE TABLE` pada MySQL 8.4.11.
 
-| Kolom | Tipe | Catatan |
+| Kolom | Tipe MySQL | Catatan |
 |---|---|---|
-| `id` | bigint, auto increment | Internal saja, tidak pernah dikirim ke klien |
-| `public_id` | string(18), unique | `INQ-XXXX-XXXX-XXXX` |
-| `name` | string(120) | |
-| `organization` | string(160), nullable | |
-| `contact` | string(254) | Email atau telepon |
-| `service`, `budget`, `timeline` | string(32) | Nilai enum (`app/Enums/`) |
-| `message` | text | |
-| `status` | string(32), index, default `received` | `app/Enums/InquiryStatus.php`; status lain didefinisikan pada fase admin |
-| `created_at`, `updated_at` | timestamp | |
+| `id` | `bigint unsigned`, auto increment, primary key | Internal saja, tidak pernah dikirim ke klien |
+| `public_id` | `varchar(18)`, `UNIQUE` | `INQ-XXXX-XXXX-XXXX`. Tabrakan menghasilkan galat 1062, yang memicu percobaan ulang (dites) |
+| `name` | `varchar(120)` | Batas dalam karakter, bukan byte (`utf8mb4`) |
+| `organization` | `varchar(160)`, nullable | |
+| `contact` | `varchar(254)` | Email atau telepon |
+| `service`, `budget`, `timeline` | `varchar(32)` | Nilai enum (`app/Enums/`) |
+| `message` | `text` (maksimal 65.535 byte) | 5000 karakter emoji (4 byte) = 20.000 byte, masih muat (dites) |
+| `status` | `varchar(32)`, index, default `received` | `app/Enums/InquiryStatus.php`; status lain didefinisikan pada fase admin |
+| `created_at`, `updated_at` | `timestamp`, nullable | Ditulis dalam zona waktu aplikasi (UTC) |
+
+Strict mode membuat MySQL menolak nilai yang melebihi kolom alih-alih memotongnya diam-diam; penolakan itu menjadi `503` tanpa nomor referensi (dites).
 
 Tidak ada alamat IP, user agent, atau data pelacakan yang disimpan.
 
@@ -134,8 +136,8 @@ Inquiry berisi data pribadi (nama, kontak, isi kebutuhan). Aturan yang berlaku s
 - **Akses.** Tidak ada endpoint publik untuk membaca, mengubah, atau menghapus inquiry (dites: `GET`, `PUT`, `PATCH`, `DELETE` mengembalikan 404 atau 405 tanpa data). Hanya tim Solveit yang berwenang yang boleh membaca data, melalui panel admin terautentikasi yang akan dibangun nanti. Sampai panel itu ada, data hanya dibaca langsung dari database oleh pengelola server.
 - **Minimalisasi.** Hanya field formulir yang disimpan. Tidak ada IP, user agent, cookie, atau sesi.
 - **Log.** Inquiry yang tersimpan hanya mencatat nomor referensinya (`Inquiry received.` dengan `inquiry: INQ-...`). Bila channel log gagal (misalnya `storage/logs` tidak dapat ditulis), inquiry yang sudah tersimpan tetap mendapat `201`, karena respons gagal akan membuat pengunjung mengirim ulang (dites). Nama, kontak, dan pesan tidak pernah masuk log. Kegagalan database dicatat sebagai `InquiryNotStoredException` dengan kode SQLSTATE saja, karena pesan `QueryException` asli memuat nilai SQL (data pribadi); dites. Coding agent tidak boleh mencetak isi inquiry, `.env`, atau log berisi data pribadi.
-- **Alat agent.** Tool database Laravel Boost hanya dipakai pada database SQLite lokal, tidak pernah pada data bersama atau produksi.
-- **Database produksi.** Belum dipilih. Saat dipilih: akses jaringan hanya dari aplikasi, kredensial di secret store hosting (bukan Git), enkripsi saat transit dan saat diam bila tersedia, backup terenkripsi dengan akses terbatas, `APP_DEBUG=false`, `LOG_LEVEL` minimal `info`.
+- **Alat agent.** Tool database Laravel Boost hanya dipakai pada database MySQL pengembangan atau tes milik proyek ini, tidak pernah pada data bersama atau produksi.
+- **Database produksi.** MySQL 8.4 LTS (keputusan pemilik, B1.1); hosting belum dipilih. Saat deployment: akses jaringan hanya dari aplikasi, pengguna aplikasi tanpa hak DDL dan pengguna migrasi terpisah, kredensial di secret store hosting (bukan Git), TLS ke database bila server tidak berada di host yang sama (`MYSQL_ATTR_SSL_CA`), enkripsi saat diam bila tersedia, backup terenkripsi dengan akses terbatas, `APP_DEBUG=false`, `LOG_LEVEL` minimal `info`, document root `backend/public/`.
 
 Keputusan yang masih menunggu persetujuan pemilik:
 

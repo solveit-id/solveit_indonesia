@@ -22,6 +22,10 @@ concurrency:
   group: cross-browser-qa-${{ github.ref }}
   cancel-in-progress: false
 
+# Read-only token: checkout and artifact upload need nothing more.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: frontend

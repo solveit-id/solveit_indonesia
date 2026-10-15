@@ -6,7 +6,14 @@ These rules come from the repository and take precedence over the generic Larave
 
 - The repository root `AGENTS.md` applies first (content integrity, Git rules, handoff). This backend is only the API of the Solveit Indonesia company profile website. Solveit OpsHub, client portals, proposals, contracts, invoices, payments, and project tracking live in separate repositories and never in this application or its database.
 - Documentation is part of done in this repository: update `docs/api/`, `docs/architecture/`, `docs/qa/qa-report.md`, and `.ai/project-status.md` when behaviour changes. This replaces the generic rule to create documentation only on request.
-- Hosting and the production database are not decided. Do not add deployment configuration or recommend a platform.
+- The database is MySQL 8.4 LTS (Oracle MySQL, not MariaDB) for development, tests, and production; the runtime is PHP 8.5 (at least 8.5.7). Hosting is not decided: do not add deployment configuration or recommend a platform.
+
+## Database and tests
+
+- Write migrations and queries that work on MySQL 8.4 with `utf8mb4` and strict mode. Do not add SQLite-only behaviour or fall back to SQLite in tests.
+- Tests run only on the disposable MySQL database `solveit_indonesia_testing` and use `RefreshDatabase`. `phpunit.xml` pins `APP_ENV`, the driver, and the database; `tests/Support/TestDatabaseGuard.php` (called from `tests/TestCase.php`) verifies the environment, the database the server selected, and that the user holds privileges only on that database. Never weaken the guard or point tests at a development, shared, or production database.
+- Do not run DDL (`Schema::drop`, `ALTER`) inside a test to simulate failures: MySQL commits DDL implicitly, which breaks the test transaction. Make the database reject a row instead (see `InquiryControllerTest::makeTheDatabaseRejectTheNextInquiry`).
+- Never run `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, or `DROP` outside a disposable database created for that purpose.
 
 ## API conventions
 
@@ -17,4 +24,4 @@ These rules come from the repository and take precedence over the generic Larave
 ## Personal data
 
 - Inquiries hold names, contacts, and messages. Never log them, include them in exception messages or context, or print them in agent output. Do not chain a `QueryException` into a reported exception: its message contains the SQL bindings.
-- Use Boost database tools only against the local SQLite database, never against shared or production data.
+- Use Boost database tools only against the local development or testing MySQL database of this project, never against shared or production data.
