@@ -158,10 +158,10 @@ export function Principles() {
             <p className="mt-4 text-ink-muted">{copy.portal.text}</p>
           </div>
           <ol
-            aria-label={t.home.opsHubFlowLabel}
+            aria-label={t.home.ecosystemFlowLabel}
             className="flex flex-wrap gap-2 lg:col-span-7 lg:justify-end"
           >
-            {t.home.opsHubFlow.map((stage, index) => (
+            {t.home.ecosystemFlow.map((stage, index) => (
               <li
                 key={stage}
                 data-tile-stage

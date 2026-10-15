@@ -6,16 +6,17 @@
 solveit_indonesia/
 ├── frontend/   React 19 + TypeScript (strict) + Vite 8 + React Router 7 (framework mode, prerender statis)
 ├── backend/    Disiapkan untuk Laravel 13 (PHP 8.5). Belum berisi kode; lihat backend/README.md
-├── docs/       Dokumentasi proyek (file ini, desain, SEO/GEO, integrasi, QA)
+├── brand/      Aset merek asli logo-solveit-*.svg (sumber identitas visual, jangan diubah bentuknya)
+├── docs/       Dokumentasi proyek (file ini, desain, SEO/GEO, integrasi, QA, penamaan produk)
 ├── PRODUCT.md  Fakta produk yang sudah dikonfirmasi (sumber kebenaran konten)
-└── logo-solveit-*.svg  Aset merek asli (sumber identitas visual, jangan diubah bentuknya)
+└── DESIGN.md   Spesifikasi desain yang diturunkan dari kode (dibaca skill impeccable dari root)
 ```
 
 Fase ini hanya membangun frontend publik. Tidak ada backend, autentikasi, atau endpoint. Formulir konsultasi menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email.
 
 ### Batas sistem
 
-Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend/API yang menjadi tanggung jawab website (inquiry, konten, admin website). Solveit OpsHub (pemesanan, proposal, kontrak, invoice, progres, revisi, pemeliharaan, portal klien) dan aplikasi Solveit lain adalah proyek terpisah dengan repository, deployment, dependensi, dan siklus rilis sendiri. Website terhubung ke sistem itu lewat REST API berversi, event/webhook, atau tautan antar-domain, bukan database bersama dan bukan route di dalam aplikasi ini. Rinciannya di `integration-plan.md`.
+Repository ini adalah **website** Solveit Indonesia: frontend publik dan backend/API yang menjadi tanggung jawab website (inquiry, konten, admin website). Solveit OpsHub (pusat operasional internal) dan bagian ekosistem lain yang direncanakan untuk klien (pemesanan, proposal, kontrak, invoice, progres, revisi, pemeliharaan; nama usulan di `product-naming.md`, payung "Solveit Orbit") adalah proyek terpisah dengan repository, deployment, dependensi, dan siklus rilis sendiri. Website terhubung ke sistem itu lewat REST API berversi, event/webhook, atau tautan antar-domain, bukan database bersama dan bukan route di dalam aplikasi ini. Rinciannya di `integration-plan.md`.
 
 ## Frontend
 

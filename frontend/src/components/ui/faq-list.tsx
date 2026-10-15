@@ -1,21 +1,27 @@
-import { Plus } from "@phosphor-icons/react/dist/ssr/Plus";
 import type { FaqItem } from "~/types/content";
 
-/** Native disclosure list: works without JavaScript and is fully keyboard operable. */
+/**
+ * Native disclosure list, shared by every FAQ: works without JavaScript, is
+ * fully keyboard operable, and never closes on its own. Opening draws a
+ * cobalt rule across the row and turns the plus into a minus; where the
+ * browser supports animating `::details-content`, the answer also expands
+ * and collapses smoothly, elsewhere it opens instantly (see `.faq` in app.css).
+ */
 export function FaqList({ items }: { items: FaqItem[] }) {
   return (
-    <div className="border-t border-line">
+    <div className="faq">
       {items.map((item) => (
-        <details key={item.question} className="group border-b border-line">
-          <summary className="flex cursor-pointer list-none items-start justify-between gap-6 py-6 text-lg font-semibold [&::-webkit-details-marker]:hidden">
-            <span>{item.question}</span>
-            <Plus
-              aria-hidden
-              weight="bold"
-              className="mt-1 size-5 shrink-0 text-accent-text transition-transform duration-300 group-open:rotate-45"
-            />
+        <details key={item.question} data-reveal className="faq-item">
+          <summary className="faq-summary">
+            <span className="faq-question">{item.question}</span>
+            <span aria-hidden className="faq-icon">
+              <span className="faq-icon-bar" />
+              <span className="faq-icon-bar faq-icon-bar-cross" />
+            </span>
           </summary>
-          <p className="measure pb-7 text-ink-muted">{item.answer}</p>
+          <div className="faq-answer">
+            <p>{item.answer}</p>
+          </div>
         </details>
       ))}
     </div>

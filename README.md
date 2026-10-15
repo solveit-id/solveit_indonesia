@@ -26,4 +26,4 @@ Detail: [docs/development.md](docs/development.md).
 
 `frontend` / `backend` → PR ke `staging` → PR ke `main`. Format commit: `(type) deskripsi singkat`.
 
-Aset merek asli: `logo-solveit-primary.svg`, `logo-solveit-icon.svg`.
+Aset merek asli: `brand/logo-solveit-primary.svg`, `brand/logo-solveit-icon.svg`.

@@ -9,7 +9,7 @@ export const id = {
       "Solveit Indonesia adalah software house yang membangun website, aplikasi web, sistem informasi, dan custom software untuk UMKM, startup, dan perusahaan di Indonesia.",
     aboutTitle: "Tentang Kami",
     aboutDescription:
-      "Kenali Solveit Indonesia: startup teknologi dan software house dengan visi membangun ekosistem layanan digital terintegrasi melalui Solveit OpsHub.",
+      "Kenali Solveit Indonesia: startup teknologi dan software house dengan visi membangun ekosistem layanan digital yang saling terhubung.",
     servicesTitle: "Layanan Pembuatan Website, Aplikasi Web, dan Custom Software",
     servicesDescription:
       "Jasa pembuatan website, aplikasi web, sistem informasi, custom software, serta dukungan teknis dan pemeliharaan dari Solveit Indonesia.",
@@ -34,7 +34,7 @@ export const id = {
     description:
       "Solveit Indonesia adalah startup teknologi dan software house yang membangun website, aplikasi web, sistem informasi, dan custom software sesuai kebutuhan bisnis.",
     vision:
-      "Membangun ekosistem layanan digital terintegrasi yang menemani pelanggan dari konsultasi, pemesanan, proposal, kontrak, dan invoice, hingga pengembangan, pelacakan progres dan revisi, serta pemeliharaan melalui Solveit OpsHub.",
+      "Membangun ekosistem layanan digital yang saling terhubung untuk mendampingi pelanggan dari konsultasi dan perencanaan hingga pengembangan, pengelolaan proyek, serta pemeliharaan berkelanjutan.",
   },
   common: {
     skipLink: "Lewati ke konten utama",
@@ -117,12 +117,12 @@ export const id = {
         text: "Kode yang terstruktur, dokumentasi serah terima, dan dukungan setelah rilis, sehingga sistem tetap bisa dikembangkan bertahun-tahun ke depan.",
       },
       portal: {
-        title: "Satu portal untuk seluruh perjalanan proyek.",
-        text: "Kami sedang menyiapkan Solveit OpsHub: pemesanan, proposal, kontrak, invoice, progres, dan revisi dalam satu tempat. Website ini adalah fondasi pertamanya.",
+        title: "Satu ekosistem untuk seluruh perjalanan proyek.",
+        text: "Kami sedang merancang Solveit Orbit: konsultasi, proposal, kontrak, invoice, progres, dan revisi yang saling terhubung, dengan Solveit OpsHub sebagai pusat operasionalnya. Website ini adalah fondasi pertamanya.",
       },
     },
-    opsHubFlowLabel: "Rencana alur Solveit OpsHub",
-    opsHubFlow: [
+    ecosystemFlowLabel: "Rencana alur ekosistem Solveit Orbit",
+    ecosystemFlow: [
       "Konsultasi",
       "Pemesanan",
       "Proposal",
@@ -181,19 +181,24 @@ export const id = {
         text: "Arsitektur disiapkan untuk bertambah besar, agar sistem tidak perlu dibangun ulang saat bisnis berkembang.",
       },
     ],
-    roadmapTitle: "Arah pengembangan: Solveit OpsHub.",
+    roadmapTitle: "Arah pengembangan: ekosistem Solveit Orbit.",
     roadmapText:
-      "OpsHub adalah portal yang sedang kami rancang agar seluruh perjalanan proyek berada di satu tempat. Fitur di bawah ini adalah rencana, belum tersedia untuk digunakan.",
-    roadmap: [
-      "Website company profile",
-      "Konsultasi dan pemesanan layanan",
-      "Proposal dan kontrak digital",
-      "Invoice dan pembayaran",
-      "Pelacakan progres dan revisi",
-      "Pemeliharaan dan tiket dukungan",
-    ],
-    statusCurrent: "Sedang berjalan",
-    statusPlanned: "Direncanakan",
+      "Solveit Orbit adalah nama yang kami usulkan untuk ekosistem layanan Solveit yang saling terhubung. Pusatnya Solveit OpsHub, yang sedang kami rancang untuk operasional internal. Di sekelilingnya, bagian untuk klien dapat menjadi aplikasi atau modul tersendiri yang terhubung lewat API, sesuai kebutuhan yang sudah tervalidasi.",
+    roadmapNote:
+      "Semua bagian di peta ini adalah rencana dan belum tersedia untuk digunakan, kecuali website ini. Nama produk masih usulan kerja, belum merek terdaftar, dan dapat berubah sebelum peluncuran.",
+    roadmapLabel: "Peta rencana ekosistem Solveit Orbit",
+    roadmapOrbit: "Solveit Orbit",
+    roadmapOrbitRole: "Nama payung ekosistem (usulan), bukan satu aplikasi",
+    roadmapTiers: {
+      foundation: "Fondasi",
+      hub: "Pusat operasional",
+      module: "Bagian untuk klien",
+    },
+    status: {
+      current: "Sedang berjalan",
+      design: "Sedang dirancang",
+      planned: "Direncanakan",
+    },
   },
   services: {
     title: "Layanan pengembangan software untuk bisnis Indonesia.",
@@ -255,12 +260,29 @@ export const id = {
       context: "Konteks",
       problem: "Permasalahan",
       solution: "Solusi",
+      preview: "Pratinjau responsif",
       system: "Peta sistem",
       flow: "Alur utama",
       features: "Fitur inti",
       technology: "Teknologi",
       measure: "Pengukuran",
       impact: "Dampak",
+    },
+    preview: {
+      title: "Pratinjau responsif.",
+      conceptLabel: "Ilustrasi konsep responsif",
+      realLabel: "Pratinjau aplikasi nyata",
+      conceptNote:
+        "Wireframe ilustratif yang disusun dari narasi studi kasus ini, bukan tangkapan layar aplikasi nyata dan bukan bukti bahwa aplikasinya sudah ada. Ganti mode atau ubah lebar bingkai untuk melihat cara tata letaknya beradaptasi.",
+      realNote: "Tangkapan layar dari aplikasi yang sudah berjalan, dipublikasikan dengan izin.",
+      deviceLegend: "Mode perangkat",
+      devices: { desktop: "Desktop", tablet: "Tablet", mobile: "Ponsel" },
+      width: "Lebar bingkai",
+      pixels: (width: number) => `${width} piksel`,
+      shown: (percent: number) => `ditampilkan ${percent}%`,
+      screen: (title: string, width: number) =>
+        `Ilustrasi tata letak ${title} pada lebar ${width} piksel`,
+      shot: (title: string, device: string) => `Tangkapan layar ${title}, tampilan ${device}`,
     },
     measurePending: "Diukur saat proyek berjalan",
     allProjects: "Semua studi kasus",

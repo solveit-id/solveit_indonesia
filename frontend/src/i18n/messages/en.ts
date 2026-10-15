@@ -9,7 +9,7 @@ export const en: Messages = {
       "Solveit Indonesia is a software house that builds websites, web applications, information systems, and custom software for small businesses, startups, and companies in Indonesia.",
     aboutTitle: "About Us",
     aboutDescription:
-      "Meet Solveit Indonesia: a technology startup and software house working toward an integrated digital service ecosystem through Solveit OpsHub.",
+      "Meet Solveit Indonesia: a technology startup and software house working toward a connected ecosystem of digital services.",
     servicesTitle: "Website, Web Application, and Custom Software Development",
     servicesDescription:
       "Website development, web applications, information systems, custom software, and technical support and maintenance from Solveit Indonesia.",
@@ -35,7 +35,7 @@ export const en: Messages = {
     description:
       "Solveit Indonesia is a technology startup and software house that builds websites, web applications, information systems, and custom software around the needs of each business.",
     vision:
-      "To build an integrated digital service ecosystem that supports clients from consultation, ordering, proposals, contracts, and invoices through development, progress and revision tracking, and maintenance, all through Solveit OpsHub.",
+      "To build a connected ecosystem of digital services that supports clients from consultation and planning through development, project management, and ongoing maintenance.",
   },
   common: {
     skipLink: "Skip to main content",
@@ -118,12 +118,12 @@ export const en: Messages = {
         text: "Structured code, handover documentation, and support after launch, so the system can keep growing for years to come.",
       },
       portal: {
-        title: "One portal for the whole project journey.",
-        text: "We are building Solveit OpsHub: ordering, proposals, contracts, invoices, progress, and revisions in one place. This website is its first building block.",
+        title: "One ecosystem for the whole project journey.",
+        text: "We are designing Solveit Orbit: consultation, proposals, contracts, invoices, progress, and revisions, connected, with Solveit OpsHub as its operations hub. This website is its first building block.",
       },
     },
-    opsHubFlowLabel: "Planned Solveit OpsHub flow",
-    opsHubFlow: [
+    ecosystemFlowLabel: "Planned Solveit Orbit ecosystem flow",
+    ecosystemFlow: [
       "Consultation",
       "Ordering",
       "Proposal",
@@ -179,19 +179,24 @@ export const en: Messages = {
         text: "Architecture is prepared to scale, so the system does not need rebuilding when the business grows.",
       },
     ],
-    roadmapTitle: "Where we are heading: Solveit OpsHub.",
+    roadmapTitle: "Where we are heading: the Solveit Orbit ecosystem.",
     roadmapText:
-      "OpsHub is the portal we are designing to bring the whole project journey into one place. The features below are plans and are not available yet.",
-    roadmap: [
-      "Company profile website",
-      "Consultation and service ordering",
-      "Digital proposals and contracts",
-      "Invoices and payments",
-      "Progress and revision tracking",
-      "Maintenance and support tickets",
-    ],
-    statusCurrent: "In progress",
-    statusPlanned: "Planned",
+      "Solveit Orbit is our proposed name for a connected ecosystem of Solveit services. At its centre is Solveit OpsHub, which we are designing for internal operations. Around it, the client-facing parts may become applications or modules of their own, connected through APIs, as validated needs call for them.",
+    roadmapNote:
+      "Everything on this map is a plan and not available yet, except this website. Product names are proposed working names, not registered trademarks, and may change before launch.",
+    roadmapLabel: "Planned Solveit Orbit ecosystem map",
+    roadmapOrbit: "Solveit Orbit",
+    roadmapOrbitRole: "Proposed umbrella name for the ecosystem, not a single application",
+    roadmapTiers: {
+      foundation: "Foundation",
+      hub: "Operations hub",
+      module: "Client-facing parts",
+    },
+    status: {
+      current: "In progress",
+      design: "In design",
+      planned: "Planned",
+    },
   },
   services: {
     title: "Software development services for Indonesian businesses.",
@@ -252,12 +257,29 @@ export const en: Messages = {
       context: "Context",
       problem: "Problem",
       solution: "Solution",
+      preview: "Responsive preview",
       system: "System map",
       flow: "Main flow",
       features: "Core features",
       technology: "Technology",
       measure: "Measurement",
       impact: "Impact",
+    },
+    preview: {
+      title: "Responsive preview.",
+      conceptLabel: "Illustrative responsive concept",
+      realLabel: "Live application preview",
+      conceptNote:
+        "An illustrative wireframe built from this case study's narrative, not a screenshot of a real application and not evidence that one exists. Switch modes or change the frame width to see how the layout adapts.",
+      realNote: "Screenshots of an application in use, published with permission.",
+      deviceLegend: "Device mode",
+      devices: { desktop: "Desktop", tablet: "Tablet", mobile: "Mobile" },
+      width: "Frame width",
+      pixels: (width: number) => `${width} pixels`,
+      shown: (percent: number) => `shown at ${percent}%`,
+      screen: (title: string, width: number) =>
+        `Illustrative layout of ${title} at ${width} pixels wide`,
+      shot: (title: string, device: string) => `Screenshot of ${title}, ${device} view`,
     },
     measurePending: "Measured once the project runs",
     allProjects: "All case studies",

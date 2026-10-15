@@ -61,7 +61,7 @@ export const processFaq: FaqItem[] = [
   {
     question: "Can I follow progress during development?",
     answer:
-      "Yes. Development happens in stages, and each stage can be reviewed through a preview build. In the future, progress and revisions will also be trackable directly in Solveit OpsHub.",
+      "Yes. Development happens in stages, and each stage can be reviewed through a preview build. Looking ahead, we plan for progress and revisions to be trackable directly in the Solveit Orbit ecosystem.",
   },
   {
     question: "What happens if I need changes mid-project?",

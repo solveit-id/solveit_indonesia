@@ -375,9 +375,11 @@
   }
 
   /*
-   * Slice: reserved for a few high-value calls to action (the hero's
-   * consultation submit, the closing band, the home "see the work" link),
-   * never for form controls, switches, or utility buttons. Two planes cut
+   * Slice: reserved for high-value calls to action (the header's
+   * consultation link, the hero's consultation submit, the closing band, the
+   * home "see the work" and "learn the process" links, and the inquiry
+   * form's two send buttons), never for form fields, switches, or utility
+   * buttons. A disabled button never slices. Two planes cut
    * across the capsule along the logo's 33deg axis (skewX(-57deg) leaves an
    * edge 33deg off horizontal): a bright sliver leads and the final colour
    * follows it in; leaving, the same two planes withdraw in reverse order, a
@@ -416,39 +418,39 @@
     transition: transform 0.42s var(--ease-in-out-quart);
   }
 
-  .btn-slice:focus-visible::before,
-  .btn-slice:focus-visible::after {
+  .btn-slice:not(:disabled):focus-visible::before,
+  .btn-slice:not(:disabled):focus-visible::after {
     transform: translateX(0) skewX(-57deg);
   }
 
-  .btn-slice:focus-visible::before {
+  .btn-slice:not(:disabled):focus-visible::before {
     transition: transform 0.55s var(--ease-out-expo);
   }
 
-  .btn-slice:focus-visible::after {
+  .btn-slice:not(:disabled):focus-visible::after {
     transition: transform 0.6s var(--ease-out-expo) 0.07s;
   }
 
-  .btn-slice:focus-visible {
+  .btn-slice:not(:disabled):focus-visible {
     color: var(--slice-ink);
     transition-delay: 0s, 0.1s, 0s, 0s, 0s;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .btn-slice:hover::before,
-    .btn-slice:hover::after {
+    .btn-slice:not(:disabled):hover::before,
+    .btn-slice:not(:disabled):hover::after {
       transform: translateX(0) skewX(-57deg);
     }
 
-    .btn-slice:hover::before {
+    .btn-slice:not(:disabled):hover::before {
       transition: transform 0.55s var(--ease-out-expo);
     }
 
-    .btn-slice:hover::after {
+    .btn-slice:not(:disabled):hover::after {
       transition: transform 0.6s var(--ease-out-expo) 0.07s;
     }
 
-    .btn-slice:hover {
+    .btn-slice:not(:disabled):hover {
       color: var(--slice-ink);
       transition-delay: 0s, 0.1s, 0s, 0s, 0s;
     }
@@ -464,7 +466,7 @@
     --slice-ink: var(--paper);
   }
 
-  .btn-secondary.btn-slice:is(:hover, :focus-visible) {
+  .btn-secondary.btn-slice:not(:disabled):is(:hover, :focus-visible) {
     border-color: var(--ink);
   }
 
@@ -472,6 +474,104 @@
     --slice-lead: var(--brand-azure);
     --slice-fill: var(--brand-navy);
     --slice-ink: var(--field-ink);
+  }
+
+  /*
+   * Editorial link: a standalone "read more" that is plainly a link without
+   * being a button. A hairline runs under label and arrow; a short cobalt
+   * segment rests at its start like a measuring mark and, on hover or focus,
+   * draws the full length (transform only). The arrow sits in a capsule well
+   * that fills cobalt while the arrow leaves right and returns from the left.
+   */
+  .link-editorial {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 2.75rem;
+    padding-bottom: 0.625rem;
+    font-size: 1.125rem;
+    font-weight: 650;
+    font-stretch: 112%;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .link-editorial::before,
+  .link-editorial::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .link-editorial::before {
+    height: 1px;
+    background: var(--line-strong);
+  }
+
+  .link-editorial::after {
+    height: 2px;
+    border-radius: 9999px;
+    background: var(--accent);
+    transform-origin: left center;
+    transform: scaleX(0.16);
+    transition: transform 0.4s var(--ease-in-out-quart);
+  }
+
+  .link-editorial-label {
+    transition: color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .link-editorial-arrow {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    color: var(--accent-text);
+    transition:
+      background-color var(--dur-state) var(--ease-out-expo),
+      border-color var(--dur-state) var(--ease-out-expo),
+      color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .link-editorial-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .link-editorial:is(:hover, :focus-visible)::after {
+    transform: scaleX(1);
+    transition: transform 0.65s var(--ease-out-expo);
+  }
+
+  .link-editorial:is(:hover, :focus-visible) .link-editorial-label {
+    color: var(--accent-text);
+  }
+
+  .link-editorial:is(:hover, :focus-visible) .link-editorial-arrow {
+    border-color: var(--accent);
+    background-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .link-editorial:focus-visible {
+    outline-offset: 6px;
+  }
+
+  .link-editorial:active .link-editorial-arrow {
+    transform: scale(0.92);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .link-editorial:is(:hover, :focus-visible) .link-editorial-icon {
+      animation: arrow-pass 0.6s var(--ease-out-expo);
+    }
   }
 
   .btn:disabled,
@@ -1075,6 +1175,15 @@
     --fold: 0px;
     --surface: color-mix(in srgb, var(--paper) 86%, transparent);
     --rim: var(--line);
+    /* Glass: a light sheen across the top of the surface and the blur
+       behind it. The fill stays at 86 percent or more, which keeps muted nav
+       text above 4.5:1 even over the cobalt field. */
+    --sheen: rgb(255 255 255 / 0.5);
+    --glass: blur(14px) saturate(1.5);
+  }
+
+  :root[data-theme="dark"] .site-header {
+    --sheen: rgb(233 239 250 / 0.06);
   }
 
   @media (min-width: 768px) {
@@ -1111,8 +1220,10 @@
   }
 
   .header-plate {
-    background: var(--surface);
-    backdrop-filter: blur(12px) saturate(1.2);
+    background-color: var(--surface);
+    background-image: linear-gradient(to bottom, var(--sheen), transparent 70%);
+    -webkit-backdrop-filter: var(--glass);
+    backdrop-filter: var(--glass);
     opacity: 0;
     clip-path: inset(0 0 1px 0 round 0);
     transition:
@@ -1141,8 +1252,21 @@
   /* Condensed on any width: a firmer hairline and a raised, nearly opaque
      surface (the phone bar stays full-bleed, so this is its only change). */
   .site-header[data-compact="true"]:not([data-menu="open"]) {
-    --surface: color-mix(in srgb, var(--paper-raised) 94%, transparent);
+    --surface: color-mix(in srgb, var(--paper-raised) 88%, transparent);
     --rim: var(--capsule-rim);
+    --glass: blur(20px) saturate(1.8);
+  }
+
+  /* Without backdrop blur the page would read through the text: the surface
+     turns nearly opaque instead. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .site-header {
+      --surface: color-mix(in srgb, var(--paper) 96%, transparent);
+    }
+
+    .site-header[data-compact="true"]:not([data-menu="open"]) {
+      --surface: color-mix(in srgb, var(--paper-raised) 97%, transparent);
+    }
   }
 
   @media (min-width: 768px) {
@@ -1177,6 +1301,7 @@
 
   .site-header[data-menu="open"] .header-plate {
     background: var(--paper);
+    -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
@@ -1198,28 +1323,38 @@
     aspect-ratio: 727 / 361;
   }
 
+  /*
+   * The words never get a hard clip edge: an edge sweeping across them cut
+   * letters in half wherever it ran ahead of the mark's diagonal silhouette
+   * (a sliced "t" or "o", "NESIA" mid-wipe). Instead each word layer fades
+   * whole while drifting a little, under the mark, which is stacked on top.
+   * Expanding, the words wait for the mark to clear them before returning.
+   * Transform and opacity only, so the morph stays on the compositor.
+   */
   .lockup-layer {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    transition:
-      transform var(--morph),
-      clip-path var(--morph),
-      opacity var(--dur-state) ease;
   }
 
   /* Pivot at the centre of the four capsules (x 0-200, y 0-250 of 727 x 361). */
   .lockup-mark {
+    z-index: 1;
     transform-origin: 13.75% 34.6%;
+    transition: transform var(--morph);
   }
 
   .lockup-word {
-    clip-path: inset(0 0 0 28.6%);
+    transition:
+      transform var(--morph),
+      opacity 0.4s ease 0.2s;
   }
 
   .lockup-desc {
-    clip-path: inset(0 0 0 0);
+    transition:
+      transform 0.45s var(--ease-out-expo) 0.26s,
+      opacity 0.34s ease 0.26s;
   }
 
   .logo-hit {
@@ -1248,23 +1383,33 @@
     pointer-events: auto;
   }
 
-  /* Condensing on phones: the words retract into the mark, which settles to
-     the bar's centre line. The surface stays full-bleed. */
+  /* Condensing on any width: INDONESIA lifts into the wordmark and goes
+     first; the wordmark fades as the mark moves. Leaving runs faster than
+     returning and starts at once. */
+  .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-word {
+    opacity: 0;
+    transition:
+      transform var(--morph),
+      opacity 0.2s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-desc {
+    opacity: 0;
+    transform: translateY(-9%);
+    transition:
+      transform 0.3s var(--ease-out-expo),
+      opacity 0.14s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  /* Phones: the words retract toward the mark, which settles to the bar's
+     centre line. The surface stays full-bleed. */
   @media (max-width: 767px) {
     .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-mark {
       transform: translateY(15.4%);
     }
 
     .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-word {
-      clip-path: inset(0 71.4% 0 28.6%);
-      opacity: 0;
-      transition-delay: 0s, 0s, 0.2s;
-    }
-
-    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-desc {
-      clip-path: inset(0 100% 0 0);
-      opacity: 0;
-      transition-delay: 0s, 0s, 0.15s;
+      transform: translateX(-7%);
     }
 
     .site-header[data-compact="true"]:not([data-menu="open"]) .logo-hit {
@@ -1272,9 +1417,8 @@
     }
   }
 
-  /* Condensing from 768px: the mark travels right through the wordmark and
-     swallows it (the clip edge rides the mark's trailing side), settling
-     where the contracted capsule begins. INDONESIA leads by a beat. */
+  /* From 768px: the mark travels right across the fading wordmark, which
+     drifts ahead of it, and settles where the contracted capsule begins. */
   @media (min-width: 768px) {
     .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-mark {
       transform: translate(75%, 15.4%) scale(0.82);
@@ -1285,17 +1429,17 @@
     }
 
     .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-word {
-      clip-path: inset(0 0 0 100%);
-    }
-
-    .site-header[data-compact="true"]:not([data-menu="open"]) .lockup-desc {
-      clip-path: inset(0 0 0 100%);
-      transition-duration: 0.46s, 0.46s, var(--dur-state);
+      transform: translateX(5%);
     }
 
     .site-header[data-compact="true"]:not([data-menu="open"]) .logo-hit {
       left: 75%;
     }
+  }
+
+  /* State written without animation (first paint after a restored scroll). */
+  .site-header[data-instant] :is(.header-plate, .header-rim, .header-lift, .lockup-layer) {
+    transition: none !important;
   }
 
   /* The menu panel leaves faster than it arrives. */
@@ -2242,6 +2386,18 @@ html[data-boot="intro"] .dock-launcher {
   }
 }
 
+@keyframes arrow-pass {
+  45% {
+    opacity: 0;
+    transform: translateX(160%);
+  }
+
+  46% {
+    opacity: 0;
+    transform: translateX(-160%);
+  }
+}
+
 @keyframes arrow-loop {
   45% {
     opacity: 0;
@@ -2734,8 +2890,10 @@ html[data-boot="intro"] .dock-launcher {
   /* Demonstration status (src/components/portfolio/demo-label.tsx). A
      status, never a control: dashed outline, small type, default cursor, no
      hover. The radius equals half the one-line height, so it is a capsule on
-     one line and a soft panel if a narrow card makes it wrap. */
-  .demo-label {
+     one line and a soft panel if a narrow card makes it wrap. The preview
+     caption's "illustration" status shares the look under its own name. */
+  .demo-label,
+  .preview-label {
     display: inline-flex;
     align-items: center;
     gap: 0.625rem;
@@ -2943,11 +3101,6 @@ html[data-boot="intro"] .dock-launcher {
       margin-top: 0;
       padding-top: 2.15rem;
     }
-  }
-
-  .case-card-open {
-    border: 1px dashed var(--line-strong);
-    background: transparent;
   }
 
   /* The solution lands on the cobalt field. */
@@ -3282,6 +3435,1120 @@ html[data-boot="intro"] .dock-launcher {
   .tech-badge-small .tech-badge-icon {
     width: 1.125rem;
     height: 1.125rem;
+  }
+}
+
+/* ------------------------------------------------- round 6 components */
+
+@layer components {
+  /* About: vision. On wide screens a cobalt axis runs down beside the title
+     and a short capsule rides its tip; both rest drawn without motion. */
+  .vision-axis {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .vision-head {
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .vision-axis {
+      position: relative;
+      display: block;
+      flex: 1;
+      width: 2px;
+      min-height: 6rem;
+      margin-left: 0.4rem;
+      border-radius: 9999px;
+      background: var(--line);
+    }
+  }
+
+  .vision-axis-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--accent);
+    transform-origin: top center;
+  }
+
+  .vision-axis-tip {
+    position: absolute;
+    bottom: -0.2rem;
+    left: 50%;
+    width: 1.1rem;
+    height: 0.4rem;
+    margin-left: -0.55rem;
+    border-radius: 9999px;
+    background: var(--accent);
+    rotate: -33deg;
+  }
+
+  .vision-text {
+    font-size: clamp(1.6rem, 3.2vw, 2.7rem);
+    line-height: 1.18;
+    font-weight: 600;
+    font-stretch: 118%;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+
+  /* About: values as numbered editorial rows. A static statement, never a
+     control: no hover, default cursor. The ink rule over each row draws
+     with the scroll and the marker turns onto the 33deg axis. */
+  .value-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-block: 2rem 2.25rem;
+    border-top: 1px solid var(--line-strong);
+  }
+
+  .value-row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .value-rule {
+    position: absolute;
+    inset-inline: 0;
+    top: -1px;
+    height: 2px;
+    background: var(--ink);
+    transform-origin: left center;
+  }
+
+  .value-index {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--accent-text);
+  }
+
+  .value-mark {
+    width: 1.1rem;
+    height: 0.36rem;
+    border-radius: 9999px;
+    background: currentColor;
+    transform: rotate(-33deg);
+  }
+
+  .value-name {
+    font-size: var(--text-heading);
+    line-height: var(--text-heading--line-height);
+    font-weight: 700;
+    font-stretch: 118%;
+    letter-spacing: -0.025em;
+  }
+
+  .value-text {
+    max-width: 60ch;
+    color: var(--ink-muted);
+  }
+
+  @media (min-width: 768px) {
+    .value-row {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 4fr) minmax(0, 6fr);
+      align-items: baseline;
+      column-gap: clamp(1.5rem, 3vw, 3rem);
+      padding-block: 2.5rem 2.75rem;
+    }
+  }
+
+  /* About: the ecosystem map. Status is always written out; the capsule
+     glyph repeats it as shape: filled (in progress), half (in design),
+     hollow and dashed (planned, the same signifier as the demo label). */
+  .eco {
+    display: grid;
+    gap: 3.5rem;
+  }
+
+  .eco-intro {
+    display: grid;
+    align-content: start;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .eco {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      column-gap: clamp(3rem, 5vw, 5rem);
+    }
+
+    .eco-intro {
+      position: sticky;
+      top: calc(var(--header-h) + 2rem);
+      align-self: start;
+    }
+  }
+
+  .eco-orbit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.875rem;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.75rem 1.25rem 0.75rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-field);
+    background: var(--paper-raised);
+    font-size: 0.9375rem;
+  }
+
+  /* An orbit: a ring with one capsule riding it on the logo's axis. */
+  .eco-orbit-glyph {
+    position: relative;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    border: 1.5px solid var(--accent-text);
+    border-radius: 9999px;
+  }
+
+  .eco-orbit-glyph::after {
+    content: "";
+    position: absolute;
+    top: -0.2rem;
+    right: -0.25rem;
+    width: 0.75rem;
+    height: 0.32rem;
+    border-radius: 9999px;
+    background: var(--accent);
+    transform: rotate(-33deg);
+  }
+
+  .eco-map {
+    position: relative;
+  }
+
+  .eco-spine {
+    position: absolute;
+    top: 0.75rem;
+    bottom: 1rem;
+    left: 0.6875rem;
+    width: 2px;
+    border-radius: 9999px;
+    background: var(--line-strong);
+  }
+
+  .eco-spine-fill {
+    background: var(--accent);
+    transform-origin: top center;
+  }
+
+  .eco-tiers {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  .eco-tier {
+    position: relative;
+    display: grid;
+    gap: 1rem;
+    padding-left: 3rem;
+  }
+
+  @media (min-width: 640px) {
+    .eco-tier {
+      padding-left: 3.5rem;
+    }
+  }
+
+  .eco-marker {
+    position: absolute;
+    top: 0.45rem;
+    left: 0;
+    width: 1.5rem;
+    height: 0.6rem;
+    border: 1.5px solid var(--accent);
+    border-radius: 9999px;
+    background: var(--accent);
+    rotate: -33deg;
+    transition:
+      background-color 0.45s var(--ease-out-expo),
+      border-color 0.45s var(--ease-out-expo);
+  }
+
+  .eco-marker[data-status="design"] {
+    background: linear-gradient(90deg, var(--accent) 50%, var(--paper) 50%);
+  }
+
+  .eco-marker[data-status="planned"] {
+    border-style: dashed;
+    background: var(--paper);
+  }
+
+  .eco[data-armed="true"] .eco-tier:not(.is-passed) .eco-marker {
+    border-color: var(--line-strong);
+    background: var(--paper);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .eco[data-armed="true"] .eco-tier.is-passed .eco-marker {
+      animation: flow-mark 0.6s var(--ease-out-expo);
+    }
+  }
+
+  .eco-tier-title {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: -0.015em;
+    color: var(--ink-muted);
+  }
+
+  .eco-card {
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: 0.75rem;
+    height: 100%;
+    padding: 1.375rem 1.5rem 1.5rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-field);
+    background: var(--paper-raised);
+  }
+
+  .eco-card[data-status="current"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 7%, var(--paper-raised));
+  }
+
+  .eco-card[data-status="planned"] {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--ink-muted) 55%, transparent);
+    background: transparent;
+  }
+
+  .eco-name {
+    font-size: 1.25rem;
+    line-height: 1.25;
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: -0.02em;
+  }
+
+  .eco-role {
+    margin-top: -0.25rem;
+    color: var(--ink-muted);
+  }
+
+  .eco-modules {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .eco-modules {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .eco-modules .eco-name {
+    font-size: 1.0625rem;
+  }
+
+  .eco-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.75rem;
+    padding: 0.2rem 0.75rem 0.2rem 0.6rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1.2;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .eco-status-glyph {
+    width: 0.85rem;
+    height: 0.38rem;
+    border: 1.5px solid currentColor;
+    border-radius: 9999px;
+    transform: rotate(-33deg);
+  }
+
+  .eco-status[data-status="current"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .eco-status[data-status="current"] .eco-status-glyph {
+    background: currentColor;
+  }
+
+  .eco-status[data-status="design"] .eco-status-glyph {
+    border-color: var(--accent-text);
+    background: linear-gradient(90deg, var(--accent-text) 50%, transparent 50%);
+  }
+
+  .eco-status[data-status="planned"] {
+    border-style: dashed;
+    color: var(--ink-muted);
+  }
+
+  .eco-status[data-status="planned"] .eco-status-glyph {
+    border-color: var(--accent-text);
+  }
+
+  /*
+   * FAQ (src/components/ui/faq-list.tsx), one system for every page.
+   * Opening draws a cobalt rule over the row, fills the icon well, and folds
+   * the plus into a minus; the answer rises in. Where `::details-content`
+   * can be animated the row also expands and collapses smoothly (height is
+   * the one non-composited property here, user-initiated and one row at a
+   * time); elsewhere it opens instantly, natively.
+   */
+  .faq {
+    border-top: 1px solid var(--line);
+  }
+
+  .faq-item {
+    position: relative;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .faq-item::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: -1px;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.4s var(--ease-in-out-quart);
+    pointer-events: none;
+  }
+
+  .faq-item[open]::before {
+    transform: scaleX(1);
+    transition: transform 0.6s var(--ease-out-expo);
+  }
+
+  .faq-summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-block: 1.5rem;
+    list-style: none;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+
+  .faq-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-summary:focus-visible {
+    outline-offset: 4px;
+  }
+
+  .faq-question {
+    padding-top: 0.25rem;
+    transition: color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .faq-summary:hover .faq-question,
+  .faq-item[open] .faq-question {
+    color: var(--accent-text);
+  }
+
+  .faq-icon {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    color: var(--accent-text);
+    transition:
+      background-color var(--dur-state) var(--ease-out-expo),
+      border-color var(--dur-state) var(--ease-out-expo),
+      color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .faq-summary:hover .faq-icon {
+    border-color: var(--ink-muted);
+    background: var(--paper-sunken);
+  }
+
+  .faq-item[open] .faq-icon {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .faq-icon-bar {
+    grid-area: 1 / 1;
+    width: 0.875rem;
+    height: 2px;
+    border-radius: 9999px;
+    background: currentColor;
+    transition: transform 0.45s var(--ease-out-expo);
+  }
+
+  .faq-icon-bar-cross {
+    transform: rotate(90deg);
+  }
+
+  .faq-item[open] .faq-icon-bar-cross {
+    transform: rotate(180deg) scaleX(0);
+  }
+
+  .faq-answer {
+    padding: 0 3.75rem 1.75rem 0;
+  }
+
+  .faq-answer p {
+    max-width: 64ch;
+    line-height: 1.7;
+    color: var(--ink-muted);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .faq-item[open] .faq-answer {
+      animation: faq-answer-in 0.5s var(--ease-out-expo) both;
+    }
+  }
+
+  @supports (interpolate-size: allow-keywords) and selector(::details-content) {
+    .faq-item {
+      interpolate-size: allow-keywords;
+    }
+
+    .faq-item::details-content {
+      block-size: 0;
+      overflow-y: clip;
+      transition:
+        block-size 0.32s var(--ease-in-quart),
+        content-visibility 0.32s allow-discrete;
+    }
+
+    .faq-item[open]::details-content {
+      block-size: auto;
+      transition:
+        block-size 0.5s var(--ease-out-expo),
+        content-visibility 0.5s allow-discrete;
+    }
+  }
+
+  /* Case study: the problem card. Dashed (still open), on a faint cobalt
+     tint, so it reads apart from the context card above it. */
+  .case-card-open {
+    border: 1px dashed color-mix(in srgb, var(--accent-text) 50%, transparent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+  }
+
+  :root[data-theme="dark"] .case-card-open {
+    background: color-mix(in srgb, var(--accent) 11%, var(--paper));
+  }
+
+  .case-card-open .case-card-text {
+    color: var(--ink);
+  }
+
+  /*
+   * Responsive preview (src/components/portfolio/device-preview.tsx).
+   * The stage never exceeds the column; the screen inside is laid out at the
+   * device's width and drawn smaller, so container queries see real widths.
+   */
+  .preview {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .preview-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+  }
+
+  .preview-switch {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+    background: var(--paper-raised);
+  }
+
+  .preview-option {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .preview-option input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .preview-option input:disabled {
+    cursor: not-allowed;
+  }
+
+  .preview-option span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: 9999px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    transition:
+      background-color var(--dur-state) var(--ease-out-expo),
+      color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .preview-option input:hover:not(:disabled, :checked) + span {
+    color: var(--ink);
+  }
+
+  .preview-option input:checked + span {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .preview-option input:focus-visible + span {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .preview-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--ink);
+  }
+
+  .preview-range input {
+    width: clamp(8rem, 22vw, 13rem);
+    accent-color: var(--accent);
+  }
+
+  .preview-readout {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .preview-stage {
+    display: grid;
+    justify-items: center;
+    padding: clamp(1rem, 3vw, 2rem);
+    overflow: hidden;
+    border-radius: var(--radius-panel);
+    background: var(--paper-sunken);
+  }
+
+  .preview-frame {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--paper-raised);
+    box-shadow: 0 24px 48px -32px rgb(var(--shadow-tint) / 0.55);
+  }
+
+  .preview-frame[data-device="tablet"] {
+    border-radius: 1.25rem;
+  }
+
+  .preview-frame[data-device="mobile"] {
+    border-radius: 1.75rem;
+  }
+
+  .preview-screen {
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+    transform-origin: top left;
+  }
+
+  .preview-handle {
+    position: absolute;
+    top: 50%;
+    right: -0.9rem;
+    width: 0.9rem;
+    height: 3.5rem;
+    margin-top: -1.75rem;
+    border-radius: 9999px;
+    background: var(--ink);
+    cursor: ew-resize;
+    touch-action: none;
+    transition: background-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  .preview-handle::after {
+    content: "";
+    position: absolute;
+    inset: 1.1rem 0.3rem;
+    border-inline: 1px solid var(--paper);
+    opacity: 0.6;
+  }
+
+  .preview-handle:hover {
+    background: var(--accent);
+  }
+
+  .preview-caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    font-size: 0.9375rem;
+    color: var(--ink-muted);
+  }
+
+  /* The concept screen: a wireframe, intentionally. Real text from the case
+     study, bars for everything else, one accent. */
+  .cs {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .cs-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 56px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper-raised);
+  }
+
+  .cs-logo {
+    width: 26px;
+    height: 11px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--accent);
+    transform: rotate(-33deg);
+  }
+
+  .cs-brand {
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .cs-nav {
+    display: none;
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .cs-nav-item {
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .cs-menu {
+    display: grid;
+    gap: 5px;
+    margin-left: auto;
+    padding: 10px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9999px;
+  }
+
+  .cs-menu span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    border-radius: 9999px;
+    background: var(--ink);
+  }
+
+  .cs-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .cs-side {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    width: 220px;
+    flex-shrink: 0;
+    padding: 20px 14px;
+    border-right: 1px solid var(--line);
+    background: var(--paper-raised);
+  }
+
+  .cs-side-item {
+    padding: 9px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  .cs-side-item[data-current] {
+    background: var(--paper-sunken);
+    color: var(--ink);
+  }
+
+  .cs-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+    padding: 22px 18px;
+  }
+
+  .cs-hero {
+    display: grid;
+    gap: 10px;
+    justify-items: start;
+    padding: 20px;
+    border-radius: 18px;
+    background: var(--field);
+    color: var(--field-ink);
+  }
+
+  .cs-kicker {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--field-ink-muted);
+  }
+
+  .cs-heading {
+    max-width: 34ch;
+    font-size: 19px;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+
+  .cs-lines {
+    display: grid;
+    gap: 7px;
+    width: 100%;
+  }
+
+  .cs-lines span {
+    display: block;
+    height: 7px;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.18;
+  }
+
+  .cs-lines span:last-child {
+    width: 62%;
+  }
+
+  .cs-cta {
+    margin-top: 4px;
+    padding: 8px 16px;
+    border-radius: 9999px;
+    background: var(--field-ink);
+    color: var(--field);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .cs-steps {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cs-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 9999px;
+    background: var(--paper-raised);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .cs-step-index {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .cs-step-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .cs-grid {
+    display: grid;
+    gap: 12px;
+  }
+
+  .cs-card {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--paper-raised);
+    color: var(--ink-muted);
+  }
+
+  .cs-card-mark {
+    width: 22px;
+    height: 9px;
+    margin-bottom: 4px;
+    border-radius: 9999px;
+    background: var(--accent);
+    opacity: 0.85;
+    transform: rotate(-33deg);
+  }
+
+  .cs-card-name {
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .cs-card-text {
+    font-size: 13px;
+  }
+
+  @container (min-width: 600px) {
+    .cs-main {
+      gap: 26px;
+      padding: 28px;
+    }
+
+    .cs-heading {
+      font-size: 23px;
+    }
+
+    .cs-steps {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .cs-step {
+      flex-direction: column;
+      align-items: flex-start;
+      border-radius: 14px;
+    }
+
+    .cs-step-name {
+      white-space: normal;
+    }
+
+    .cs-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container (min-width: 1000px) {
+    .cs-bar {
+      padding: 0 28px;
+    }
+
+    .cs-menu {
+      display: none;
+    }
+
+    .cs-nav,
+    .cs-side {
+      display: flex;
+    }
+
+    .cs-hero {
+      padding: 28px 32px;
+    }
+
+    .cs-heading {
+      font-size: 27px;
+    }
+  }
+
+  @container (min-width: 1280px) {
+    .cs-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* Inquiry selects: a caret well inside the capsule. With customizable
+     select support the option list is styled too; otherwise native. */
+  .select-field {
+    position: relative;
+  }
+
+  .select-field .field-select {
+    padding-right: 3.5rem;
+  }
+
+  .select-caret {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-top: -1.125rem;
+    border-radius: 9999px;
+    background: var(--paper-sunken);
+    color: var(--ink);
+    pointer-events: none;
+    transition:
+      background-color var(--dur-state) var(--ease-out-expo),
+      color var(--dur-state) var(--ease-out-expo),
+      transform 0.4s var(--ease-out-expo);
+  }
+
+  .select-field:hover .select-caret {
+    background: color-mix(in srgb, var(--paper-sunken) 70%, var(--accent) 14%);
+  }
+
+  .select-field:focus-within .select-caret {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .select-field:has(.field-select:open) .select-caret {
+    transform: rotate(180deg);
+  }
+
+  @supports (appearance: base-select) {
+    .field-input.field-select,
+    .field-select::picker(select) {
+      appearance: base-select;
+    }
+
+    .field-input.field-select {
+      display: flex;
+      align-items: center;
+    }
+
+    .field-select::picker-icon {
+      display: none;
+    }
+
+    .field-select::picker(select) {
+      margin-block: 0.5rem;
+      padding: 0.375rem;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-field);
+      background: var(--paper-raised);
+      color: var(--ink);
+      box-shadow: 0 24px 48px -28px rgb(var(--shadow-tint) / 0.6);
+      opacity: 0;
+      transform: translateY(-0.375rem) scale(0.98);
+      transform-origin: top center;
+      transition:
+        opacity 0.2s ease,
+        transform 0.22s var(--ease-in-quart),
+        overlay 0.22s allow-discrete,
+        display 0.22s allow-discrete;
+    }
+
+    .field-select:open::picker(select) {
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity var(--dur-state) ease,
+        transform var(--dur-overlay) var(--ease-out-expo),
+        overlay var(--dur-overlay) allow-discrete,
+        display var(--dur-overlay) allow-discrete;
+    }
+
+    @starting-style {
+      .field-select:open::picker(select) {
+        opacity: 0;
+        transform: translateY(-0.375rem) scale(0.98);
+      }
+    }
+
+    .field-select option {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-height: 2.75rem;
+      padding: 0.5rem 0.875rem;
+      border-radius: 0.875rem;
+      font-weight: 500;
+      transition: background-color var(--dur-quick) ease;
+    }
+
+    .field-select option:hover,
+    .field-select option:focus-visible {
+      background: var(--paper-sunken);
+      outline: none;
+    }
+
+    .field-select option:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--focus);
+    }
+
+    .field-select option:checked {
+      font-weight: 650;
+      color: var(--accent-text);
+    }
+
+    .field-select option::checkmark {
+      order: 1;
+      margin-left: auto;
+      content: "";
+      width: 0.85rem;
+      height: 0.38rem;
+      border-radius: 9999px;
+      background: var(--accent);
+      transform: rotate(-33deg);
+    }
+  }
+}
+
+@keyframes faq-answer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.375rem);
   }
 }
 

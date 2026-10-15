@@ -18,7 +18,7 @@ Owners and decision makers at individual businesses, UMKM, startups, organisatio
 
 Solveit Indonesia is a technology startup and software house. This website is the company profile and portfolio: branding, service marketing, portfolio presentation, and lead acquisition. Success means a qualified visitor understands the offer and starts a consultation.
 
-It is also the first piece of a planned ecosystem (Solveit OpsHub) covering consultation, service ordering, proposals, contracts, invoices, project development, progress and revision tracking, and maintenance. None of those features exist yet. OpsHub and other business systems are built as independent projects (own repository, deployment, and lifecycle); this website connects to them through API contracts, events, or links, never a shared database, and never grows into them.
+It is also the first piece of a planned ecosystem covering consultation, service ordering, proposals, contracts, invoices, project development, progress and revision tracking, and maintenance. None of those features exist yet. Naming (2026-10-14, see `docs/product-naming.md`): Solveit OpsHub is the established name of the internal operations hub (in design); "Solveit Orbit" is a proposed umbrella name for the ecosystem, and Connect, Scope, Accord, Ledger, Pulse, and Care are proposed names for planned client-facing parts. Proposed names are not trademarks and must stay labelled as plans. OpsHub and other business systems are built as independent projects (own repository, deployment, and lifecycle); this website connects to them through API contracts, events, or links, never a shared database, and never grows into them.
 
 ## Positioning
 
@@ -33,7 +33,7 @@ Tagline (official, English): "We Don't Just Build Software. We Build Digital Sol
 
 ## Brand Commitments
 
-- Logos `logo-solveit-icon.svg` and `logo-solveit-primary.svg` are the source of visual identity; their shapes must not be modified.
+- Logos `brand/logo-solveit-icon.svg` and `brand/logo-solveit-primary.svg` are the source of visual identity; their shapes must not be modified.
 - Visual approach named by the brief: "Precision in Motion".
 
 ## Evidence on Hand

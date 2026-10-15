@@ -24,6 +24,7 @@ const chapterOrder = [
   "context",
   "problem",
   "solution",
+  "preview",
   "system",
   "flow",
   "features",
@@ -92,9 +93,11 @@ test.describe("compact header surface", () => {
       expect(await css(page, ".header-rim", "opacity")).toBe("1");
       const rim = await css(page, ".header-rim", "background-color");
       expect(rim).toBe(theme === "light" ? "rgba(8, 42, 86, 0.2)" : "rgba(233, 239, 250, 0.2)");
-      // Fill: raised porcelain, nearly opaque, so it never melts into the page.
+      // Fill: raised porcelain glass, 88 percent over a blurred backdrop, so
+      // it never melts into the page and muted text keeps its contrast.
       const fill = await css(page, ".header-plate", "background-color");
-      expect(fill).toMatch(/0\.94\)$/);
+      expect(fill).toMatch(/0\.88\)$/);
+      expect(await css(page, ".header-plate", "backdrop-filter")).toContain("blur(20px)");
       if ((viewport?.width ?? 0) >= 768) {
         expect(await css(page, ".header-rim", "clip-path")).toContain("round 30px");
         expect(await css(page, ".header-lift", "opacity")).toBe("1");
@@ -416,11 +419,15 @@ test.describe("principles", () => {
 test.describe("slicing calls to action", () => {
   test("only the chosen calls to action slice, and the label stays put", async ({ page }) => {
     await page.goto("/");
-    const slices = page.locator(".btn-slice");
-    await expect(slices).toHaveCount(3);
-    // Never on header controls, forms, switches, or close buttons.
-    await expect(page.locator("header .btn-slice, [data-close-control].btn-slice")).toHaveCount(0);
+    // Hero submit, "see the work", "learn the process", the closing band, and
+    // the header's consultation link (bar and phone menu).
+    await expect(page.locator(".btn-slice")).toHaveCount(6);
+    await expect(page.locator('header .btn-slice[href="/kontak"]')).toHaveCount(2);
+    await expect(page.locator('a.btn-slice[href="/proses"]')).toHaveCount(1);
+    // Never on switches, close buttons, or form fields.
+    await expect(page.locator("[data-close-control].btn-slice")).toHaveCount(0);
     await expect(page.locator(".theme-toggle.btn-slice, .lang-switch .btn-slice")).toHaveCount(0);
+    await expect(page.locator("input.btn-slice, select.btn-slice")).toHaveCount(0);
 
     const fine = await page.evaluate(
       () => matchMedia("(hover: hover) and (pointer: fine)").matches,
