@@ -72,7 +72,7 @@ jobs:
           echo "Docker dev Node: $(compose exec -T frontend node -v)" | tee -a "$GITHUB_STEP_SUMMARY"
           compose exec -T frontend node -e 'process.exit(process.versions.node.startsWith("22.") ? 0 : 1)'
           compose exec -T backend php artisan --version | tee -a "$GITHUB_STEP_SUMMARY"
-          compose exec -T backend php artisan db:show --no-ansi | grep -E 'MySQL +8\.4\.'
+          compose exec -T backend php artisan db:show --no-ansi | grep -E 'MySQL[ .]+8\.4\.'
       - name: Services answer
         run: |
           for _ in $(seq 1 60); do curl -sf http://127.0.0.1:8000/up > /dev/null && break; sleep 2; done
