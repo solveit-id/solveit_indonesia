@@ -1,0 +1,127 @@
+name: Docker CI
+
+# Validates the Docker environments in infra/docker/ on a clean runner with disposable data:
+# Compose files and scripts, the full-Docker development onboarding from a fresh clone (including
+# the backend test suite inside the container), and the production images with a synthetic smoke
+# test. It never deploys, never pushes images, and never reaches a real database.
+on:
+  pull_request:
+    branches: [staging, main]
+    paths: ["infra/**", "backend/**", "frontend/**", ".github/workflows/docker-ci.yml"]
+  push:
+    branches: [backend]
+    paths: ["infra/**", "backend/**", "frontend/**", ".github/workflows/docker-ci.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only token: checkout needs nothing more, and no image is published.
+permissions:
+  contents: read
+
+jobs:
+  config:
+    name: compose files and scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell scripts (shellcheck)
+        run: shellcheck infra/docker/scripts/*.sh infra/docker/*/entrypoint-*.sh infra/docker/mysql/initdb-production/*.sh backend/docker/mysql/initdb/*.sh
+      - name: Compose files resolve (placeholder secrets, never used)
+        env:
+          SOLVEIT_SECRETS_DIR: ${{ runner.temp }}/secrets
+          SOLVEIT_ENV_FILE: ./production.env.example
+        run: |
+          mkdir -p "$SOLVEIT_SECRETS_DIR" backend/docker/mysql/secrets
+          for name in app_key db_app_password db_migrator_password mysql_root_password; do : > "$SOLVEIT_SECRETS_DIR/$name"; done
+          for name in mysql_root_password solveit_dev_password solveit_test_password; do : > "backend/docker/mysql/secrets/$name"; done
+          docker compose -f infra/docker/compose.dev.yaml config --quiet
+          docker compose -f infra/docker/compose.prod.yaml --profile bundled-db --profile ops config --quiet
+          # The development project must reuse the MySQL service of backend/docker/mysql unchanged.
+          test "$(docker compose -f infra/docker/compose.dev.yaml config --hash mysql)" = "$(docker compose -f backend/docker/mysql/compose.yaml config --hash mysql)"
+          # Only the gateway publishes a port, and by default only on loopback.
+          docker compose -f infra/docker/compose.prod.yaml --profile bundled-db config --format json \
+            | jq -e '[.services | to_entries[] | select(.value.ports != null) | .key] == ["gateway"] and (.services.gateway.ports[0].host_ip == "127.0.0.1")'
+          # The production build keeps the inquiry API channel off.
+          docker compose -f infra/docker/compose.prod.yaml config --format json \
+            | jq -e '.services.frontend.build.args.VITE_INQUIRY_API_ENABLED == "false"'
+
+  development:
+    name: development onboarding (fresh clone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Container user matches the runner user (bind-mounted source stays writable)
+        run: |
+          echo "SOLVEIT_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "SOLVEIT_GID=$(id -g)" >> "$GITHUB_ENV"
+          echo "SOLVEIT_WATCH_POLLING=false" >> "$GITHUB_ENV"
+      - name: Onboarding script (secrets, .env files, build, start, migrate)
+        run: bash infra/docker/scripts/setup-dev.sh
+      - name: Runtime versions
+        run: |
+          compose() { docker compose -f infra/docker/compose.dev.yaml "$@"; }
+          compose exec -T backend php -r 'exit(PHP_VERSION_ID >= 80507 && PHP_VERSION_ID < 80600 ? 0 : 1);'
+          echo "Docker dev PHP: $(compose exec -T backend php -r 'echo PHP_VERSION;')" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Docker dev Node: $(compose exec -T frontend node -v)" | tee -a "$GITHUB_STEP_SUMMARY"
+          compose exec -T frontend node -e 'process.exit(process.versions.node.startsWith("22.") ? 0 : 1)'
+          compose exec -T backend php artisan --version | tee -a "$GITHUB_STEP_SUMMARY"
+          compose exec -T backend php artisan db:show --no-ansi | grep -E 'MySQL +8\.4\.'
+      - name: Services answer
+        run: |
+          for _ in $(seq 1 60); do curl -sf http://127.0.0.1:8000/up > /dev/null && break; sleep 2; done
+          test "$(curl -s http://127.0.0.1:8000/up)" = '{"status":"ok"}'
+          for _ in $(seq 1 60); do curl -sf http://127.0.0.1:5173/ > /dev/null && break; sleep 2; done
+          curl -sf http://127.0.0.1:5173/ | grep -q '<html'
+      - name: Backend tests inside the container (testing database, TestDatabaseGuard)
+        run: docker compose -f infra/docker/compose.dev.yaml exec -T backend php artisan test
+      - name: Frontend unit tests inside the container
+        run: docker compose -f infra/docker/compose.dev.yaml exec -T frontend npm test
+      - name: Restart keeps data
+        run: |
+          compose() { docker compose -f infra/docker/compose.dev.yaml "$@"; }
+          before="$(compose exec -T backend php artisan migrate:status --no-ansi | grep -c Ran)"
+          compose restart
+          compose up -d --wait
+          test "$(compose exec -T backend php artisan migrate:status --no-ansi | grep -c Ran)" = "$before"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f infra/docker/compose.dev.yaml logs --tail=100
+
+  production:
+    name: production images and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOLVEIT_PROD_PROJECT: solveit-ci-prod
+      SOLVEIT_SECRETS_DIR: ${{ runner.temp }}/prod-secrets
+      SOLVEIT_ENV_FILE: ./production.env.example
+    steps:
+      - uses: actions/checkout@v4
+      - name: Disposable secrets (random per run, never printed)
+        run: |
+          mkdir -p "$SOLVEIT_SECRETS_DIR"
+          printf 'base64:%s' "$(openssl rand -base64 32)" > "$SOLVEIT_SECRETS_DIR/app_key"
+          for name in db_app_password db_migrator_password mysql_root_password; do openssl rand -hex 24 > "$SOLVEIT_SECRETS_DIR/$name"; done
+          # Readable by www-data (gid 33) inside the backend container, by no other user.
+          sudo chown -R root:33 "$SOLVEIT_SECRETS_DIR"
+          sudo chmod 0750 "$SOLVEIT_SECRETS_DIR"
+          sudo chmod 0640 "$SOLVEIT_SECRETS_DIR"/*
+      - name: Build production images
+        run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml build
+      - name: Start the bundled database, migrate explicitly, start the stack
+        run: |
+          compose() { docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml --profile bundled-db "$@"; }
+          compose up -d --wait mysql
+          compose --profile ops run --rm migrate
+          compose up -d --wait
+          compose ps
+      - name: Smoke test
+        run: bash infra/docker/scripts/verify-production.sh | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml --profile bundled-db logs --tail=100
