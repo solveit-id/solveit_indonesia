@@ -225,6 +225,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── bootstrap/app.php           [W] Routing (api:), middleware, penanganan exception
 ├── config/                     [W] Ditambah config proyek (cors.php, trustedproxy.php, <domain>.php) dan boost.php [B]
 ├── database/                   [W] migrations, factories, seeders; *.sqlite tidak di-commit
+├── docker/mysql/               [P] Hanya pengembangan lokal: compose.yaml (MySQL 8.4) dan initdb/ (database dan pengguna). secrets/ [L], diabaikan Git
 ├── public/                     [W] index.php, .htaccess, robots.txt
 ├── resources/views/            [W] Boleh kosong (.gitkeep) pada aplikasi API
 ├── routes/                     [W] api.php (/api/v1/...), web.php, console.php

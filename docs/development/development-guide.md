@@ -74,7 +74,7 @@ Ringkasan untuk pengembangan harian. Rincian environment, struktur, dan keamanan
 
 ### Setup dari clone baru
 
-Siapkan dulu MySQL 8.4 dengan database `solveit_indonesia` (pengembangan) dan `solveit_indonesia_testing` (tes), masing-masing dengan pengguna sendiri: perintah dan SQL ada di `backend/README.md` bagian Database MySQL. Database MariaDB bawaan XAMPP tidak dipakai.
+Siapkan dulu MySQL 8.4 dengan database `solveit_indonesia` (pengembangan) dan `solveit_indonesia_testing` (tes), masing-masing dengan pengguna sendiri. Cara yang disarankan: container Docker `solveit-mysql` dari `backend/docker/mysql/compose.yaml` (MySQL 8.4.11 di `127.0.0.1:3307`, volume `solveit-mysql-data`, kata sandi sebagai Docker secret); langkah, perintah harian, backup, dan SQL untuk server non-Docker ada di `backend/README.md` bagian Database MySQL. Database MariaDB bawaan XAMPP tidak dipakai dan tidak diubah.
 
 ```bash
 cd backend
@@ -160,6 +160,8 @@ Lihat tabel di `backend/README.md`. Yang paling penting: `APP_DEBUG=false` di lu
 | `SQLSTATE[HY000] [1045]` atau `[1044]` | Pengguna atau kata sandi salah, atau pengguna tidak punya hak pada database itu. Tes memakai `solveit_test` pada `solveit_indonesia_testing` |
 | Tes berhenti dengan "The test database user may only hold privileges on …" | Pengguna di `.env.testing` punya hak di luar database tes (misalnya `root`, `GRANT ... ON *.*`, database lain, atau grant tanpa escape `solveit_indonesia_testing.*`). Pakai pengguna `solveit_test` dengan grant persis di `backend/README.md`; jangan melemahkan pengaman |
 | Tes berhenti dengan "selected … instead of solveit_indonesia_testing" atau "Tests only run …" | Koneksi tidak sampai ke database tes yang diharapkan (misalnya `DB_URL` di `.env.testing`). Hapus `DB_URL` dan periksa host serta port |
+| `mysql --version` menampilkan MariaDB | Itu klien XAMPP di `PATH`, bukan server yang dipakai Laravel. Periksa server lewat `php artisan db:show` (harus `MySQL 8.4.x`) |
+| Port 3307 sudah dipakai | Ganti port host di `backend/docker/mysql/compose.yaml` serta `DB_PORT` di `.env` dan `.env.testing`; jangan menghentikan layanan proyek lain |
 | Versi MySQL terdeteksi MariaDB | Tes `MySqlDatabaseTest` gagal: server yang dipakai adalah MariaDB (misalnya XAMPP). Jalankan MySQL 8.4 terpisah |
 | Composer menolak PHP | `composer.json` mewajibkan PHP 8.5.7 atau lebih baru; perbarui PHP. Jangan menurunkan `config.platform.php` |
 | Agent tidak dapat membaca `.env.example` | Pola `deny` di `.claude/settings.json` terlalu lebar; lihat `docs/project-structure.md` bagian 6 |

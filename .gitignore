@@ -28,6 +28,8 @@ auth.json
 *.key
 *.p12
 *.pfx
+# Local MySQL passwords for backend/docker/mysql/compose.yaml
+backend/docker/mysql/secrets/
 
 # Local databases, dumps, and backups (schema lives in migrations, never in dumps)
 *.sqlite
