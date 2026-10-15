@@ -2,6 +2,49 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B1.1: review akhir dan penyelarasan konfigurasi QA (2026-10-15)
+
+Cakupan: temuan review PR #20, tanpa memperluas B1.1. Baseline yang diverifikasi: `origin/backend` = lokal `258dae4`, `origin/staging` `7e936b5`, `origin/main` dan `origin/frontend` `7729d17`; PR #20 open, mergeable, Backend CI run 38711417910 dan Frontend CI run 38711417888 lulus pada `258dae4`. Server uji: container `mysql:8.4` sekali pakai baru (MySQL 8.4.11, `127.0.0.1:3307`, tmpfs), dihapus di akhir sesi.
+
+| Temuan | Tindakan | Bukti |
+|---|---|---|
+| `.claude/skills/backend-verify/SKILL.md` masih menyebut SQLite in-memory dan matriks PHP 8.3/8.5 | Ditulis ulang: PHP 8.5 minimal 8.5.7 dan `pdo_mysql`, tes hanya di `solveit_indonesia_testing` dengan pengaman, `check-platform-reqs`, migrasi di database pengembangan MySQL, CI PHP 8.5 + MySQL 8.4. Kali ini perubahan `.claude/` tidak ditolak (permintaan eksplisit pemilik) | Skill termuat ulang di sesi dengan deskripsi baru dan dipakai untuk verifikasi di bawah |
+| `.claude/rules/backend.md` (path `backend/**`) | Dihapus. Keempat butirnya sudah ada di sumber yang dimuat pada pemicu yang sama: `backend/CLAUDE.md` (`@AGENTS.md`), blok Boost (search-docs, `make:*`, Pint, tes), dan guideline Solveit (endpoint dan `docs/api/`). Perilaku pemuatan: di sesi ini, membaca file di `backend/` memuat `backend/CLAUDE.md`, `backend/AGENTS.md`, dan aturan itu bersamaan, sesuai pemuatan on-demand `CLAUDE.md` bertingkat. `.claude/rules/frontend.md` tetap | `.claude/rules/` kini hanya `frontend.md`; root `CLAUDE.md` tetap benar |
+| Pengaman tes hanya memeriksa substring `_testing` | `tests/Support/TestDatabaseGuard.php`, dipanggil dari `TestCase::setUpTraits()` sebelum `RefreshDatabase`, sekali per proses: `APP_ENV` `testing`; koneksi `mysql` dengan driver `mysql`; nama persis `solveit_indonesia_testing` tanpa `DB_URL`; `SELECT DATABASE()` dari server; `SHOW GRANTS FOR CURRENT_USER()` hanya `USAGE` global dan hak pada `` `solveit\_indonesia\_testing`.* ``. `phpunit.xml` kini juga mengunci `APP_ENV` dan `DB_DATABASE` di `$_SERVER` dan `$_ENV` | Lihat tabel uji di bawah |
+| Grant contoh di README dan CI memakai `solveit_indonesia_testing.*` tanpa escape; di MySQL `_` adalah wildcard pada grant tingkat database, sehingga grant juga berlaku untuk nama lain yang mirip | README dan CI memakai `` `solveit\_indonesia\_testing`.* `` (juga untuk database pengembangan dan CI). Pengaman menolak grant tanpa escape | `SHOW GRANTS` di MySQL 8.4.11: grant tanpa escape tampil sebagai `` `solveit_indonesia_testing`.* ``, yang di-escape sebagai `` `solveit\_indonesia\_testing`.* ``. SQL CI yang dihasilkan heredoc diperiksa lokal; `actionlint` bersih |
+
+### Uji pengaman terhadap server nyata
+
+Tabel penanda dibuat di database pengembangan `solveit_indonesia` sebelum percobaan.
+
+| Percobaan | Hasil |
+|---|---|
+| Pengguna dengan `ALL PRIVILEGES ON *.*` | Ditolak sebelum tes berjalan: "may only hold privileges on `` `solveit\_indonesia\_testing`.* ``; it also holds privileges on `*.*`" |
+| Pengguna dengan grant tanpa escape | Ditolak ("… privileges on `` `solveit_indonesia_testing`.* ``") |
+| `root` | Ditolak (hak `*.*`) |
+| `DB_DATABASE=solveit_indonesia`, `APP_ENV=local`, `DB_URL=mysql://…/solveit_indonesia`, `DB_CONNECTION=sqlite` dari shell | Diabaikan karena dikunci; tes berjalan di `solveit_indonesia_testing` dan `MySqlDatabaseTest` lulus |
+| Database pengembangan setelah semua percobaan | Tetap satu tabel penanda dengan barisnya; tidak ada file SQLite yang dibuat |
+
+Tes regresi baru `tests/Feature/Support/TestDatabaseGuardTest.php` (15 kasus): koneksi nyata lolos dan memilih database tes; database pengembangan, nama yang hanya mengandung `_testing` (`shop_testing_backup`), `DB_URL`, dan koneksi SQLite ditolak sebelum terhubung; environment selain `testing` ditolak; sesi di database lain ditolak; grant yang benar diterima; tujuh grant tidak aman ditolak (hak global, hak dinamis global, database pengembangan, grant wildcard, pola `%`, role, proxy). Uji mutasi: pemeriksaan grant dimatikan, tepat tujuh kasus grant tidak aman gagal; file dipulihkan.
+
+### Verifikasi (skill `backend-verify` yang diperbarui)
+
+| Langkah | Hasil |
+|---|---|
+| PHP | `PHP 8.5.7 (cli) … ZTS`, `pdo_mysql` dimuat |
+| Pint | Lulus |
+| `php artisan test` (pengguna `solveit_test` dengan grant yang di-escape; kredensial lewat environment, bukan `.env.testing`, agar tidak membuat file kredensial di working copy) | **109 lulus, 275 assertion**, juga dengan `--order-by=random`. Sebelumnya 94 dan 249: plus 15 kasus pengaman |
+| `composer validate --strict`, `check-platform-reqs` | Valid; `php 8.5.7 success` |
+| `composer audit` | Tidak ada advisory |
+| Route | `POST api/v1/inquiries`, `GET|HEAD up` |
+| `migrate:status` (database pengembangan di container sekali pakai) | 4 migrasi `Ran` |
+| `boost:update --no-discover` | Berhasil; `backend/AGENTS.md` berubah satu baris di blok Solveit |
+| MCP | `claude mcp list`: `laravel-boost` Connected. `playwright` kali ini timeout 30 detik (cold start `npx` di Windows, dicatat di `CLAUDE.md`; tidak terkait perubahan ini). `application-info`: Laravel 13.36.0, PHP 8.5, `database_engine sqlite`, karena server MCP membaca `backend/.env` lokal pemilik yang belum dipindah ke MySQL |
+
+### Diff PR #20
+
+Terhadap `origin/staging`: 0 file `frontend/`; gitleaks pada 37 file yang berubah tidak menemukan kebocoran; tidak ada `.env` selain `.env.example`, kunci, file database, log, cache, atau salinan agent lokal (`backend/.claude/`, `.agents/`, `.codex/`, `.mcp.json`). Satu-satunya nama yang cocok dengan pola sensitif adalah penghapusan `.cursor/mcp.json`. Teks mirip kata sandi hanya root kosong service container CI sekali pakai dan placeholder `<kata-sandi-root-lokal>` di README.
+
 ## B1.1: MySQL, PHP 8.5.7, konsolidasi agent, keamanan repository (2026-10-15)
 
 Cakupan: branch `backend`, fast-forward dari `origin/staging` `7e936b5` (merge PR #19; tree sama dengan `fbb537e`). Tanpa perubahan aplikasi frontend, desain, atau konten. Mesin: Windows 11, PHP 8.5.7 ZTS (XAMPP, `C:\xampp\php\php.exe`, juga dipakai Composer 2.8.12), Docker 29.8.2, Claude Code 2.1.300, Codex CLI 0.160.0.

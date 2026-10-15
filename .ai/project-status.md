@@ -24,10 +24,10 @@ Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies,
 
 Status key: Implemented and Verified unless stated otherwise. Evidence: `docs/qa/qa-report.md`, section "B1.1".
 
-- **MySQL 8.4 LTS** (owner decision): `.env.example` and `config/database.php` default to MySQL; tests run on a disposable `solveit_indonesia_testing` database (driver pinned in `phpunit.xml`, name guarded in `tests/TestCase.php`); storage failures are injected as rows MySQL rejects instead of `Schema::drop` (DDL commits implicitly on MySQL); new tests for reference collisions and MySQL settings. Verified locally on MySQL 8.4.11 (disposable Docker container): 94 tests, 249 assertions; HTTP smoke test as a DML-only user. Schema unchanged.
+- **MySQL 8.4 LTS** (owner decision): `.env.example` and `config/database.php` default to MySQL; tests run only on the disposable `solveit_indonesia_testing` database. `phpunit.xml` pins `APP_ENV`, driver, and database; `tests/Support/TestDatabaseGuard.php` verifies the environment, the database the server selected, and that the user's grants cover only `` `solveit\_indonesia\_testing` `` (root, global privileges, other databases, and unescaped wildcard grants are refused). Storage failures are injected as rows MySQL rejects instead of `Schema::drop`; tests cover reference collisions, MySQL settings, and the guard. Verified locally on MySQL 8.4.11 (disposable Docker container): 109 tests, 275 assertions; HTTP smoke test as a DML-only user. Schema unchanged.
 - **PHP 8.5.7** (owner decision): `"php": "^8.5.7"`, `config.platform.php` 8.5.7; no package version changed. Local PHP 8.5.7.
 - **Backend CI**: PHP 8.5 (asserts at least 8.5.7, records the patch; the runner had 8.5.11) with a `mysql:8.4` service (asserts 8.4.x, not MariaDB; 8.4.11), least-privilege users with masked random passwords, migrations up/down/up, HTTP smoke test, tests, audit, `--no-dev` boot. Green; see Branches.
-- **Agents**: Cursor removed (`.cursor/mcp.json`, `cursor` in `boost.json`, local copies); Boost regenerated. Claude Code: `laravel-boost` and `playwright` Connected. Codex: config discovery verified for the root and `backend/`; start Codex in `backend/` for backend work (`AGENTS.md` is read root-down, skills cwd-up). Tool calls from a logged-in Codex session not verified.
+- **Agents**: Cursor removed (`.cursor/mcp.json`, `cursor` in `boost.json`, local copies); Boost regenerated. Review follow-up: `.claude/skills/backend-verify/SKILL.md` rewritten for MySQL 8.4 and PHP 8.5.7+; `.claude/rules/backend.md` removed because `backend/CLAUDE.md` and `backend/AGENTS.md` load on the same trigger with the same rules (`.claude/rules/frontend.md` kept). Claude Code: `laravel-boost` and `playwright` Connected. Codex: config discovery verified for the root and `backend/`; start Codex in `backend/` for backend work (`AGENTS.md` is read root-down, skills cwd-up). Tool calls from a logged-in Codex session not verified.
 - **Repository security**: `.gitignore` covers keys, database files and dumps, test caches, `.cursor/`; all workflows use `permissions: contents: read`; gitleaks on all refs and the working tree found no leaks. The repository is public.
 - **Planned (design only)**: `docs/architecture/admin-dashboard.md`, `visitor-analytics.md`, `github-integration.md`. No admin UI, auth, analytics, tracking, GitHub App, or repository action exists.
 
@@ -44,12 +44,12 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 ## Quality baseline
 
 - Frontend (round 6, unchanged): lint, typecheck, unit tests 69/69, build pass; E2E Chromium desktop/tablet/Pixel 7, Firefox, WebKit desktop/iPhone 14 with 0 failures; axe 0 violations. Lighthouse mobile 96 to 99 performance.
-- Backend: 94 tests, 249 assertions on MySQL 8.4.11 and PHP 8.5.7; Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean.
+- Backend: 109 tests, 275 assertions on MySQL 8.4.11 and PHP 8.5.7; Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean.
 
 ## Blocked or owner action required
 
-- **Local MySQL on the owner machine** (Blocked until done): XAMPP runs MariaDB 10.4, not MySQL, and the existing `backend/.env` still selects SQLite. Run MySQL 8.4 (Docker or MySQL Community Server; `backend/README.md`, Database MySQL), create both databases and users, update `backend/.env`, and create `backend/.env.testing`. Until then `php artisan test` cannot run on that machine (the old local `database/database.sqlite` is unused and can be deleted by the owner).
-- **`.claude/` changes** (Owner decision required; the agent's auto mode blocks self-modification): replace `.claude/skills/backend-verify/SKILL.md` (still says SQLite in-memory and PHP 8.3/8.5) with the MySQL version described in the B1.1 QA section; consider deleting `.claude/rules/backend.md`, which repeats `backend/CLAUDE.md` and `backend/AGENTS.md`.
+- **Local MySQL on the owner machine** (Blocked until done): XAMPP runs MariaDB 10.4, not MySQL, and the existing `backend/.env` still selects SQLite (the Boost MCP `application-info` therefore reports `sqlite`). Run MySQL 8.4 (Docker or MySQL Community Server; `backend/README.md`, Database MySQL), create both databases and users with the escaped grants shown there, update `backend/.env`, and create `backend/.env.testing` with the `solveit_test` user. Until then `php artisan test` cannot run on that machine (the old local `database/database.sqlite` is unused and can be deleted by the owner).
+- **Claude Code `playwright` MCP** timed out once in `claude mcp list` (known Windows `npx` cold start, see `CLAUDE.md`); not related to B1.1.
 - **Merge PR #20** after review, then a `staging` to `main` release PR with owner approval.
 
 ## Open decisions (owner)

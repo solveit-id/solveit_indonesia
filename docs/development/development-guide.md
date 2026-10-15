@@ -95,7 +95,7 @@ Jalankan dari `backend/`:
 
 | Perintah | Fungsi |
 |---|---|
-| `php artisan test` | Semua tes, pada database MySQL sekali pakai `solveit_indonesia_testing` (ditolak bila nama database tidak mengandung `_testing`) |
+| `php artisan test` | Semua tes, hanya pada database MySQL sekali pakai `solveit_indonesia_testing` (nama dikunci di `phpunit.xml`; pengaman menolak environment, database, atau hak pengguna yang lain) |
 | `php artisan test --filter=<NamaTes>` | Tes tertentu |
 | `vendor/bin/pint --test` / `vendor/bin/pint` | Cek / perbaiki gaya kode |
 | `composer validate --strict` | Validasi `composer.json` dan lock |
@@ -158,7 +158,8 @@ Lihat tabel di `backend/README.md`. Yang paling penting: `APP_DEBUG=false` di lu
 | Galat `could not find driver` | Ekstensi `pdo_mysql` belum aktif di `php.ini` (`extension=pdo_mysql`) |
 | `SQLSTATE[HY000] [2002]` saat tes | MySQL tidak berjalan, atau host/port di `.env.testing` salah (Docker contoh: port 3307) |
 | `SQLSTATE[HY000] [1045]` atau `[1044]` | Pengguna atau kata sandi salah, atau pengguna tidak punya hak pada database itu. Tes memakai `solveit_test` pada `solveit_indonesia_testing` |
-| Tes berhenti dengan "Tests only run against a disposable database" | `DB_DATABASE` di shell menunjuk database yang tidak mengandung `_testing`. Pengaman ini disengaja; hapus variabel shell itu |
+| Tes berhenti dengan "The test database user may only hold privileges on …" | Pengguna di `.env.testing` punya hak di luar database tes (misalnya `root`, `GRANT ... ON *.*`, database lain, atau grant tanpa escape `solveit_indonesia_testing.*`). Pakai pengguna `solveit_test` dengan grant persis di `backend/README.md`; jangan melemahkan pengaman |
+| Tes berhenti dengan "selected … instead of solveit_indonesia_testing" atau "Tests only run …" | Koneksi tidak sampai ke database tes yang diharapkan (misalnya `DB_URL` di `.env.testing`). Hapus `DB_URL` dan periksa host serta port |
 | Versi MySQL terdeteksi MariaDB | Tes `MySqlDatabaseTest` gagal: server yang dipakai adalah MariaDB (misalnya XAMPP). Jalankan MySQL 8.4 terpisah |
 | Composer menolak PHP | `composer.json` mewajibkan PHP 8.5.7 atau lebih baru; perbarui PHP. Jangan menurunkan `config.platform.php` |
 | Agent tidak dapat membaca `.env.example` | Pola `deny` di `.claude/settings.json` terlalu lebar; lihat `docs/project-structure.md` bagian 6 |

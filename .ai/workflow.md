@@ -15,7 +15,7 @@ Optional variables are documented in `frontend/.env.example` and `docs/developme
 
 ### Backend setup
 
-Needs PHP 8.5 (at least 8.5.7) with `pdo_mysql`, Composer 2, and a MySQL 8.4 server with two databases: `solveit_indonesia` (development) and `solveit_indonesia_testing` (tests), each with its own user. MariaDB, including the XAMPP database server, is not MySQL and is not used. Server options, SQL, and troubleshooting: `backend/README.md` and `docs/development/development-guide.md`.
+Needs PHP 8.5 (at least 8.5.7) with `pdo_mysql`, Composer 2, and a MySQL 8.4 server with two databases: `solveit_indonesia` (development) and `solveit_indonesia_testing` (tests), each with its own user whose grant names exactly that database (escaped underscores, see `backend/README.md`). MariaDB, including the XAMPP database server, is not MySQL and is not used. Server options, SQL, and troubleshooting: `backend/README.md` and `docs/development/development-guide.md`.
 
 ```bash
 cd backend
@@ -38,7 +38,7 @@ Laravel Boost is mandatory for backend work. **Start Codex in `backend/` for bac
 
 ## Verifying the backend (replaces the `backend-verify` skill)
 
-Run in `backend/` and report real output: `vendor/bin/pint --test`, `php artisan test` (MySQL testing database; the suite refuses a database name without `_testing`), `composer validate --strict`, `composer check-platform-reqs`, `composer audit`, `php artisan route:list --except-vendor` (expects `POST api/v1/inquiries`). After dependency or guideline changes: `php artisan boost:update --no-discover` and commit the `AGENTS.md` diff. **Backend CI** repeats these on PHP 8.5 (asserting at least 8.5.7) with a disposable MySQL 8.4 service, plus migrations up/down/up and an HTTP smoke test, for PRs that touch `backend/**`.
+Run in `backend/` and report real output: `vendor/bin/pint --test`, `php artisan test` (only on `solveit_indonesia_testing`; the suite refuses another database, another environment, or a user with privileges beyond that database), `composer validate --strict`, `composer check-platform-reqs`, `composer audit`, `php artisan route:list --except-vendor` (expects `POST api/v1/inquiries`). After dependency or guideline changes: `php artisan boost:update --no-discover` and commit the `AGENTS.md` diff. **Backend CI** repeats these on PHP 8.5 (asserting at least 8.5.7) with a disposable MySQL 8.4 service, plus migrations up/down/up and an HTTP smoke test, for PRs that touch `backend/**`.
 
 ## Verifying the frontend (replaces the `frontend-verify` skill)
 
