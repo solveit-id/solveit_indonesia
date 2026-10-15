@@ -70,7 +70,7 @@ Status: Implemented and Verified on the owner machine. Evidence: `docs/qa/qa-rep
 - `main`: `88db528` (release B1.1, PR #21).
 - `staging`: `5449bcc`, the merge of PR #22 into `22f6853`; same tree as `frontend` `1ef187c`.
 - `frontend`: `1ef187c` (B2: `fe6d272` test, `b4748d9` feat, `b843531` docs, `09efbc0` chore, `8eed02d` and `1ef187c` status). Merged.
-- `backend`: `88db528` plus `e7f5b6f` (chore, local MySQL setup) and `45da75e` (docs, QA and status), then a merge of `origin/staging` (`5449bcc`) that resolved the two expected documentation conflicts and carries this status update. PR #23 to `staging`, left unmerged for the owner's review. No application code changed on `backend`.
+- `backend`: `88db528` plus `e7f5b6f` (chore, local MySQL setup) and `45da75e` (docs, QA and status), then a merge of `origin/staging` (`5449bcc`) that resolved the two expected documentation conflicts, then a docs commit aligning `AGENTS.md`, the development guide, and the inquiry contract with the merged state. PR #23 to `staging`, left unmerged for the owner's review. No application code changed on `backend`.
 - CI before B2 (on `88db528`): Frontend CI 38723671948 and Cross-browser QA 38723672210 green (WebKit 175 passed; WebKit iPhone 14 143 passed after one re-run of the flaky theme test, fixed in B2). Backend CI for B1.1 green on PHP 8.5.11 and MySQL 8.4.11.
 - CI for PR #22 (all green):
   - Frontend CI run 38734922594 on `8eed02d`: default build e2e 488 passed; API build e2e 24 passed.

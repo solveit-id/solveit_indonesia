@@ -125,7 +125,7 @@ Implementasi: `frontend/src/config/site.ts` (konfigurasi), `frontend/src/service
 
 Pada semua kegagalan isian formulir tetap ada. WhatsApp dan email tetap pilihan terpisah yang hanya dibuka oleh pengunjung sendiri, tidak pernah otomatis. Selama request berjalan, tombol memakai `aria-busy` dan `aria-disabled` dan sebuah `ref` sinkron menolak kiriman kedua. Setelah `201`, tombol website nonaktif sampai isian berubah; perubahan setelah pengiriman ditandai belum terkirim.
 
-**CORS.** Origin website harus masuk `CORS_ALLOWED_ORIGINS` di backend; `Retry-After` sudah termasuk header yang dapat dibaca (README).
+**CORS.** Origin website harus masuk `CORS_ALLOWED_ORIGINS` di backend; `Retry-After` sudah termasuk header yang dapat dibaca (README). Lokal, `http://localhost:4174` (build varian dengan kanal aktif) sudah ada di `.env.example`; uji nyata browser ke Laravel ke MySQL tercatat di `docs/qa/qa-report.md` (bagian MySQL 8.4 lokal permanen).
 
 ## Proteksi spam
 

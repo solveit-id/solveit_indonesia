@@ -7,7 +7,7 @@ Shared instructions for the two coding agents used in this repository: Claude Co
 Solveit Indonesia company profile and portfolio. This repository holds only the website and its own backend; Solveit OpsHub and other Solveit systems live in separate repositories and integrate through API contracts or events, never a shared database (see `docs/architecture/integration-plan.md`).
 
 - `frontend/`: React 19, TypeScript strict, Vite 8, React Router 7 (framework mode, static prerender), Tailwind CSS v4, GSAP. Built and released.
-- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` and `GET /up` (contracts in `docs/api/`). Not deployed and not called by the frontend yet. Add only endpoints that really work, never fake ones.
+- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` and `GET /up` (contracts in `docs/api/`). Not deployed; the shipped frontend does not call it (the B2 website channel is behind `VITE_INQUIRY_API_ENABLED`, off by default). Add only endpoints that really work, never fake ones.
 - Planned, not built: website admin dashboard, first-party visitor analytics, GitHub integration boundary (`docs/architecture/`). Never describe them as available.
 
 ## Read first
@@ -26,7 +26,7 @@ Solveit Indonesia company profile and portfolio. This repository holds only the 
 
 ## Development environment
 
-- Owner machine: Windows 11, Git Bash and PowerShell, Node 22.23 (`.nvmrc`: 22, `engines`: >=22.12), PHP 8.5.7 (XAMPP), Composer 2.8. The XAMPP database is MariaDB 10.4, which is not MySQL: never use it for this project. Run MySQL 8.4 separately (`backend/README.md`).
+- Owner machine: Windows 11, Git Bash and PowerShell, Node 22.23 (`.nvmrc`: 22, `engines`: >=22.12), PHP 8.5.7 (XAMPP), Composer 2.8. The XAMPP database is MariaDB 10.4, which is not MySQL: never use it for this project. Run MySQL 8.4 separately: the Docker container `solveit-mysql` from `backend/docker/mysql/compose.yaml` on `127.0.0.1:3307` (`backend/README.md`). `mysql --version` there reports the XAMPP MariaDB client, not the server; check the server with `php artisan db:show`.
 - Git normalises text files to LF (`.gitattributes`); Windows working copies may show CRLF. Match the existing line ending when editing a file with scripts.
 - Memory is limited: run Playwright one project at a time with `--workers=1`. WebKit (desktop and iPhone 14) runs on GitHub Actions through the **Cross-browser QA** workflow (`gh workflow run cross-browser-qa.yml -f ref=<full sha>`).
 

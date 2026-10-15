@@ -89,7 +89,17 @@ php artisan test                      # database solveit_indonesia_testing (kred
 php artisan serve                     # http://localhost:8000
 ```
 
-Untuk mencoba bersama frontend: `npm run dev` di `frontend/` (origin `http://localhost:5173` sudah ada di `CORS_ALLOWED_ORIGINS` contoh). Frontend belum memanggil API sampai B2.
+Frontend tanpa variabel (`npm run dev`, build bawaan) tidak memanggil API. Untuk mencoba kanal **Kirim melalui website** terhadap Laravel dan MySQL lokal (B2):
+
+```bash
+# backend/: origin http://localhost:4174 sudah ada di CORS_ALLOWED_ORIGINS contoh
+php artisan serve --host=127.0.0.1 --port=8000
+# frontend/: build varian ke folder sendiri, lalu sajikan di port 4174
+BUILD_DIR=build/inquiry-api-local VITE_INQUIRY_API_ENABLED=true VITE_API_BASE_URL=http://127.0.0.1:8000 npm run build
+BUILD_DIR=build/inquiry-api-local PORT=4174 node scripts/serve.mjs
+```
+
+Buka `http://localhost:4174/kontak` dan kirim data sintetis saja: kiriman tersimpan di database pengembangan dan dihitung rate limit (5 per menit per IP). `npm run build` biasa membersihkan seluruh `build/`, termasuk folder varian ini. Jangan memakai variabel ini untuk build yang dirilis.
 
 ### Perintah
 
