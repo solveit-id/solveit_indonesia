@@ -72,18 +72,25 @@ Buat database dan pengguna sekali sebagai root (kata sandi milik Anda, tidak per
 CREATE DATABASE solveit_indonesia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE solveit_indonesia_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'solveit_dev'@'%' IDENTIFIED BY '<kata-sandi-dev>';
-GRANT ALL PRIVILEGES ON solveit_indonesia.* TO 'solveit_dev'@'%';
+GRANT ALL PRIVILEGES ON `solveit\_indonesia`.* TO 'solveit_dev'@'%';
 CREATE USER 'solveit_test'@'%' IDENTIFIED BY '<kata-sandi-tes>';
-GRANT ALL PRIVILEGES ON solveit_indonesia_testing.* TO 'solveit_test'@'%';
+GRANT ALL PRIVILEGES ON `solveit\_indonesia\_testing`.* TO 'solveit_test'@'%';
 ```
 
-Pada server non-Docker, ganti `'%'` dengan `'localhost'`.
+Garis bawah di-escape (`\_`) karena pada grant tingkat database MySQL memperlakukan `_` sebagai wildcard; tanpa escape, grant juga berlaku untuk nama database lain yang mirip, dan suite tes menolak pengguna seperti itu. Pada server non-Docker, ganti `'%'` dengan `'localhost'`.
 
 ### Kredensial tes
 
-`phpunit.xml` mengunci driver `mysql` dan nama database `solveit_indonesia_testing`; host, port, pengguna, dan kata sandi dibaca dari `backend/.env.testing` (diabaikan Git) atau dari environment. Buat `.env.testing` berisi `APP_KEY` (salin dari `.env`), `DB_HOST`, `DB_PORT`, `DB_USERNAME=solveit_test`, dan `DB_PASSWORD`. Tanpa `.env.testing`, Laravel memakai `.env`, sehingga pengguna pengembangan harus punya hak pada database tes.
+`phpunit.xml` mengunci `APP_ENV=testing`, driver `mysql`, dan nama database `solveit_indonesia_testing` di `$_SERVER` dan `$_ENV` (Laravel membaca `$_SERVER` lebih dulu), jadi variabel shell tidak dapat memindahkan tes. Host, port, pengguna, dan kata sandi dibaca dari `backend/.env.testing` (diabaikan Git) atau dari environment. Buat `.env.testing` berisi `APP_KEY` (salin dari `.env`), `DB_HOST`, `DB_PORT`, `DB_USERNAME=solveit_test`, dan `DB_PASSWORD`. `.env.testing` wajib ada: tanpa file itu Laravel memakai `.env`, dan pengguna pengembangan akan ditolak pengaman.
 
-Pengaman: `tests/TestCase.php` menolak menjalankan tes bila nama database tidak mengandung `_testing`, sebelum `RefreshDatabase` menghapus tabel. Driver juga dikunci di `$_SERVER`, karena Laravel membacanya lebih dulu daripada `$_ENV`; `DB_CONNECTION=sqlite` di shell tidak dapat diam-diam mengembalikan tes ke SQLite (diverifikasi).
+Pengaman (`tests/Support/TestDatabaseGuard.php`, dipanggil dari `tests/TestCase.php` sebelum `RefreshDatabase` menghapus tabel; sekali per proses) memverifikasi identitas yang eksplisit:
+
+1. `APP_ENV` adalah `testing`.
+2. Koneksi `mysql` dengan driver `mysql`, nama database persis `solveit_indonesia_testing`, tanpa `DB_URL`.
+3. Server benar-benar memilih database itu (`SELECT DATABASE()`).
+4. `SHOW GRANTS FOR CURRENT_USER()` hanya berisi `USAGE` global dan hak pada `` `solveit\_indonesia\_testing`.* ``. Pengguna `root`, pengguna dengan hak global, hak pada database lain, grant wildcard, role, atau proxy ditolak.
+
+Diverifikasi terhadap MySQL 8.4: pengguna dengan `ALL ON *.*`, pengguna dengan grant tanpa escape, dan `root` ditolak sebelum ada tabel yang dihapus; `DB_DATABASE`, `APP_ENV`, `DB_URL`, dan `DB_CONNECTION` dari shell diabaikan; database pengembangan tidak tersentuh.
 
 ### Strategi tes
 
@@ -127,7 +134,7 @@ app/
 └── Rules/EmailOrPhone.php                       Format kontak yang sama dengan frontend
 config/{cors,trustedproxy,inquiries,boost}.php
 routes/api.php                                   /api/v1/...
-tests/TestCase.php                               Pengaman database tes
+tests/TestCase.php, tests/Support/               Pengaman database tes (TestDatabaseGuard)
 tests/Feature/...                                Endpoint, action, health check, konfigurasi MySQL
 tests/Unit/...                                   Aturan kontak, nomor referensi, kontrak enum dengan frontend
 ```
@@ -136,7 +143,7 @@ tests/Unit/...                                   Aturan kontak, nomor referensi,
 
 | Perintah | Fungsi |
 |---|---|
-| `php artisan test` | Semua tes pada database MySQL `solveit_indonesia_testing` (tidak menyentuh database pengembangan) |
+| `php artisan test` | Semua tes, hanya pada database MySQL `solveit_indonesia_testing` sebagai pengguna yang haknya terbatas pada database itu (tidak menyentuh database pengembangan) |
 | `php artisan test --filter=InquiryControllerTest` | Tes endpoint saja |
 | `vendor/bin/pint --test` / `vendor/bin/pint` | Cek / perbaiki gaya kode (`composer run lint` = cek) |
 | `composer validate --strict` | Validasi `composer.json` dan lock |

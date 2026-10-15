@@ -76,15 +76,18 @@ jobs:
             echo "CI_${name}_PASSWORD=$password" >> "$GITHUB_ENV"
             declare "CI_${name}_PASSWORD=$password"
           done
+          # Grants name each database exactly: "\_" escapes the underscore, which MySQL otherwise
+          # treats as a wildcard in database-level grants. The test suite refuses a test user
+          # with any other privilege (tests/Support/TestDatabaseGuard.php).
           sql <<SQL
           CREATE DATABASE solveit_indonesia_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
           CREATE DATABASE solveit_indonesia_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
           CREATE USER 'ci_migrator'@'%' IDENTIFIED BY '$CI_MIGRATOR_PASSWORD';
-          GRANT ALL PRIVILEGES ON solveit_indonesia_ci.* TO 'ci_migrator'@'%';
+          GRANT ALL PRIVILEGES ON \`solveit\_indonesia\_ci\`.* TO 'ci_migrator'@'%';
           CREATE USER 'ci_app'@'%' IDENTIFIED BY '$CI_APP_PASSWORD';
-          GRANT SELECT, INSERT, UPDATE, DELETE ON solveit_indonesia_ci.* TO 'ci_app'@'%';
+          GRANT SELECT, INSERT, UPDATE, DELETE ON \`solveit\_indonesia\_ci\`.* TO 'ci_app'@'%';
           CREATE USER 'ci_test'@'%' IDENTIFIED BY '$CI_TEST_PASSWORD';
-          GRANT ALL PRIVILEGES ON solveit_indonesia_testing.* TO 'ci_test'@'%';
+          GRANT ALL PRIVILEGES ON \`solveit\_indonesia\_testing\`.* TO 'ci_test'@'%';
           SQL
       - name: Locate the Composer cache
         id: composer-cache
@@ -131,9 +134,8 @@ jobs:
           test "$status" = 201 || { echo "Expected 201, got $status" >&2; exit 1; }
           grep -Eq '^\{"id":"INQ-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}","status":"received"\}$' /tmp/inquiry.json
           test "$(docker exec "$MYSQL_CONTAINER" mysql -uroot -N -e 'SELECT COUNT(*) FROM solveit_indonesia_ci.inquiries')" = 1
-      - name: Tests (disposable MySQL testing database)
+      - name: Tests (disposable MySQL testing database, pinned and verified by the suite)
         env:
-          DB_DATABASE: solveit_indonesia_testing
           DB_USERNAME: ci_test
           DB_PASSWORD: ${{ env.CI_TEST_PASSWORD }}
         run: php artisan test

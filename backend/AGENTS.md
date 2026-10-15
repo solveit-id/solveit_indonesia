@@ -20,7 +20,7 @@ These rules come from the repository and take precedence over the generic Larave
 ## Database and tests
 
 - Write migrations and queries that work on MySQL 8.4 with `utf8mb4` and strict mode. Do not add SQLite-only behaviour or fall back to SQLite in tests.
-- Tests run on a disposable MySQL database whose name contains `_testing` (`phpunit.xml`, guarded in `tests/TestCase.php`) and use `RefreshDatabase`. Never point tests at a development, shared, or production database.
+- Tests run only on the disposable MySQL database `solveit_indonesia_testing` and use `RefreshDatabase`. `phpunit.xml` pins `APP_ENV`, the driver, and the database; `tests/Support/TestDatabaseGuard.php` (called from `tests/TestCase.php`) verifies the environment, the database the server selected, and that the user holds privileges only on that database. Never weaken the guard or point tests at a development, shared, or production database.
 - Do not run DDL (`Schema::drop`, `ALTER`) inside a test to simulate failures: MySQL commits DDL implicitly, which breaks the test transaction. Make the database reject a row instead (see `InquiryControllerTest::makeTheDatabaseRejectTheNextInquiry`).
 - Never run `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, or `DROP` outside a disposable database created for that purpose.
 

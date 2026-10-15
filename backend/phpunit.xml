@@ -18,19 +18,21 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
+        <!-- Values that decide where tests write are pinned in $_SERVER as well as $_ENV:
+             Laravel reads $_SERVER first, so a shell variable cannot override them. APP_ENV
+             also selects .env.testing (host, port, user, password of the test database).
+             Tests drop and recreate every table; tests/Support/TestDatabaseGuard.php verifies
+             the environment, the database the server selected, and the user's privileges. -->
+        <server name="APP_ENV" value="testing"/>
+        <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- MySQL, the project database. Tests drop and recreate every table, so they only run
-             against a disposable database whose name contains "_testing" (tests/TestCase.php).
-             Host, port, user, and password come from .env.testing or the environment.
-             The driver is pinned in $_SERVER too: Laravel reads it before $_ENV, so a shell
-             DB_CONNECTION=sqlite cannot quietly switch the suite back to SQLite. -->
         <server name="DB_CONNECTION" value="mysql"/>
         <env name="DB_CONNECTION" value="mysql" force="true"/>
-        <env name="DB_DATABASE" value="solveit_indonesia_testing"/>
+        <server name="DB_DATABASE" value="solveit_indonesia_testing"/>
+        <env name="DB_DATABASE" value="solveit_indonesia_testing" force="true"/>
         <server name="DB_URL" value=""/>
         <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
