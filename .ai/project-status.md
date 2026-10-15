@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-10-16 (release PR #24 merged to `main` as `6474647`; B2.1 inquiry idempotency and the Docker environments on `backend`, PR to `staging` opened from this branch).
+Last updated: 2026-10-16 (B2.1 inquiry idempotency and the Docker environments released to `main` through PR #26 and release PR #27, merge commit `d22a079`).
 
 ## In one paragraph
 
@@ -13,7 +13,8 @@ The public website (frontend) is built, bilingual (Indonesian at `/`, English at
 | 1 to 6 | #2, #4, #6, #8, #10, #13 | Company profile frontend: pages, design system, themes, ID/EN, motion, assistant, case studies, About storytelling |
 | B0, B1 | #18 (from #16, #17) | Laravel 13 backend foundation, Laravel Boost, `POST /api/v1/inquiries`, Backend CI. Not deployed |
 | B1.1 | #21 (from #20) | MySQL 8.4 LTS and PHP 8.5.7+, test database guard, Claude Code and Codex only. Release commit `88db528` |
-| B2 and local MySQL | #24 (from #22, #23; status #25) | Frontend inquiry API channel behind a disabled flag; persistent local MySQL 8.4 container `solveit-mysql`. Release commit `6474647` (2026-10-15); `staging` `966ddf0` has the same tree |
+| B2 and local MySQL | #24 (from #22, #23; status #25) | Frontend inquiry API channel behind a disabled flag; persistent local MySQL 8.4 container `solveit-mysql`. Release commit `6474647` (2026-10-15) |
+| B2.1 and Docker | #27 (from #26) | Inquiry idempotency (backend), full-Docker development, production Docker configuration (not deployed), Docker CI, structure rules (`docs/project-structure.md` section 11). Release commit `d22a079` (2026-10-16) |
 
 Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies, `/kontak`, 404, each mirrored under `/en/`. Case studies are labelled demonstration concepts (`isDemo: true`, no results). B2 details and evidence: `docs/api/inquiries.md` (Klien frontend) and `docs/qa/qa-report.md` (sections B2 and MySQL 8.4 lokal permanen).
 
@@ -45,9 +46,15 @@ Status: Development Implemented and Verified (owner machine and Docker CI). Prod
 
 ## Branches and CI
 
-- `main` `6474647`, `staging` `966ddf0` (same tree), `frontend` `6474647`.
-- `backend`: `6474647` plus `dcd653e` (feat, idempotency), `6418370` (chore, Docker dev), `97c4be5` (feat, Docker production), `6c39e6f` (test, Docker CI), `73c2a1e`, `a126fbe`, `fc12e92`, `fe58a3d` (CI and permission fixes found by Docker CI), and the documentation commit that carries this file.
-- Backend CI run 38805166473 on `6c39e6f`: green (PHP 8.5.11, MySQL 8.4.11). Docker CI on `a126fbe` (run 38805741991): Compose and scripts green, production images and smoke test green, development job failed only on a wrong version regex, fixed in `fc12e92`. PR CI results: see the PR and `docs/qa/qa-report.md`.
+- Release: PR #26 (`backend` to `staging`) merged as `7b232f9`; release PR #27 (`staging` to `main`) merged as `d22a079`. `main` has no commit missing from `staging`, and `6474647` is an ancestor of `d22a079`.
+- After the release `main`, `frontend`, and `backend` were at `d22a079` and `staging` at `7b232f9`, all with tree `fca31d4` (fast-forward pushes, no force). This status update follows as a docs-only PR.
+- Commits in the release: `dcd653e` (feat, idempotency), `6418370` (chore, Docker development), `97c4be5` (feat, Docker production), `6c39e6f` (test, Docker CI), `73c2a1e`, `a126fbe`, `fc12e92`, `fe58a3d` (fixes found by Docker CI and QA), `3202aab` (docs).
+- CI on PR #26 head `3202aab` (all green):
+  - Backend CI 38806467946: PHP 8.5.11, MySQL 8.4.11, 151 tests, 466 assertions, no advisories.
+  - Frontend CI 38806468013: 125 unit tests, default E2E 488 passed, API-build E2E 24 passed.
+  - Docker CI 38806467997: Compose and scripts, fresh-clone development onboarding (PHP 8.5.11, Node v22.23.1, 151 tests in the container), production images with all smoke checks passing.
+- CI on release PR #27 (all green): Backend CI 38807594540, Frontend CI 38807594554, Docker CI 38807594773.
+- Earlier Docker CI runs 38805164238, 38805322828, and 38805741991 failed and led to the fixes listed in `docs/qa/qa-report.md` (B2.1 section).
 
 Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SHAs here go stale.
 
@@ -73,7 +80,6 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 ## Next task
 
-1. Release: PR `backend` to `staging`, then `staging` to `main`, after CI is green; then fast-forward `frontend` and `backend` to `main` and record the merge commits here.
-2. **B2.2: frontend idempotency** (`frontend` branch): send `Idempotency-Key` per logical submission, reuse it only for retries of unchanged data after an uncertain result, new key when the data changes, handle `409` and `Idempotent-Replayed`, no unbounded automatic retries, no key or inquiry data in logs or analytics (`docs/api/inquiries.md`, Panduan untuk B2.2). Tests in unit, component, and the API-build E2E.
-3. Inquiry privacy and operational readiness (owner decisions above), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host.
-4. **B3**: secure admin authentication and dashboard foundation (`docs/architecture/admin-dashboard.md`, section 9).
+1. **B2.2: frontend idempotency** (`frontend` branch): send `Idempotency-Key` per logical submission, reuse it only for retries of unchanged data after an uncertain result, new key when the data changes, handle `409` and `Idempotent-Replayed`, no unbounded automatic retries, no key or inquiry data in logs or analytics (`docs/api/inquiries.md`, Panduan untuk B2.2). Tests in unit, component, and the API-build E2E.
+2. Inquiry privacy and operational readiness (owner decisions above), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host.
+3. **B3**: secure admin authentication and dashboard foundation (`docs/architecture/admin-dashboard.md`, section 9).
