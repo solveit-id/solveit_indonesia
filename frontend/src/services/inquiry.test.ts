@@ -28,6 +28,44 @@ describe("validateInquiry", () => {
     expect(validateInquiry({ ...valid, contact: "bukan kontak" }).contact).toBeDefined();
   });
 
+  it("matches the server's length limits after trimming", () => {
+    const text = (length: number, char = "a") => char.repeat(length);
+    expect(validateInquiry({ ...valid, name: " A " }).name).toBeDefined();
+    expect(validateInquiry({ ...valid, name: text(2) }).name).toBeUndefined();
+    expect(validateInquiry({ ...valid, name: text(120) }).name).toBeUndefined();
+    expect(validateInquiry({ ...valid, name: text(121) }).name).toMatch(/maksimal 120/);
+    expect(validateInquiry({ ...valid, organization: text(160) }).organization).toBeUndefined();
+    expect(validateInquiry({ ...valid, organization: text(161) }).organization).toMatch(/160/);
+    expect(validateInquiry({ ...valid, message: text(19) }).message).toBeDefined();
+    expect(validateInquiry({ ...valid, message: text(5000) }).message).toBeUndefined();
+    expect(validateInquiry({ ...valid, message: text(5001) }).message).toMatch(/5\.000/);
+    const longEmail = `${text(250)}@a.co`;
+    expect(validateInquiry({ ...valid, contact: longEmail }).contact).toMatch(/254/);
+  });
+
+  it("counts characters, not UTF-16 units, like Laravel", () => {
+    // 5000 emoji are 10000 UTF-16 units but 5000 characters: allowed.
+    expect(validateInquiry({ ...valid, message: "🙂".repeat(5000) }).message).toBeUndefined();
+    expect(validateInquiry({ ...valid, message: "🙂".repeat(5001) }).message).toBeDefined();
+    expect(validateInquiry({ ...valid, name: "🙂".repeat(2) }).name).toBeUndefined();
+  });
+
+  it("accepts phone numbers with plain spaces only, as the server does", () => {
+    expect(validateInquiry({ ...valid, contact: "0812 3456 7890" }).contact).toBeUndefined();
+    expect(validateInquiry({ ...valid, contact: "0812\t3456\t7890" }).contact).toBeDefined();
+    expect(validateInquiry({ ...valid, contact: "0812345" }).contact).toBeDefined();
+  });
+
+  it("rejects values outside the enums", () => {
+    const errors = validateInquiry({
+      ...valid,
+      service: "Sistem Informasi" as InquiryPayload["service"],
+      budget: "murah" as InquiryPayload["budget"],
+      timeline: "besok" as InquiryPayload["timeline"],
+    });
+    expect(Object.keys(errors).sort()).toEqual(["budget", "service", "timeline"]);
+  });
+
   it("explains errors in the page language", () => {
     expect(validateInquiry(emptyInquiry, "en").name).toBe(
       "Enter your name, at least 2 characters.",

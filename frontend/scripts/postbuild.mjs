@@ -10,7 +10,7 @@ import { join, relative, sep } from "node:path";
 import { loadEnv } from "vite";
 
 const root = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
-const outDir = join(root, "build", "client");
+const outDir = join(root, process.env.BUILD_DIR || "build", "client");
 const env = loadEnv(process.env.NODE_ENV ?? "production", root, "VITE_");
 const siteUrl = (process.env.VITE_SITE_URL ?? env.VITE_SITE_URL ?? "").trim().replace(/\/+$/, "");
 

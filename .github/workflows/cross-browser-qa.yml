@@ -59,16 +59,25 @@ jobs:
         run: git rev-parse HEAD
       - name: Playwright (${{ matrix.project }}, 1 worker, no retries)
         run: npx playwright test --project=${{ matrix.project }} --workers=1 --retries=0 --reporter=list,html,json
+      # Separate build with the inquiry API channel enabled; responses are mocked.
+      - name: Playwright, inquiry API build (${{ matrix.project }}, 1 worker, no retries)
+        if: always()
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: results-api.json
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results-api.json
+        run: npx playwright test --config=playwright.api.config.ts --project=${{ matrix.project }} --workers=1 --retries=0 --reporter=list,json
       - name: Summary
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            if (!fs.existsSync("results.json")) process.exit(0);
-            const { stats } = JSON.parse(fs.readFileSync("results.json", "utf8"));
-            const line = `${{ matrix.project }}: ${stats.expected} passed, ${stats.unexpected} failed, ${stats.flaky} flaky, ${stats.skipped} skipped`;
-            console.log(line);
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + "\n");
+            for (const [file, label] of [["results.json", ""], ["results-api.json", " (inquiry API build)"]]) {
+              if (!fs.existsSync(file)) continue;
+              const { stats } = JSON.parse(fs.readFileSync(file, "utf8"));
+              const line = `${{ matrix.project }}${label}: ${stats.expected} passed, ${stats.unexpected} failed, ${stats.flaky} flaky, ${stats.skipped} skipped`;
+              console.log(line);
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + "\n");
+            }
           '
       - uses: actions/upload-artifact@v4
         if: always()
@@ -77,5 +86,6 @@ jobs:
           path: |
             frontend/playwright-report
             frontend/results.json
+            frontend/results-api.json
             frontend/test-results
           retention-days: 14
