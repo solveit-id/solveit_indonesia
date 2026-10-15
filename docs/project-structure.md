@@ -27,7 +27,6 @@ Gunakan dokumen ini saat:
 ├── .ai/                 Handoff untuk agent lain: status proyek dan alur kerja
 ├── .claude/             Konfigurasi Claude Code yang dibagikan (settings, rules, skills)
 ├── .codex/              config.toml: server MCP proyek untuk Codex (opsional)
-├── .cursor/             mcp.json: server MCP proyek untuk Cursor (opsional)
 ├── .github/             Workflow CI dan template GitHub
 ├── .impeccable/         Kontrak desain skill impeccable (opsional, bila dipakai)
 ├── backend/             Aplikasi backend (Laravel)
@@ -50,15 +49,16 @@ Repository yang hanya punya satu aplikasi boleh meletakkan aplikasi langsung di 
 | File | Fungsi | Status |
 |---|---|---|
 | `README.md` | Ringkasan proyek, tabel folder utama, perintah mulai cepat, alur Git, tautan ke `docs/README.md` | Wajib |
-| `AGENTS.md` | Aturan untuk semua agent: konteks proyek, perintah, verifikasi, aturan konten, desain, Git. Dibaca Codex, Cursor, dan agent lain | Wajib bila memakai agent |
+| `AGENTS.md` | Aturan untuk semua agent: konteks proyek, perintah, verifikasi, aturan konten, desain, Git. Dibaca langsung oleh Codex dan dimuat Claude Code lewat `CLAUDE.md` | Wajib bila memakai agent |
 | `CLAUDE.md` | Baris `@AGENTS.md` lalu hanya catatan khusus Claude Code (skill, MCP). Tidak mengulang isi `AGENTS.md` | Wajib bila memakai Claude Code |
-| `.gitignore` | Dependensi, hasil build, artefak tes, `.env*`, file lokal agent, file OS/editor | Wajib |
+| `.gitignore` | Dependensi, hasil build, artefak dan cache tes, `.env*` (kecuali `.env.example`), kunci (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `auth.json`), file database dan dump (`*.sqlite`, `*.sql`, `*.dump`, `*.bak`), log, file lokal agent, file OS/editor. Pola tidak boleh menyembunyikan file proyek: setelah mengubahnya, `git ls-files -ci --exclude-standard` harus kosong | Wajib |
 | `.gitattributes` | `* text=auto eol=lf` dan atribut biner bila perlu | Wajib |
 | `.editorconfig` | UTF-8, LF, indentasi 2 spasi (4 untuk PHP dan Python), baris akhir kosong | Wajib |
 | `.nvmrc` | Versi mayor Node yang dipakai CI dan developer | Wajib bila ada Node |
 | `.mcp.json` | Server MCP proyek untuk Claude Code (dan agent lain yang membaca format ini) | Opsional; wajib berisi `laravel-boost` bila ada aplikasi Laravel |
 | `.codex/config.toml` | Server MCP proyek untuk Codex (dimuat setelah repository dipercaya) | Opsional; sama seperti di atas |
-| `.cursor/mcp.json` | Server MCP proyek untuk Cursor | Opsional; sama seperti di atas |
+
+Konfigurasi hanya dibuat untuk agent yang benar-benar dipakai tim. **(proyek ini)** Claude Code dan Codex; konfigurasi Cursor dihapus pada B1.1 dan `.cursor/` diabaikan Git agar tidak masuk lagi tanpa keputusan.
 
 File lain tidak diletakkan di root. Lisensi (`LICENSE`), `CHANGELOG.md`, `CONTRIBUTING.md`, dan `SECURITY.md` boleh ditambahkan di root bila proyek membutuhkannya, karena GitHub membacanya dari sana.
 
@@ -120,7 +120,7 @@ Aturan:
 └── workflow.md         Setup, perubahan, verifikasi, dan rilis tanpa alat khusus satu agent
 ```
 
-- Folder ini untuk serah terima antar-agent (Codex, Cursor, Claude Code, dan lainnya) dan antar-sesi, untuk seluruh repository.
+- Folder ini untuk serah terima antar-agent (**proyek ini:** Claude Code dan Codex) dan antar-sesi, untuk seluruh repository.
 - Jangan disamakan dengan `.ai/` di dalam aplikasi Laravel (`backend/.ai/`), yang dipakai Laravel Boost untuk guideline, skill, dan rule aplikasi itu (bagian 9.6).
 - Isinya status yang berubah dari tugas ke tugas. Aturan tetap berada di `AGENTS.md`, fakta produk di `docs/PRODUCT.md`.
 - `project-status.md` diperbarui di akhir setiap tugas, hanya dengan fakta yang sudah diverifikasi.
@@ -135,11 +135,23 @@ Aturan:
 | `.claude/settings.json` | Izin perintah (allow/deny), server MCP yang diaktifkan | Ya |
 | `.claude/rules/<area>.md` | Aturan yang berlaku untuk path tertentu (frontmatter `paths:`) | Ya |
 | `.claude/skills/<nama>/SKILL.md` | Prosedur berulang (misalnya urutan verifikasi) | Ya |
-| `.mcp.json`, `.codex/config.toml`, `.cursor/mcp.json` | Definisi server MCP proyek per agent, dengan path relatif ke root repository | Ya |
+| `.mcp.json`, `.codex/config.toml` | Definisi server MCP proyek per agent, dengan path relatif ke root repository | Ya |
 | `.impeccable/surfaces/`, `.impeccable/design.json`, `.impeccable/critique/` | Kontrak desain dan catatan kritik skill impeccable | Ya |
 | `.impeccable/review/`, `build/`, `mocks/`, `config.local.json` | Bukti dan hasil kerja lokal | Tidak |
 | `CLAUDE.local.md`, `.claude/settings.local.json`, `.claude/worktrees/` | Catatan dan pengaturan pribadi | Tidak (hindari; gabungkan ke file bersama bila berlaku untuk tim) |
 | File Laravel Boost di dalam aplikasi Laravel | Lihat bagian 9.8 | Sebagian |
+
+Satu sumber per cakupan, tanpa menyalin aturan ke lokasi lain:
+
+| Cakupan | Sumber | Dibaca oleh |
+|---|---|---|
+| Aturan bersama repository | `AGENTS.md` | Codex langsung; Claude Code lewat `CLAUDE.md` |
+| Catatan khusus Claude Code | `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` | Claude Code |
+| Status dan serah terima | `.ai/` | Keduanya (ditautkan dari `AGENTS.md`) |
+| Guideline Laravel | `backend/AGENTS.md` (dibuat Boost dari `backend/.ai/`) | Codex yang dimulai di `backend/`; Claude Code lewat `backend/CLAUDE.md` |
+| Frontend | Root `AGENTS.md` dan aturan path-scoped | `frontend/AGENTS.md` hanya dibuat bila ada kebutuhan yang tidak tertampung di sana |
+
+**(proyek ini)** `frontend/AGENTS.md` tidak dibuat: aturan frontend sudah ada di root `AGENTS.md` (konten, desain, motion, SEO, logo) dan `.claude/rules/frontend.md`, dan Codex membaca root `AGENTS.md` dari folder mana pun di repository.
 
 Izin di `.claude/settings.json` mengikuti prinsip hak minimum:
 
@@ -205,7 +217,6 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── .agents/skills/             [L] Salinan skill untuk Codex
 ├── .claude/skills/             [L] Salinan skill untuk Claude Code
 ├── .codex/config.toml          [L] MCP Codex untuk sesi yang dimulai di root aplikasi
-├── .cursor/                    [L] mcp.json dan skills/ untuk Cursor
 ├── app/                        [W] Http/{Controllers,Requests,Resources,Middleware}, Models, Providers
 │   ├── Actions/                [P] Satu operasi bisnis per kelas (SubmitInquiry)
 │   ├── Enums/                  [P] Nilai domain yang terbatas (backed enum)
@@ -222,6 +233,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── vendor/                     [L] Hasil composer install
 ├── .env                        [L] Rahasia lokal, tidak pernah di-commit
 ├── .env.example                [W] Semua variabel terdokumentasi, tanpa nilai rahasia
+├── .env.testing                [L] Kredensial database tes lokal, tidak pernah di-commit
 ├── .mcp.json                   [L] MCP Claude Code untuk sesi yang dimulai di root aplikasi
 ├── AGENTS.md                   [B] Pengantar proyek di luar blok + guideline Boost di dalam blok
 ├── CLAUDE.md                   [B] @AGENTS.md dan catatan khusus Claude Code
@@ -237,8 +249,19 @@ Aturan:
 - Endpoint selalu berversi (`routes/api.php` mengelompokkan di bawah `v1`; Laravel menambahkan `/api`) dan didokumentasikan di `docs/api/` dalam commit yang sama.
 - `env()` hanya dipanggil di `config/`; kode membaca `config()`.
 - File dibuat dengan `php artisan make:*` agar namespace dan stub sesuai versi Laravel.
-- `vendor/`, `.env`, dan database SQLite tidak di-commit.
+- `vendor/`, `.env`, `.env.testing`, file database, dan dump tidak di-commit.
 - **(proyek ini)** API saja: tanpa Vite, Tailwind, atau Blade (`package.json`, `vite.config.js`, `resources/css|js` dibuang setelah scaffolding). Frontend website ada di `frontend/`.
+
+### 8.1 Database dan runtime
+
+- Pengembangan, tes, dan CI memakai engine dan versi mayor yang sama dengan target produksi. **(proyek ini)** MySQL 8.4 LTS (Oracle MySQL; MariaDB tidak dianggap setara) dan PHP 8.5 minimal 8.5.7.
+- Versi PHP minimum dinyatakan di `composer.json` (`"php": "^<minimum>"`) dan `config.platform.php` disamakan dengan minimum itu, agar lock tetap dapat dipasang pada minimum. Jangan mengunci ke satu patch; patch keamanan yang lebih baru boleh dipakai. CI menegaskan minimum dan mencatat versi aktual yang diuji.
+- Satu database per peran, masing-masing dengan pengguna sendiri dan hak minimum: pengembangan, tes (satu nama tetap, **proyek ini:** `solveit_indonesia_testing`), dan di produksi pengguna migrasi (DDL) terpisah dari pengguna aplikasi (DML saja). Tidak pernah `root`, database proyek lain, atau database bersama. Di MySQL, `_` adalah wildcard pada grant tingkat database; tulis nama dengan garis bawah yang di-escape (`` `nama\_db`.* ``) agar grant hanya berlaku untuk database itu.
+- `phpunit.xml` mengunci `APP_ENV`, driver, dan nama database tes lewat `<server>` dan `<env force="true">` (Laravel membaca `$_SERVER` lebih dulu), sehingga variabel shell tidak dapat memindahkan tes ke database atau driver lain.
+- Sebelum trait tes berjalan (`setUpTraits()` di `tests/TestCase.php`, sebelum `RefreshDatabase` menghapus tabel), pengaman tes memverifikasi identitas yang eksplisit, bukan pola nama: environment `testing`, koneksi dan driver yang diharapkan tanpa `DB_URL`, nama database persis, database yang benar-benar dipilih server (`SELECT DATABASE()`), dan `SHOW GRANTS FOR CURRENT_USER()` yang hanya berisi `USAGE` global dan hak pada database tes itu. Pengguna dengan hak global (termasuk `root`), hak pada database lain, grant wildcard, role, atau proxy ditolak. Pengaman ini punya tes regresi sendiri. **(proyek ini)** `tests/Support/TestDatabaseGuard.php`.
+- Tes tidak menjalankan DDL untuk mensimulasikan kegagalan; MySQL melakukan commit implisit untuk DDL. Buat database menolak baris (misalnya nilai melebihi panjang kolom dalam strict mode) atau tabrakan indeks `UNIQUE` sungguhan.
+- `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, dan `DROP` hanya pada database sekali pakai yang memang dibuat untuk itu.
+- Document root web server adalah `public/` aplikasi Laravel, tidak pernah root aplikasi.
 
 ## 9. Official Laravel Boost & AI Agent Development Standards
 
@@ -267,22 +290,23 @@ Jalankan dari root aplikasi Laravel, setelah `composer create-project` dan sebel
 
 ### 9.3 Agent yang didukung
 
-Boost 2.10 mendukung Claude Code, Codex, Cursor, GitHub Copilot, Junie, Amp, Antigravity, Grok Build, Kiro, OpenCode, Pi, dan Zed (`vendor/laravel/boost/src/Install/Agents/`). Pilih yang benar-benar dipakai tim dan catat di `boost.json`. Agent lain dapat ditambahkan lewat `Boost::registerAgent()`.
+Boost 2.10 mendukung banyak agent (`vendor/laravel/boost/src/Install/Agents/`). Pilih hanya yang benar-benar dipakai tim, catat di `boost.json`, dan hapus konfigurasi agent yang tidak lagi dipakai (file di repository dan salinan lokal yang dibuat Boost). **(proyek ini)** Claude Code dan Codex.
 
 | Agent | Guideline | Skill | MCP dari root aplikasi | **(proyek ini)** status |
 |---|---|---|---|---|
-| Claude Code | `AGENTS.md` lewat `CLAUDE.md` (`@AGENTS.md`) | `.claude/skills/` | `.mcp.json` | Diverifikasi: `claude mcp list` dari root repository melaporkan `laravel-boost` Connected; skill di `backend/.claude/skills/` ditemukan otomatis oleh sesi yang dimulai di root |
-| Codex | `AGENTS.md` | `.agents/skills/` | `.codex/config.toml` | Diverifikasi sebagian: `codex mcp list` (CLI 0.160) memuat `laravel-boost` dari `.codex/config.toml` proyek setelah repository dipercaya. Pemanggilan tool dari sesi Codex belum diuji |
-| Cursor | `AGENTS.md` | `.cursor/skills/` | `.cursor/mcp.json` | Dikonfigurasi, belum diverifikasi: Cursor tidak terpasang di mesin pengembang |
+| Claude Code | `AGENTS.md` lewat `CLAUDE.md` (`@AGENTS.md`) | `.claude/skills/` | `.mcp.json` | Diverifikasi: `claude mcp list` dari root repository melaporkan `laravel-boost` dan `playwright` Connected; skill di `backend/.claude/skills/` ditemukan saat sesi di root bekerja di `backend/` |
+| Codex | `AGENTS.md` | `.agents/skills/` | `.codex/config.toml` | Konfigurasi diverifikasi (CLI 0.160): setelah dipercaya, root memuat `php backend/artisan boost:mcp`, `backend/` memuat `php artisan boost:mcp`; tanpa kepercayaan tidak ada server. Pemanggilan tool dari sesi Codex yang login belum diuji |
+
+Codex membaca `AGENTS.md` dari root repository **turun** sampai folder kerja dan skill dari folder kerja **naik** sampai root (dokumentasi resmi Codex). Untuk pekerjaan Laravel di repository dengan `backend/`, Codex dimulai di root aplikasi; dari root repository ia tidak melihat `backend/AGENTS.md` maupun `backend/.agents/skills/`.
 
 ### 9.4 MCP: root repository dan root aplikasi
 
 Perintah resmi `php artisan boost:mcp` mengasumsikan direktori kerja adalah root aplikasi Laravel. Sesi agent biasanya dimulai di root repository, sehingga:
 
-| Lokasi sesi | Claude Code | Codex | Cursor | Perintah |
-|---|---|---|---|---|
-| Root repository (repository dengan `backend/`) | `<repo>/.mcp.json` | `<repo>/.codex/config.toml` | `<repo>/.cursor/mcp.json` | `php backend/artisan boost:mcp` (Cursor: `${workspaceFolder}/backend/artisan`) |
-| Root aplikasi (`backend/`, atau proyek mandiri) | `.mcp.json` | `.codex/config.toml` | `.cursor/mcp.json` | `php artisan boost:mcp` (dibuat `boost:install`) |
+| Lokasi sesi | Claude Code | Codex | Perintah |
+|---|---|---|---|
+| Root repository (repository dengan `backend/`) | `<repo>/.mcp.json` | `<repo>/.codex/config.toml` | `php backend/artisan boost:mcp` |
+| Root aplikasi (`backend/`, atau proyek mandiri) | `.mcp.json` | `.codex/config.toml` | `php artisan boost:mcp` (dibuat `boost:install`) |
 
 - `artisan` mem-bootstrap aplikasi dari lokasinya sendiri, jadi `php backend/artisan boost:mcp` dari root repository memakai `backend/.env`, database, dan path yang benar (diverifikasi dengan `application-info`).
 - Konfigurasi root repository ditulis tangan dan di-commit, dengan path relatif (tanpa path mesin). Konfigurasi di root aplikasi dibuat ulang oleh `php artisan boost:install --mcp` dan tidak di-commit. Keduanya tidak pernah dimuat bersamaan: setiap agent hanya membaca konfigurasi proyek untuk folder tempat sesi dimulai (Codex memilih yang terdekat), jadi tidak ada registrasi ganda dalam satu sesi.
@@ -325,9 +349,9 @@ Boost membaca `.ai/` relatif terhadap root aplikasi Laravel, jadi sumber Boost t
 | `boost.json` | Ya | Pilihan agent dan fitur; `boost:update` gagal tanpanya |
 | `AGENTS.md`, `CLAUDE.md` | Ya | Guideline yang dibaca agent sejak clone, dapat ditinjau di PR, dibuat ulang identik dari lock yang sama (diverifikasi) |
 | `.ai/guidelines/`, `.ai/skills/`, `.ai/rules/` | Ya | Sumber yang ditulis tim; dokumentasi resmi Boost meminta `.ai/rules` di-commit |
-| `<repo>/.mcp.json`, `<repo>/.codex/config.toml`, `<repo>/.cursor/mcp.json` | Ya | Registrasi MCP dari root repository, path relatif |
-| `.mcp.json`, `.codex/`, `.cursor/` di root aplikasi | Tidak | Dibuat `boost:install --mcp`; `.codex/` dan `.cursor/` sudah diabaikan `.gitignore` bawaan Laravel |
-| `.claude/skills/`, `.agents/skills/`, `.cursor/skills/` | Tidak | Salinan per agent, dibuat `boost:update` dari `boost.json` |
+| `<repo>/.mcp.json`, `<repo>/.codex/config.toml` | Ya | Registrasi MCP dari root repository, path relatif |
+| `.mcp.json`, `.codex/` di root aplikasi | Tidak | Dibuat `boost:install --mcp`; `.codex/` sudah diabaikan `.gitignore` bawaan Laravel |
+| `.claude/skills/`, `.agents/skills/` | Tidak | Salinan per agent, dibuat `boost:update` dari `boost.json` |
 | `.env`, `auth.json`, `vendor/` | Tidak | Rahasia atau hasil instalasi |
 
 Dokumentasi Boost juga mengizinkan `AGENTS.md`, `CLAUDE.md`, dan `boost.json` diabaikan Git karena dapat dibuat ulang. Solveit memilih meng-commit ketiganya agar agent punya guideline sejak clone, perubahan guideline terlihat di PR, dan `boost:update` dapat dijalankan tanpa pertanyaan interaktif. Pada proyek mandiri (9.13) yang juga menyimpan skill tulisan tim di `.claude/skills/`, abaikan hanya nama skill buatan Boost, bukan seluruh folder.
@@ -352,14 +376,14 @@ Dokumentasi Boost juga mengizinkan `AGENTS.md`, `CLAUDE.md`, dan `boost.json` di
 ```bash
 cd backend                               # atau root repository pada proyek mandiri
 composer install
-cp .env.example .env && php artisan key:generate
-touch database/database.sqlite && php artisan migrate
+cp .env.example .env && php artisan key:generate   # isi DB_* untuk database pengembangan
+php artisan migrate                      # database pengembangan sudah dibuat (bagian 8.1)
 php artisan boost:update --no-discover   # salinan skill per agent
-php artisan boost:install --mcp --no-interaction   # opsional: MCP untuk sesi yang dimulai di folder ini
-php artisan test
+php artisan boost:install --mcp --no-interaction   # MCP untuk sesi yang dimulai di folder ini (wajib untuk Codex)
+php artisan test                         # database tes sekali pakai, kredensial di .env.testing
 ```
 
-Lalu mulai agent di root repository. Claude Code menanyakan persetujuan server proyek bila belum ada di `enabledMcpjsonServers`; Codex perlu repository dipercaya; Cursor perlu server diaktifkan di pengaturan MCP. Setelah mengubah konfigurasi MCP, mulai ulang sesi agent: server MCP hanya dibaca saat sesi dimulai.
+Lalu mulai Claude Code di root repository dan Codex di root aplikasi untuk pekerjaan Laravel (9.3). Claude Code menanyakan persetujuan server proyek bila belum ada di `enabledMcpjsonServers`; Codex perlu repository dipercaya. Setelah mengubah konfigurasi MCP, mulai ulang sesi agent: server MCP hanya dibaca saat sesi dimulai.
 
 ### 9.12 Verifikasi bahwa Boost berfungsi
 
@@ -367,7 +391,7 @@ Jangan melaporkan Boost tersedia tanpa bukti berikut:
 
 1. `composer show laravel/boost` menampilkan versi 2.x dan `composer.json` mencantumkannya di `require-dev`.
 2. `php artisan list boost` menampilkan `boost:install`, `boost:mcp`, `boost:update`.
-3. Server MCP menjawab handshake dari lokasi sesi: `claude mcp list` (Claude Code), `codex mcp list` (Codex), atau panel MCP Cursor menampilkan `laravel-boost` terhubung.
+3. Server MCP menjawab handshake dari lokasi sesi: `claude mcp list` (Claude Code) atau `codex mcp list` (Codex) menampilkan `laravel-boost` terhubung atau aktif.
 4. Satu tool baca-saja berhasil: `application-info` menyebut versi Laravel dan PHP yang benar serta driver database.
 5. `search-docs` mengembalikan dokumentasi dengan label versi yang terpasang (misalnya `laravel/framework@13.x`).
 6. `AGENTS.md` berisi blok guideline dan aturan proyek, dan skill tersedia untuk agent.
@@ -377,7 +401,7 @@ Jangan melaporkan Boost tersedia tanpa bukti berikut:
 
 Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 
-- `artisan` di root; MCP memakai `php artisan boost:mcp`, dan konfigurasi yang dibuat `boost:install` sekaligus menjadi konfigurasi root repository. Bila tim ingin membagikannya, hapus `/.codex` dan `/.cursor/` dari `.gitignore` bawaan Laravel dan commit file MCP-nya saja.
+- `artisan` di root; MCP memakai `php artisan boost:mcp`, dan konfigurasi yang dibuat `boost:install` sekaligus menjadi konfigurasi root repository. Bila tim ingin membagikannya, hapus `/.codex` dari `.gitignore` bawaan Laravel dan commit file MCP-nya saja.
 - Satu `.ai/`: file di tingkat atas (`README.md`, `project-status.md`, `workflow.md`) adalah handoff repository, subfolder `guidelines/`, `skills/`, `rules/` milik Boost. Nama keduanya tidak bertabrakan.
 - Satu `AGENTS.md`: aturan repository ditulis di luar blok `<laravel-boost-guidelines>`, guideline Boost di dalam blok. `CLAUDE.md` tetap `@AGENTS.md`.
 - Jangan membuat folder `frontend/` atau `backend/` hanya demi mengikuti repository ini; aturan bagian 8 dan 9 berlaku untuk root aplikasi di mana pun ia berada.
@@ -398,7 +422,8 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 ## 10. `.github/`
 
 - `workflows/<aplikasi>-ci.yml` untuk CI per aplikasi, dipicu oleh perubahan path aplikasinya (`frontend/**`, `backend/**`). **(proyek ini)** `backend-ci.yml` juga dipicu oleh `frontend/src/types/**`, karena tes kontrak membaca tipe frontend.
-- CI Laravel minimal: `composer validate --strict`, `composer install`, Pint, migrasi naik-turun-naik pada database sekali pakai, `php artisan test`, `composer audit`, dan instalasi `--no-dev` yang tetap boot. Uji versi PHP terendah yang diizinkan `composer.json` dan versi yang dipakai tim.
+- Setiap workflow menyatakan `permissions` minimum (`contents: read` bila hanya membaca); jangan bergantung pada izin bawaan repository.
+- CI Laravel minimal: kebijakan PHP (minimum ditegaskan, versi aktual dicatat), `composer validate --strict`, `composer install`, `composer check-platform-reqs`, Pint, migrasi naik-turun-naik pada database sekali pakai dengan engine yang sama dengan produksi (**proyek ini:** service container MySQL 8.4 yang versinya ditegaskan), `php artisan test` pada database tes terpisah, `composer audit`, dan instalasi `--no-dev` yang tetap boot. Kredensial database CI dibuat acak per run dan disamarkan; tidak pernah ditulis di repository dan tidak pernah memakai database produksi.
 - Workflow berat atau manual diberi nama sesuai tujuannya (`cross-browser-qa.yml`) dan dijalankan lewat `workflow_dispatch`.
 - Template PR atau issue (`pull_request_template.md`, `ISSUE_TEMPLATE/`) bila tim membutuhkannya.
 
@@ -422,7 +447,8 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 | Hasil QA | Bagian baru di `docs/qa/qa-report.md` |
 | Status atau serah terima | `.ai/project-status.md` |
 | Aturan untuk agent | `AGENTS.md` (khusus Claude Code: `CLAUDE.md` atau `.claude/rules/`) |
-| Server MCP proyek | `.mcp.json`, `.codex/config.toml`, `.cursor/mcp.json` di root repository, dan nama server di `enabledMcpjsonServers` |
+| Server MCP proyek | `.mcp.json` dan `.codex/config.toml` di root repository, dan nama server di `enabledMcpjsonServers` |
+| Rancangan fitur yang belum dibangun | `docs/architecture/<topik>.md` dengan status jelas (Planned, Owner decision required), tidak di `docs/api/` |
 | Skrip perawatan | `frontend/scripts/` atau `backend/` (perintah Artisan) |
 | Rahasia | `.env` lokal saja; nama variabelnya di `.env.example` |
 | Screenshot atau bukti audit | Folder yang diabaikan Git, angkanya di laporan QA |
@@ -433,6 +459,6 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 2. Buat `docs/README.md`, `docs/PRODUCT.md`, dan folder topik yang dibutuhkan saja; jangan membuat folder kosong.
 3. Buat `.ai/` dengan tiga file di bagian 5 dan isi `project-status.md` sejak hari pertama.
 4. Letakkan logo asli sekali saja di `frontend/public/brand/` dengan pola nama aset merek.
-5. Untuk aplikasi Laravel: scaffold ke folder kosong (bagian 8), pasang Laravel Boost sesuai bagian 9.2, daftarkan MCP (9.4), dan verifikasi (9.12) sebelum fitur pertama.
+5. Untuk aplikasi Laravel: scaffold ke folder kosong (bagian 8), tetapkan database dan versi PHP (8.1), pasang Laravel Boost sesuai bagian 9.2, daftarkan MCP (9.4), dan verifikasi (9.12) sebelum fitur pertama.
 6. Siapkan branch `main`, `staging`, dan branch per aplikasi, CI per aplikasi, dan proteksi branch bila tim lebih dari satu orang.
 7. Salin dokumen ini ke `docs/project-structure.md` dan sesuaikan bagian bertanda **(proyek ini)**.

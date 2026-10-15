@@ -22,7 +22,7 @@ return [
     | Solveit: Shared Agent Guidelines
     |--------------------------------------------------------------------------
     |
-    | Claude Code, Codex, and Cursor all receive the generated guidelines in
+    | Claude Code and Codex both receive the generated guidelines in
     | backend/AGENTS.md; backend/CLAUDE.md only imports it (@AGENTS.md), the
     | same pattern as the repository root. Tests are always enforced because
     | the backend ships with a Feature test suite and CI.
