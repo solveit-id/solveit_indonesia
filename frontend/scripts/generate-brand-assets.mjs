@@ -7,8 +7,8 @@ import { chromium } from "@playwright/test";
 
 const root = join(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
 const publicDir = join(root, "public");
-const icon = await readFile(join(publicDir, "brand", "logo-solveit-icon.svg"), "utf8");
-const primary = await readFile(join(publicDir, "brand", "logo-solveit-primary.svg"), "utf8");
+const icon = await readFile(join(publicDir, "brand", "solveit-logo-icon.svg"), "utf8");
+const primary = await readFile(join(publicDir, "brand", "solveit-logo-full.svg"), "utf8");
 const font = await readFile(
   join(root, "node_modules/@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2"),
 );
