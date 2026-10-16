@@ -17,14 +17,35 @@ export type AdminHttpMethod = "GET" | "POST" | "PUT" | "DELETE";
  *   `requiresConfirmation`, and the screen asks the person before submitting again. Required
  *   for sensitive writes: invitations, invitation revocation, role changes, suspension and
  *   reactivation, credential resets, password and recovery-code changes.
- * - `automatic`: resend once with the new token. Only for writes that a person would simply
- *   repeat and that change nothing on their own: the sign-in steps and sign-out.
+ * - `automatic`: resend once with the new token. Allowed only for the method and path pairs in
+ *   `automaticReplayAllowlist`; asking for it anywhere else is a programming error and the
+ *   request is refused before anything is sent.
  *
  * A 419 is produced by the CSRF check before any controller runs, so the first attempt
  * certainly did nothing either way; the rule is about not acting twice on the person's behalf
  * without their knowledge.
  */
 export type AdminReplayPolicy = "confirm" | "automatic";
+
+/**
+ * The only writes that may be resent automatically after a 419: authentication steps that
+ * change no account state on their own and that a person would simply repeat
+ * (docs/api/admin-auth.md). Exact method and path. Everything else, including every
+ * administrative operation (invitations, roles, suspension, credential resets), every change
+ * to the account's own security (password, recovery codes, sessions), redeeming or confirming
+ * an access link, and any route added later, stays `confirm` until it is reviewed and listed
+ * here on purpose.
+ */
+export const automaticReplayAllowlist: ReadonlySet<string> = new Set([
+  "POST auth/login",
+  "POST auth/two-factor-challenge",
+  "POST auth/confirm-password",
+  "POST auth/logout",
+  "POST access-links/inspect",
+]);
+
+export const mayReplayAutomatically = (method: AdminHttpMethod, path: string): boolean =>
+  automaticReplayAllowlist.has(`${method} ${path}`);
 
 export interface AdminRequest {
   method: AdminHttpMethod;
@@ -169,7 +190,12 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
     if (response.status === 419 && isWrite) {
       await refreshCsrfCookie(request.signal);
 
-      if ((request.replay ?? "confirm") === "automatic" && !isReplay) {
+      // Checked again here, not only at the entry, so no path into perform() can bypass it.
+      if (
+        request.replay === "automatic" &&
+        mayReplayAutomatically(request.method, request.path) &&
+        !isReplay
+      ) {
         return perform<T>(request, true);
       }
 
@@ -180,7 +206,22 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
   }
 
   return {
-    request: <T = undefined>(adminRequest: AdminRequest) => perform<T>(adminRequest),
+    request: <T = undefined>(adminRequest: AdminRequest) => {
+      // A copy, so the method and path checked here are the ones sent and resent even if the
+      // caller changes its object while the request is in flight.
+      const request = { ...adminRequest };
+
+      if (request.replay === "automatic" && !mayReplayAutomatically(request.method, request.path)) {
+        return Promise.reject(
+          new TypeError(
+            `replay: "automatic" is not allowed for ${request.method} ${request.path}; ` +
+              "only the authentication steps in automaticReplayAllowlist may be resent.",
+          ),
+        );
+      }
+
+      return perform<T>(request);
+    },
     refreshCsrfCookie,
   };
 }

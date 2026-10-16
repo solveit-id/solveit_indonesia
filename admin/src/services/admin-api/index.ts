@@ -6,7 +6,9 @@ import { createAdminApiClient } from "./client";
 
 export {
   adminApiUrl,
+  automaticReplayAllowlist,
   createAdminApiClient,
+  mayReplayAutomatically,
   type AdminApiClient,
   type AdminHttpMethod,
   type AdminReplayPolicy,
