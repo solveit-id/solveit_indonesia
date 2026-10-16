@@ -7,6 +7,7 @@ Repository website company profile dan portofolio Solveit Indonesia: frontend da
 | Folder | Isi |
 |---|---|
 | [`frontend/`](frontend) | React + TypeScript + Vite + React Router (prerender statis) + Tailwind CSS v4 + GSAP |
+| [`admin/`](admin) | Konsol admin terpisah (React + Vite, React Router mode data): fondasi B3.2a, belum ada layar masuk, belum di-deploy. [admin/README.md](admin/README.md) |
 | [`backend/`](backend) | Laravel 13 API (PHP 8.5 minimal 8.5.7, MySQL 8.4 LTS): endpoint inquiry dengan idempotensi, belum di-deploy. Laravel Boost untuk Claude Code dan Codex |
 | [`infra/`](infra) | Docker: lingkungan pengembangan lengkap dan konfigurasi produksi (disiapkan, belum di-deploy) |
 | [`docs/`](docs) | Fakta produk, spesifikasi desain, arsitektur, panduan pengembangan, SEO/GEO, laporan QA, aturan struktur proyek. Peta: [docs/README.md](docs/README.md) |
@@ -33,13 +34,13 @@ Tanpa PHP 8.5, Node 22, atau MySQL 8.4 di komputer, jalankan semuanya di Docker 
 
 ```bash
 bash infra/docker/scripts/setup-dev.sh                  # sekali: secret, .env, build, migrasi
-docker compose -f infra/docker/compose.dev.yaml up -d   # website :5173, API :8000
+docker compose -f infra/docker/compose.dev.yaml up -d   # website :5173, API :8000, admin http://127.0.0.1:5174
 ```
 
 Detail: [docs/development/development-guide.md](docs/development/development-guide.md), [docs/development/docker-development.md](docs/development/docker-development.md), dan [backend/README.md](backend/README.md).
 
 ## Alur Git
 
-`frontend` / `backend` → PR ke `staging` → PR ke `main`. Format commit: `(type) deskripsi singkat`.
+`frontend` / `backend` / `admin` → PR ke `staging` → PR ke `main`. Format commit: `(type) deskripsi singkat`.
 
 Logo asli: `frontend/public/brand/solveit-logo-full.svg` (logo lengkap) dan `frontend/public/brand/solveit-logo-icon.svg` (mark). Aturan struktur folder: [docs/project-structure.md](docs/project-structure.md).

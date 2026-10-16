@@ -2,6 +2,68 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B3.2a fondasi konsol admin (2026-10-16)
+
+Cakupan: aplikasi `admin/` terpisah (React 19, TypeScript strict, Vite 8, React Router 7 mode data, Tailwind CSS 4): shell responsif, primitif UI, token merek bersama tanpa salinan, klien API admin bertipe dengan CSRF, layar status jujur dengan pemeriksaan koneksi nyata, layanan Docker pengembangan, Admin CI. Belum ada layar masuk, administrasi, audit, atau data (B3.2b, B3.2c); tidak ada deployment, akun, atau listener admin produksi. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/frontend` = `4874c73` (rilis B3.1b, PR #35), `origin/staging` `7105161`, semua tree `7c3f03b`; tanpa branch `admin` lokal atau remote sebelumnya; working tree bersih, tanpa stash, tanpa PR terbuka.
+
+Keputusan pemilik pada tugas ini: tema terang sebagai default dengan pilihan gelap (OS tidak diikuti, aturan website); satu-satunya layar nyata adalah status fondasi dengan pemeriksaan koneksi; referensi komponen hanya di build pengembangan dan QA. Arah dan struktur lain dari brief B3.2a (folder `admin/`, branch `admin`, `127.0.0.1:5174`, proxy satu origin, Indonesia default dengan Inggris siap, loopback).
+
+Instalasi dependensi: `npm install` pertama di sesi agent dihentikan Claude Code karena memori sistem kritis; pemilik memasang ulang secara manual (`npm install --prefer-online ... --maxsockets=3`, 375 paket, `package-lock.json` dari `registry.npmjs.org` saja). Pekerjaan dilanjutkan tanpa scaffolding ulang. Laravel Boost MCP dan Playwright MCP gagal tersambung di sesi lanjutan; tidak dibutuhkan untuk perubahan frontend dan Docker ini.
+
+### Token bersama dan regresi website publik
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Pemisahan `frontend/src/styles/app.css` ke `tokens.css` (palet terang dan gelap, font, motion, radius, varian gelap) | Build website sebelum dan sesudah dibandingkan file per file, nama berhash dinormalkan: 82 file, JavaScript dan HTML identik. Satu-satunya perubahan CSS: aturan `--header-h` website (dan override 1024 px) kini berada setelah blok tema gelap, bukan di dalam blok `:root` pertama; blok gelap tidak menyetel `--header-h`, jadi semua nilai terhitung sama. Selain itu hanya hash dan `version` di manifest router |
+| `npm run lint`, `typecheck`, `npm test` di `frontend/` | Lulus; 178 tes. `format:check` hanya menandai `frontend/.impeccable/hook.cache.json`, file lokal lama yang dikecualikan `.git/info/exclude` (tidak ada di clone baru) |
+| Playwright website, project desktop, 1 worker | 179 lulus, 5 dilewati, 1 gagal dari 185 (180 dijalankan, sama dengan baseline B2.2). Yang gagal (`contact-channels.spec.ts`, menu WhatsApp) berjalan 54,6 menit dalam run 1,1 jam: mesin macet di bawah tekanan memori, bukan asersi. Dijalankan ulang sendiri: 4 dari 4 tes file itu lulus (tes tersebut 2,5 detik). Tablet dan mobile tidak dijalankan lokal (memori); **Frontend CI** menjalankan suite penuh |
+
+### Admin: pemeriksaan otomatis (lokal, Windows 11, Node 22.23.1)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `format:check`, `lint` (termasuk `no-console` di kode aplikasi), `typecheck` | Lulus |
+| `npm test` (Vitest) | **101 tes lulus** di 7 file: klien API 43 (CSRF, satu request CSRF untuk penulisan serentak, aturan 419, klasifikasi galat, `outcome`, timeout, abort, path yang ditolak), CSRF dan pemeriksaan koneksi, tautan akses (fragmen saja, fragmen dihapus, tidak disimpan), tema dan preferensi, copy dua bahasa (kunci sama, tanpa em dash), aplikasi lewat router memori (navigasi hanya layar yang ada, 404 jujur untuk `/masuk` dan lainnya, menu ponsel, tema, bahasa, pemeriksaan koneksi), primitif UI |
+| Uji mutasi aturan 419 | Default `replay` diubah ke `automatic`: tepat 6 tes penulisan sensitif gagal; dipulihkan |
+| `npm run build` lalu `check:build` | Lulus: CSP produksi di `<meta>` sama dengan `security-policy.ts`, tanpa skrip inline, tanpa `unsafe-inline`/`unsafe-eval`, `noindex`, tanpa source map, tanpa origin lain (pengecualian tertulis: namespace SVG, tautan galat React, basis parse URL React Router, komentar lisensi Tailwind), tanpa halaman referensi. JS awal **110,8 KB gzip** (anggaran 150), CSS **6,2 KB gzip** (anggaran 20). Bukti kegagalan: `check-build.mjs dist-reference` menolak build referensi (3 temuan) |
+| `npm audit --audit-level=high` | 0 kerentanan (juga `--omit=dev`) |
+| Playwright pada `dist-reference` (preview dengan header produksi), Chromium, 1 worker | desktop 19 lulus dan 2 dilewati (khusus ponsel), tablet 21, mobile 21: shell per lebar, tanpa scroll ke samping, menu ponsel dan Escape, fokus ke konten setelah navigasi, 404, logo dan Archivo, tema gelap bertahan setelah reload tanpa kilasan terang, penyimpanan hanya `solveit-admin-theme`, reduced motion menghentikan animasi, axe (WCAG 2.0/2.1/2.2 A dan AA) tanpa pelanggaran di terang dan gelap dan dengan menu ponsel terbuka, tombol skip pertama dan cincin fokus, header CSP/`X-Frame-Options`/`Referrer-Policy`/`nosniff`/`X-Robots-Tag`/`no-store`, semua request satu origin, tanpa pelanggaran CSP di konsol, tidak dapat dibingkai, pemeriksaan koneksi nyata ke port tertutup ("Laravel tidak menjawab") dan dua jawaban yang di-mock (204, 403) |
+
+Temuan dan perbaikan selama QA:
+
+| Temuan | Perbaikan |
+|---|---|
+| Chunk `component-reference` ada di build produksi: konstanta dari modul lain tidak dilipat bundler | Konstanta build `__ADMIN_COMPONENT_REFERENCE__` (`define`) dipakai langsung di router dan navigasi; copy halaman referensi dipindah ke samping halamannya; `check-build` memastikan tidak ada chunk, route, atau copy |
+| axe `color-contrast` di rail, tema terang: segmen terpilih memakai `--paper` porselen di atas tinta malam | Di dalam rail `--paper` menjadi tanah rail (navy, malam di tema gelap) |
+| Nama tombol menu berubah "Menu"/"Tutup" padahal `aria-expanded` sudah membawa keadaan | Nama tetap "Menu"; ikon menunjukkan keadaan |
+| Rail dan area kerja hampir menyatu di tema gelap | Garis rambut pada tepi rail gelap |
+
+### Tinjauan desain (impeccable)
+
+Kontrak arah di `.impeccable/surfaces/admin-src-app.md` (Operate, dunia Solveit yang ada, struktur dikunci oleh `admin-dashboard.md` bagian 7). Dua putaran tangkapan (desktop 1440, tablet 820, ponsel 390, terang dan gelap, menu terbuka, referensi komponen), lalu peninjau akhir yang terpisah: disposisi **fix** dengan tujuh temuan. Diterapkan dan dinilai ulang: tindakan utama cobalt, glyph kapsul lingkungan sesuai fase, kode fase di dalam judul (tanpa eyebrow di 390 px), satu glyph per baris fase, perintah dan path sebagai `<code>` (semuanya *resolved*, tanpa regresi). Status sibuk (kapsul bergerak di sumbu 33 derajat) dibuktikan dengan pengukuran setelah verdict: `translateX` berubah dari -2,0 ke 6,9 px dalam 450 ms, statis di reduced motion (`desktop-busy*.png`). Satu temuan **ditolak dan diserahkan ke pemilik**: rekaman seed `concept-seed` pada kontrak; skill melarang roll untuk permintaan yang strukturnya sudah dikunci, peninjau menilai hanya pemilik yang dapat mengecualikannya.
+
+### Nyata: browser ke Laravel lewat proxy (lokal, data sintetis tanpa akun)
+
+`php artisan serve` (127.0.0.1:8000) dan `npm run dev` (127.0.0.1:5174), Chromium:
+
+- Tombol pemeriksaan: `GET /api/v1/admin/auth/csrf-cookie` lewat proxy menjawab **204**; `AdminRequestBoundary` menerima host dan origin tanpa perubahan backend.
+- Cookie sesi `solveit-admin-session`: `HttpOnly`, `SameSite=Strict`, host-only `127.0.0.1`, cookie sesi browser (tanpa `Secure` karena HTTP lokal, sesuai rancangan). `XSRF-TOKEN`: dapat dibaca skrip, `Strict`. Penyimpanan browser kosong.
+- Lewat `localhost:5174`: **404** (host bukan `ADMIN_URL`). `Origin` asing: **403** tanpa cookie. `POST /api/v1/inquiries` di origin admin: **404** (proxy hanya `/api/v1/admin`).
+- Hanya satu baris sesi anonim yang dibuat di database pengembangan; tidak ada akun.
+
+### Docker pengembangan
+
+- `infra/docker/admin/` (target `dev`, Node 22.23.1), layanan `admin` di `compose.dev.yaml` (loopback 5174, volume `admin-node-modules`, empat folder website read-only). `compose config --quiet` lulus, hash service `mysql` sama dengan file aslinya, shellcheck bersih.
+- Temuan lama yang terlihat di mesin pemilik: container `backend` berhenti dengan `Class "Laravel\Fortify\Features" not found` karena volume `backend-vendor` dibuat sebelum B3.1a dan entrypoint hanya memasang ke volume kosong. Entrypoint `backend` dan `admin` kini menyimpan hash lockfile di volume dan memasang ulang bila berbeda. Diverifikasi: Composer memasang ulang, backend sehat; `npm ci` di atas volume admin yang sudah terisi berhasil (379 paket). Entrypoint `frontend` punya celah yang sama, belum diubah (tindak lanjut).
+- Di container: Node v22.23.1, polling aktif, halaman tersaji, `tokens.css` tersaji dan `app.css` ditolak `fs.allow` (403), proxy ke service `backend`: admin origin **204**, origin asing **403**, `npm test` 101 lulus, perubahan file di host memicu HMR. `solveit-mysql` (ID `7286975bacf9`, waktu start sama) dan volumenya tidak berubah; container dihentikan dengan `stop`.
+
+### Belum diverifikasi
+
+- Alur browser nyata untuk masuk, TOTP, undangan, pemulihan, dan administrasi: belum dibangun (B3.2b, B3.2c).
+- Firefox dan WebKit untuk admin: tidak dijalankan (Admin CI hanya Chromium).
+- Lighthouse admin: tidak diukur; ukuran bundle diperiksa `check-build`.
+- Admin CI, Frontend CI, dan Docker CI pada PR: hasil di GitHub.
+
 ## B3.1b administrasi pengguna admin dan pembacaan audit (2026-10-16)
 
 Cakupan: endpoint khusus owner di `backend/` (`/api/v1/admin`): daftar dan detail akun, undangan, pencabutan undangan, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner, dan pembacaan audit log (kontrak: `docs/api/admin-users.md`; keputusan: `docs/architecture/admin-dashboard.md` bagian 4). Backend saja: tidak ada aplikasi admin, akun produksi, listener admin, atau deployment. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/frontend` = `ffe07fc` (rilis B3.1a, PR #33), `origin/staging` `769d1b6` dengan tree yang sama (`ad928b0`), working tree bersih, tanpa stash, satu worktree, tanpa PR terbuka, CI terakhir hijau.

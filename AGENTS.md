@@ -7,9 +7,10 @@ Shared instructions for the two coding agents used in this repository: Claude Co
 Solveit Indonesia company profile and portfolio. This repository holds only the website and its own backend; Solveit OpsHub and other Solveit systems live in separate repositories and integrate through API contracts or events, never a shared database (see `docs/architecture/integration-plan.md`).
 
 - `frontend/`: React 19, TypeScript strict, Vite 8, React Router 7 (framework mode, static prerender), Tailwind CSS v4, GSAP. Built and released.
-- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` (idempotent per `Idempotency-Key` since B2.1), `GET /up`, the B3.1a admin identity API under `/api/v1/admin` (access-link activation, mandatory TOTP, database sessions, roles `owner` and `admin`, append-only audit log), and the B3.1b owner-only user administration and audit reader (invitations shown once with no email, role changes, suspension, owner-issued credential reset, cursor-paginated audit log; contracts in `docs/api/`). No admin account, admin application, or admin listener exists anywhere. Not deployed; the shipped frontend does not call it (the B2 website channel is behind `VITE_INQUIRY_API_ENABLED`, off by default; since B2.2 every website submission carries an `Idempotency-Key`). Add only endpoints that really work, never fake ones.
+- `admin/` (B3.2a, `admin` branch, not deployed): separate admin console, React 19, TypeScript strict, Vite 8, React Router 7 data mode, Tailwind CSS v4. Foundation only: shell, design system, typed admin API client with CSRF, an honest status screen with a real connection check. No sign-in, administration, or data screens yet (B3.2b, B3.2c); never present them as available. It reads four website design files in place (`docs/project-structure.md` 7.1); never copy them.
+- `backend/`: Laravel 13 JSON API on PHP 8.5 (at least 8.5.7) and MySQL 8.4 LTS, `backend` branch. Built: `POST /api/v1/inquiries` (idempotent per `Idempotency-Key` since B2.1), `GET /up`, the B3.1a admin identity API under `/api/v1/admin` (access-link activation, mandatory TOTP, database sessions, roles `owner` and `admin`, append-only audit log), and the B3.1b owner-only user administration and audit reader (invitations shown once with no email, role changes, suspension, owner-issued credential reset, cursor-paginated audit log; contracts in `docs/api/`). No admin account or admin listener exists anywhere, and the admin application (`admin/`, B3.2a) is not deployed. Not deployed; the shipped frontend does not call it (the B2 website channel is behind `VITE_INQUIRY_API_ENABLED`, off by default; since B2.2 every website submission carries an `Idempotency-Key`). Add only endpoints that really work, never fake ones.
 - `infra/docker/`: full-Docker development (`compose.dev.yaml`, includes the existing MySQL Compose file) and a provider-independent production setup (`compose.prod.yaml`). Production is prepared and validated, **not deployed**. Placement rules: `docs/project-structure.md` section 11; guides in `docs/development/docker-*.md`.
-- Planned, not built: the admin application and dashboard modules (B3.2 `admin/` app, B4 inquiry management), first-party visitor analytics, GitHub integration boundary (`docs/architecture/`). Never describe them as available.
+- Planned, not built: admin sign-in and administration screens (B3.2b, B3.2c), the private admin release (B3.2d), B4 inquiry management, first-party visitor analytics, GitHub integration boundary (`docs/architecture/`). Never describe them as available.
 
 ## Read first
 
@@ -35,6 +36,8 @@ Solveit Indonesia company profile and portfolio. This repository holds only the 
 
 Frontend (run in `frontend/`): `npm run dev` · `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` · `npm run test:e2e` · `npm run format` / `format:check` · `npm run check` (lint + typecheck + test + build).
 
+Admin (run in `admin/`): `npm run dev` (http://127.0.0.1:5174, never localhost) · `npm run check` (format, lint, typecheck, test, build, build checks) · `npm run build:reference` then `npx playwright test --project=<desktop|tablet|mobile> --workers=1`. Guide: `admin/README.md`.
+
 Docker (run from the repository root): `bash infra/docker/scripts/setup-dev.sh` (once) · `docker compose -f infra/docker/compose.dev.yaml up -d` · `... exec backend php artisan test` · `... exec frontend npm test`. Production images and smoke test: `docs/development/docker-production.md` (isolated project name, synthetic data only).
 
 Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix with `vendor/bin/pint`) · `composer validate --strict` · `composer audit` · `php artisan route:list --except-vendor` · `php artisan migrate` · `php artisan boost:update --no-discover`. Setup from a fresh clone: `backend/README.md`.
@@ -50,17 +53,18 @@ Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix
 
 ## Verification before a commit
 
-1. Frontend changes: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. UI changes also: `npx playwright test --project=<desktop|tablet|mobile> --workers=1` (axe runs inside the suite). `PW_ALL_BROWSERS=1` adds `firefox`.
-2. Backend changes: `vendor/bin/pint --test`, `php artisan test` (MySQL testing database), `composer validate --strict`, `composer audit`; after dependency or guideline changes, `php artisan boost:update --no-discover` and commit the resulting `backend/AGENTS.md`.
-3. Docker changes (`infra/**`): `docker compose -f infra/docker/compose.dev.yaml config --quiet`, rebuild the affected image, and the checks in `docs/development/docker-*.md`; **Docker CI** repeats them on a clean runner.
-4. Report real output. Never weaken a test to make it pass.
+1. Frontend changes: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. UI changes also: `npx playwright test --project=<desktop|tablet|mobile> --workers=1` (axe runs inside the suite). `PW_ALL_BROWSERS=1` adds `firefox`. A change to `frontend/src/styles/tokens.css` or another shared design file also needs the admin checks.
+2. Admin changes: `npm run check` in `admin/`, then `npm run build:reference` and the Playwright projects one at a time with `--workers=1`.
+3. Backend changes: `vendor/bin/pint --test`, `php artisan test` (MySQL testing database), `composer validate --strict`, `composer audit`; after dependency or guideline changes, `php artisan boost:update --no-discover` and commit the resulting `backend/AGENTS.md`.
+4. Docker changes (`infra/**`): `docker compose -f infra/docker/compose.dev.yaml config --quiet`, rebuild the affected image, and the checks in `docs/development/docker-*.md`; **Docker CI** repeats them on a clean runner.
+5. Report real output. Never weaken a test to make it pass.
 
 ## Rules
 
 - Content integrity: never invent clients, testimonials, statistics, awards, results, addresses, release dates, or domains. Only confirmed contacts in `src/data/company.ts`. Demo case studies keep `isDemo: true`, empty `results`, and the visible demo label. Planned systems are never shown as launched.
 - Forms must never claim a submission that did not happen.
 - Logos: the originals are `frontend/public/brand/solveit-logo-full.svg` and `solveit-logo-icon.svg`; components use the verbatim paths in `src/components/brand/logo-paths.ts`. Never alter shapes and never keep a second copy elsewhere.
-- Design: follow `docs/design/design-system.md` (tokens in `src/styles/app.css`, capsule controls, 33 degree diagonal, one accent). No em dashes in copy.
+- Design: follow `docs/design/design-system.md` (brand tokens in `frontend/src/styles/tokens.css`, shared with the admin; website layout tokens in `src/styles/app.css`; capsule controls, 33 degree diagonal, one accent). No em dashes in copy.
 - Motion: use `useMotion` from `src/lib/motion.ts` (lazy GSAP, auto-revert); gate effects with `gsap.matchMedia()` and `motionQueries.motion`; animate transform/opacity/colour only; content visible by default.
 - SEO: every page exports `meta` built with `buildMeta()` from `src/lib/seo.ts`. Final SEO/GEO work waits for the domain and hosting.
 - Naming: Solveit OpsHub is established; Solveit Orbit and the six client-facing names are proposals (`docs/product/product-naming.md`). Do not rename the `solveit_opshub` repository or its identifiers.
@@ -68,4 +72,4 @@ Backend (run in `backend/`): `php artisan test` · `vendor/bin/pint --test` (fix
 - Infrastructure: never delete or recreate the `solveit-mysql` container or `solveit-mysql-data` volume, never change XAMPP, never publish MySQL or PHP-FPM beyond loopback, never deploy publicly or create production databases or certificates without the owner. Production migrations run only as the explicit `migrate` service.
 - Agents: only Claude Code and Codex are supported. Do not add configuration for other agents.
 - Handoff: at the end of a task, update `.ai/project-status.md` (state, branch SHAs, next step).
-- Git: branches `frontend` and `backend` feed `staging` via PR, then `staging` to `main` via PR. Commit format `(type) short description`. No force push, no destructive reset, no `Co-authored-by` trailers or automatic attribution in commits or PRs.
+- Git: branches `frontend`, `backend`, and `admin` feed `staging` via PR, then `staging` to `main` via PR. Commit format `(type) short description`. No force push, no destructive reset, no `Co-authored-by` trailers or automatic attribution in commits or PRs.
