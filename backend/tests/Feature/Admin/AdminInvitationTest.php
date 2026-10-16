@@ -29,6 +29,17 @@ class AdminInvitationTest extends TestCase
     use InteractsWithAdminApi;
     use RefreshDatabase;
 
+    /**
+     * Error bodies are asserted as production returns them (APP_DEBUG=false, required
+     * outside local development); CI runs the suite with APP_DEBUG=true.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.debug' => false]);
+    }
+
     private const INVITEE_PASSWORD = 'invitee chose this passphrase';
 
     public function test_an_owner_invites_and_the_invitee_activates_with_password_and_totp(): void
@@ -289,7 +300,10 @@ class AdminInvitationTest extends TestCase
         $this->adminRequest('GET', 'auth/csrf-cookie');
         $this->adminRequest('POST', 'access-links/inspect', ['token' => $token])->assertOk();
 
+        // Past the 30-minute idle limit the old session is gone: a fresh browser, as in real
+        // life (a stale session cookie can lose its row to the session garbage collector).
         $this->travel(61)->minutes();
+        $this->usingAdminClient('invitee-later');
         $this->adminRequest('GET', 'auth/csrf-cookie');
         $this->adminRequest('POST', 'access-links/inspect', ['token' => $token])->assertNotFound();
         $this->adminRequest('POST', 'access-links/redeem', ['token' => $token, 'name' => 'X', 'password' => self::INVITEE_PASSWORD, 'password_confirmation' => self::INVITEE_PASSWORD])->assertNotFound();

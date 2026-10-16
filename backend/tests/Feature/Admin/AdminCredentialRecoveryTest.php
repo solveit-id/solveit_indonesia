@@ -24,6 +24,17 @@ class AdminCredentialRecoveryTest extends TestCase
     use InteractsWithAdminApi;
     use RefreshDatabase;
 
+    /**
+     * Error bodies are asserted as production returns them (APP_DEBUG=false, required
+     * outside local development); CI runs the suite with APP_DEBUG=true.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.debug' => false]);
+    }
+
     private const NEW_PASSWORD = 'a brand new passphrase';
 
     public function test_a_reset_locks_the_account_out_until_password_and_totp_are_replaced(): void
@@ -93,8 +104,11 @@ class AdminCredentialRecoveryTest extends TestCase
         $this->adminRequest('GET', 'auth/csrf-cookie');
         $this->adminRequest('POST', 'access-links/inspect', ['token' => $lost])->assertNotFound();
 
+        // A day later the old session is long gone: a fresh browser, as in real life (a
+        // stale session cookie can lose its row to the session garbage collector).
         $this->travel(24)->hours();
         $this->travel(1)->minutes();
+        $this->usingAdminClient('recovering-next-day');
         $this->adminRequest('GET', 'auth/csrf-cookie');
         $this->adminRequest('POST', 'access-links/inspect', ['token' => $replacement])->assertNotFound();
         $this->assertFalse($admin->fresh()->canSignInToAdmin(), 'an expired reset never restores access');
@@ -102,7 +116,7 @@ class AdminCredentialRecoveryTest extends TestCase
         $this->usingAdminClient('owner-again');
         $this->signInConfirmedOwner();
         $fresh = $this->tokenFromAccessLink($this->issueReset($admin)->assertCreated()->json('data.access_link.url'));
-        $this->usingAdminClient('recovering');
+        $this->usingAdminClient('recovering-next-day');
         $this->adminRequest('GET', 'auth/csrf-cookie');
         $this->adminRequest('POST', 'access-links/inspect', ['token' => $fresh])->assertOk()->assertJsonPath('data.purpose', 'credential-reset');
     }

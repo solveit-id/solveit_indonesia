@@ -22,6 +22,17 @@ class AdminUserAdministrationTest extends TestCase
     use RefreshDatabase;
 
     /**
+     * Error bodies are asserted as production returns them (APP_DEBUG=false, required
+     * outside local development); CI runs the suite with APP_DEBUG=true.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.debug' => false]);
+    }
+
+    /**
      * Every owner-only route with a request an owner could send.
      *
      * @return array<string, array{string, string, array<string, mixed>}>

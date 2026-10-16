@@ -77,12 +77,18 @@ Tes baru di `tests/Feature/Admin/`, semua lewat `InteractsWithAdminApi` (cookie,
 
 - Migrasi aditif `add_open_link_constraint_to_admin_access_links_table` dijalankan pada database pengembangan `solveit_indonesia` (tidak ada akun admin dibuat). `solveit-mysql`, volumenya, XAMPP, dan file secret tidak diubah; tidak ada `.env` yang dibaca atau diedit.
 
+### CI pertama pada PR #34
+
+Backend CI run 38875997334 (push `8725192`): 18 dari 376 tes gagal, semuanya karena CI menjalankan suite dengan `APP_DEBUG=true`, sehingga badan galat `403`, `404`, dan `500` memuat `exception`, `file`, dan `trace` dan asersi badan persis gagal (perilaku produk benar: di luar pengembangan lokal `APP_DEBUG=false` wajib). Direproduksi lokal dengan `APP_DEBUG=true` (18 gagal), lalu tiga kelas tes menyematkan `config(['app.debug' => false])` seperti tes B1 dan B3.1a. Setelahnya 376 lulus dengan `APP_DEBUG=true` dan tanpa itu.
+
+Saat verifikasi ulang satu tes gagal sekali secara acak (`419`). Penyebab, dibuktikan dengan lotre garbage collection sesi dipaksa 100%: browser yang mengirim cookie sesi yang sudah melewati batas idle 30 menit membuat `DatabaseSessionHandler` menandai baris lama sebagai ada; bila lotre GC (2%) di `StartSession` menghapus baris itu sebelum sesi disimpan, penyimpanan menjadi `UPDATE` nol baris, sesi hilang, dan `POST` berikutnya `419`. Dengan GC 100% tes lama selalu gagal dan tes yang diperbaiki (browser baru setelah jeda panjang, seperti kenyataannya) selalu lulus. Dampak produk kecil dan aman (tidak ada akses yang terbuka): admin yang kembali setelah sesinya kedaluwarsa kadang mendapat satu `419`; klien B3.2 harus mengambil ulang `auth/csrf-cookie` sekali lalu mengulang (`admin-auth.md`, CSRF).
+
 ### Belum diverifikasi
 
 - HTTP nyata lewat `php artisan serve` untuk endpoint B3.1b: tidak dijalankan, karena butuh akun owner di database pengembangan dan pernyataan "tidak ada akun admin di mana pun" harus tetap benar. Seluruh stack middleware, sesi database, CSRF, dan TOTP dijalankan oleh tes fitur.
 - Aplikasi admin (B3.2), WebKit, dan Lighthouse: tidak relevan untuk perubahan backend saja.
 - `EXPLAIN` dengan data volume produksi: tabel pengembangan kosong.
-- CI pada PR B3.1b: hasilnya di GitHub (`gh pr checks <nomor PR>`).
+- Hasil CI setelah perbaikan: di GitHub (`gh pr checks 34`).
 
 ## B3.1a identitas admin backend dan pengerasan keamanan (2026-10-16)
 
