@@ -29,7 +29,7 @@ Status: Implemented and Tested (locally: PHPUnit on MySQL 8.4.11, real HTTP with
 - **Authorization:** roles `owner` and `admin` only, one Gate per permission (`account.manage-own` so far), default deny; `ChangeAdminRole` and `SuspendAdminAccount` (for B3.1b) keep the last active owner, refuse self-changes, and end the target's sessions. Route coverage test classifies every admin route into one tier.
 - **Audit:** `admin_audit_events`, allowlisted metadata, no secrets or personal data beyond IP and truncated user agent; model guards plus MySQL `BEFORE UPDATE`/`BEFORE DELETE` triggers for every database user. **Retention is pending an owner decision; nothing prunes.**
 - **MySQL setting (owner decision):** `log_bin_trust_function_creators = ON`, needed for non-SUPER users to create triggers under binary logging (error 1419 verified). Set in both `initdb` scripts and Backend CI; applied once on the owner machine with `SET PERSIST` (see below).
-- **Tests:** 261 tests, 1,211 assertions (151 and 466 before), including 110 admin tests through `tests/Support/InteractsWithAdminApi.php` (real cookies, Origin, CSRF, TOTP) and mutation checks for every defence. Production smoke test: 59 checks (33 before).
+- **Tests:** 261 tests, 1,216 assertions (151 and 466 before), including 110 admin tests through `tests/Support/InteractsWithAdminApi.php` (real cookies, Origin, CSRF, TOTP) and mutation checks for every defence. Production smoke test: 59 checks (33 before).
 - **Dependencies added:** `laravel/fortify` ^1.41 (brings `laravel/passkeys`, `web-auth/webauthn-lib`, `pragmarx/google2fa`, `bacon/bacon-qr-code`, and Symfony 8.1 serializer/property-access/property-info/type-info used only by the inactive passkey library). `composer audit` clean.
 
 ## B2.1: inquiry idempotency (backend)
@@ -71,7 +71,7 @@ Status: Development Implemented and Verified (owner machine and Docker CI). Prod
 
 ## Branches and CI
 
-- **B3.1a (open):** on `backend`, branched from `main` `28b3557`. Commits `8f2bf26` (feat, identity core), `b9ad074` (chore, gateway, MySQL initdb, CI), and a docs commit with this status. PR `backend` to `staging` awaits owner review; do not merge to `main` without the owner. CI run IDs: see the PR (`gh pr checks`).
+- **B3.1a (open):** on `backend`, branched from `main` `28b3557`. Commits `8f2bf26` (feat, identity core), `b9ad074` (chore, gateway, MySQL initdb, CI), and a docs commit with this status. PR #32 (`backend` to `staging`) awaits owner review; do not merge to `main` without the owner. The first CI run failed on two environment-dependent tests (debug JSON, production prompt without TTY), fixed in a follow-up `(fix)` commit; CI run IDs: `gh pr checks 32`.
 
 - B2.2 baseline: `main`, `frontend`, `backend` at `cf55c2f`, `staging` at `b6b429b` (same tree). B2.2 is developed on `frontend` and released through a `frontend` to `staging` PR and a `staging` to `main` release PR; the PR numbers, CI runs, and merge commits are in GitHub (`gh pr list --state merged --limit 5`).
 - Previous release (B2.1 and Docker): PR #26 (`backend` to `staging`) merged as `7b232f9`; release PR #27 (`staging` to `main`) merged as `d22a079`. `main` has no commit missing from `staging`, and `6474647` is an ancestor of `d22a079`.
@@ -89,7 +89,7 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 ## Quality baseline
 
 - Frontend (B2.2, local): Prettier, ESLint, typecheck, build clean; 178 unit and component tests; default E2E 488 passed (desktop 180, tablet 161, mobile 147); API-build E2E 15 passed each on desktop, tablet, mobile, and Firefox, with axe on the new states. Lighthouse not rerun (less than 1 KB gzip added, contact page only). WebKit through the Cross-browser QA workflow on the PR head.
-- Backend (B3.1a on `backend`, local): 261 tests, 1,211 assertions on MySQL 8.4.11 with native PHP 8.5.7 (151 and 466 on `main`, B2.1); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally). Production smoke test 59 checks, shellcheck clean.
+- Backend (B3.1a on `backend`, local): 261 tests, 1,216 assertions on MySQL 8.4.11 with native PHP 8.5.7 (151 and 466 on `main`, B2.1); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally). Production smoke test 59 checks, shellcheck clean.
 
 ## Blocked or owner action required
 

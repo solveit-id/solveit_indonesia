@@ -3,11 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Actions\Admin\ResetAdminCredentials as ResetAdminCredentialsAction;
+use App\Console\Commands\Concerns\ConfirmsInProduction;
 use App\Enums\AdminActorType;
 use App\Exceptions\AdminAccountStateException;
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Console\ConfirmableTrait;
 
 /**
  * Break-glass recovery on the server shell, for example an owner who lost both the
@@ -15,7 +15,7 @@ use Illuminate\Console\ConfirmableTrait;
  */
 class ResetAdminCredentials extends Command
 {
-    use ConfirmableTrait;
+    use ConfirmsInProduction;
 
     /**
      * @var string
@@ -39,7 +39,7 @@ class ResetAdminCredentials extends Command
             return self::FAILURE;
         }
 
-        if (! $this->confirmToProceed('This signs the account out everywhere and removes its authenticator.')) {
+        if (! $this->confirmedForProduction('This signs the account out everywhere and removes its authenticator.')) {
             return self::FAILURE;
         }
 

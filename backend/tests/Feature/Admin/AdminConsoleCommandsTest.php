@@ -87,15 +87,22 @@ class AdminConsoleCommandsTest extends TestCase
         $this->assertSame(0, User::query()->count());
     }
 
-    public function test_bootstrap_asks_for_confirmation_in_production(): void
+    public function test_bootstrap_in_production_needs_confirmation_or_force(): void
     {
         $this->app['env'] = 'production';
 
-        $this->artisan('admin:bootstrap-owner', ['email' => 'owner@example.com'])
-            ->expectsConfirmation('Are you sure you want to run this command?', 'no')
+        // Without a terminal (scripts, CI, docker compose exec -T) only --force proceeds.
+        $this->artisan('admin:bootstrap-owner', ['email' => 'owner@example.com', '--no-interaction' => true])
+            ->expectsOutputToContain('run again with --force')
+            ->doesntExpectOutputToContain('#token=')
             ->assertFailed();
-
+        $this->artisan('admin:reset-credentials', ['email' => 'nobody@example.com', '--no-interaction' => true])->assertFailed();
         $this->assertSame(0, User::query()->count());
+
+        $this->artisan('admin:bootstrap-owner', ['email' => 'owner@example.com', '--force' => true])
+            ->expectsOutputToContain('#token=')
+            ->assertSuccessful();
+        $this->assertSame(1, User::query()->count());
     }
 
     public function test_reset_credentials_ends_sessions_and_prints_a_link(): void

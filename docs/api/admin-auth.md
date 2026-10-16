@@ -159,7 +159,7 @@ Butuh konfirmasi kata sandi terbaru, selain itu `423 {"message":"Password confir
 
 | Perintah | Fungsi |
 |---|---|
-| `php artisan admin:bootstrap-owner <email>` | Owner pertama dan tautan aktivasi 30 menit; ditolak bila sudah ada owner aktif. `--force` melewati konfirmasi di production |
+| `php artisan admin:bootstrap-owner <email>` | Owner pertama dan tautan aktivasi 30 menit; ditolak bila sudah ada owner aktif. Di production: konfirmasi di terminal, atau `--force` (tanpa terminal wajib `--force`) |
 | `php artisan admin:reset-credentials <email>` | Pemulihan darurat: hapus autentikator, akhiri semua sesi, tautan reset 30 menit |
 
 Tautan dicetak sekali ke terminal operator, tidak disimpan, tidak di-log. Serahkan lewat kanal tepercaya. Di Docker produksi: `docker compose ... exec backend php artisan admin:bootstrap-owner <email>`. Belum ada akun produksi; bootstrap produksi menunggu deployment dan keputusan pemilik.

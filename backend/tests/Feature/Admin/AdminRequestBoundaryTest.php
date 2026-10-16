@@ -82,7 +82,7 @@ class AdminRequestBoundaryTest extends TestCase
 
         $this->adminRequest('POST', 'auth/login', ['email' => 'a@example.com', 'password' => 'x'], sendXsrf: false)
             ->assertStatus(419)
-            ->assertExactJson(['message' => 'CSRF token mismatch.']);
+            ->assertJsonPath('message', 'CSRF token mismatch.');
 
         $this->adminRequest('POST', 'auth/login', ['email' => 'a@example.com', 'password' => 'x'], ['X-XSRF-TOKEN' => 'forged'])
             ->assertStatus(419);

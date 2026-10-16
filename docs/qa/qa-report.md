@@ -29,7 +29,7 @@ Laravel Boost: koneksi MCP sesi Claude Code habis waktu saat start; server yang 
 | Pemeriksaan | Hasil |
 |---|---|
 | `vendor/bin/pint --test` | Lulus |
-| `php artisan test` (database `solveit_indonesia_testing`) | **261 tes, 1.211 asersi lulus** (151 dan 466 sebelumnya; 110 tes admin baru). Tes B1, B2.1 tidak berubah dan lulus |
+| `php artisan test` (database `solveit_indonesia_testing`) | **261 tes, 1.216 asersi lulus**, juga dengan `APP_DEBUG=true` dan tanpa TTY seperti CI (151 dan 466 sebelumnya; 110 tes admin baru). Tes B1, B2.1 tidak berubah dan lulus |
 | `composer validate --strict`, `check-platform-reqs`, `audit` | Lulus, tanpa advisory (`laravel/fortify` 1.41.0, `pragmarx/google2fa` 9.1.0, `bacon/bacon-qr-code` 3.1.1, `laravel/passkeys` 0.2.1, `web-auth/webauthn-lib` 5.3.9) |
 | `php artisan route:list` | 16 route: 14 di `api/v1/admin`, `POST api/v1/inquiries`, `GET up`. Tidak ada route Fortify, passkey, atau Sanctum bawaan |
 | Migrasi | Empat migrasi aditif lulus di database tes, database pengembangan (`solveit_indonesia`, sebagai `solveit_dev`), dan smoke test produksi (sebagai `solveit_migrator`) |
@@ -81,9 +81,18 @@ Tes admin (`tests/Feature/Admin/`), lewat `Tests\Support\InteractsWithAdminApi`:
 - Migrasi B3.1a dijalankan di database pengembangan (aditif). Tidak ada akun admin yang dibuat di database pengembangan.
 - `backend/.env` lokal tidak diubah: tanpa `ADMIN_URL` berlaku default `http://127.0.0.1:5174`, dan `SESSION_LIFETIME`/`SESSION_ENCRYPT` lamanya kini diabaikan karena kebijakan ditetapkan di config.
 
+### CI pertama pada PR #32
+
+Backend CI dan onboarding Docker CI gagal pada 2 tes yang lulus lokal; smoke test produksi dan validasi Compose lulus.
+
+| Tes | Penyebab | Perbaikan |
+|---|---|---|
+| `writes without a csrf token get 419` | CI menyalin `.env.example` (`APP_DEBUG=true`), sehingga JSON galat berisi field debug dan `assertExactJson` gagal; status dan pesan benar | Asersi pada `message` |
+| `bootstrap asks for confirmation in production` | Dengan environment `production`, prompt Laravel tanpa TTY (CI) diam-diam memakai jawaban "tidak", sedangkan di Windows ia jatuh ke pertanyaan Symfony; perilaku bergantung OS | Perintah sendiri kini menolak eksplisit di production tanpa terminal kecuali `--force` (`ConfirmsInProduction`), dites dengan `--no-interaction` dan `--force` |
+
 ### Belum diverifikasi
 
-- Backend CI dan Docker CI di GitHub: lihat PR (`.ai/project-status.md`).
+- Backend CI dan Docker CI di GitHub setelah perbaikan: lihat PR #32 (`.ai/project-status.md`).
 - Perilaku `SameSite=Strict` di browser sungguhan: header dibuktikan di tingkat HTTP; penegakannya milik browser dan akan diuji bersama aplikasi admin (B3.2).
 - Pemanggilan tool Boost dari sesi Codex.
 

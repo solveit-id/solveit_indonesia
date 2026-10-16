@@ -4,11 +4,11 @@ namespace App\Console\Commands;
 
 use App\Actions\Admin\BootstrapAdminOwner as BootstrapAdminOwnerAction;
 use App\Actions\Admin\RecordAdminAuditEvent;
+use App\Console\Commands\Concerns\ConfirmsInProduction;
 use App\Enums\AdminActorType;
 use App\Enums\AdminAuditAction;
 use App\Exceptions\OwnerBootstrapRefusedException;
 use Illuminate\Console\Command;
-use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Validator;
  */
 class BootstrapAdminOwner extends Command
 {
-    use ConfirmableTrait;
+    use ConfirmsInProduction;
 
     /**
      * @var string
@@ -41,7 +41,7 @@ class BootstrapAdminOwner extends Command
             return self::INVALID;
         }
 
-        if (! $this->confirmToProceed('This creates the first admin owner.')) {
+        if (! $this->confirmedForProduction('This creates the first admin owner.')) {
             return self::FAILURE;
         }
 
