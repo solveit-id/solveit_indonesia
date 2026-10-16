@@ -1,0 +1,38 @@
+{
+  "include": [
+    "src",
+    "tests",
+    "scripts",
+    "security-policy.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": ["node_modules", "dist", "dist-reference", "test-results", "playwright-report"],
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "types": ["node", "vite/client"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "paths": {
+      "~/*": ["./src/*"],
+      "@solveit/brand/logo-paths": ["../frontend/src/components/brand/logo-paths.ts"]
+    },
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}
