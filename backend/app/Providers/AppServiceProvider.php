@@ -66,6 +66,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('admin-password-confirm', fn (Request $request): Limit => Limit::perMinute(5)->by('admin-password-confirm|'.$request->user()?->getAuthIdentifier()));
 
         RateLimiter::for('admin-account', fn (Request $request): Limit => Limit::perMinute(120)->by('admin-account|'.$request->user()?->getAuthIdentifier()));
+
+        // Owner writes of user administration (invitations, roles, suspension, resets).
+        RateLimiter::for('admin-administration', fn (Request $request): Limit => Limit::perMinute(20)->by('admin-administration|'.$request->user()?->getAuthIdentifier()));
     }
 
     /**

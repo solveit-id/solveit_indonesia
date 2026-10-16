@@ -27,16 +27,16 @@ return [
     | Default Session Driver
     |--------------------------------------------------------------------------
     |
-    | "database" (the sessions table) is required for the admin application: it lets
-    | an account list and revoke its sessions, and lets suspension, role changes, and
-    | credential resets end every session of an account at once.
-    |
-    | Supported: "file", "cookie", "database", "memcached",
-    |            "redis", "dynamodb", "array"
+    | "database" (the sessions table), fixed here and not read from SESSION_DRIVER: it
+    | lets an account list and revoke its sessions, and lets suspension, role changes,
+    | and credential resets end every session of an account at once. With another
+    | driver those revocations would silently do nothing, so a stale .env must not be
+    | able to choose one. AdminRequestBoundary also refuses every admin request (503)
+    | if the driver is ever anything else at runtime.
     |
     */
 
-    'driver' => env('SESSION_DRIVER', 'database'),
+    'driver' => 'database',
 
     /*
     |--------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AdminAccessLinkPurpose;
+use App\Enums\AdminAccessLinkStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,7 +30,7 @@ class AdminAccessLink extends Model
     /**
      * @var list<string>
      */
-    protected $hidden = ['token_hash'];
+    protected $hidden = ['token_hash', 'open_for_user_id'];
 
     /**
      * Get the attributes that should be cast.
@@ -81,6 +82,28 @@ class AdminAccessLink extends Model
     public function isRedeemable(): bool
     {
         return $this->redeemed_at === null && $this->revoked_at === null && $this->expires_at->isFuture();
+    }
+
+    public function status(): AdminAccessLinkStatus
+    {
+        return AdminAccessLinkStatus::of($this);
+    }
+
+    /**
+     * Whether the link may still lead to a finished enrollment: redeemable, or redeemed
+     * within the enrollment window and waiting for the first code. A new invitation for
+     * the account is refused while one is live, so a link the invitee may be using right
+     * now is never replaced behind their back.
+     */
+    public function isLive(): bool
+    {
+        return match ($this->status()) {
+            AdminAccessLinkStatus::Pending => true,
+            AdminAccessLinkStatus::Redeemed => $this->redeemed_at->copy()
+                ->addMinutes((int) config('admin.access_links.enrollment_ttl_minutes'))
+                ->isFuture(),
+            default => false,
+        };
     }
 
     /**

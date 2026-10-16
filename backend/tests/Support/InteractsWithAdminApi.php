@@ -2,11 +2,17 @@
 
 namespace Tests\Support;
 
+use App\Actions\Admin\RecordAdminAuditEvent;
+use App\Enums\AdminActorType;
+use App\Enums\AdminAuditAction;
 use App\Enums\AdminRole;
+use App\Models\AdminAuditEvent;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Testing\TestResponse;
 use Laravel\Fortify\Fortify;
 use PragmaRX\Google2FA\Google2FA;
+use RuntimeException;
 
 /**
  * Talks to the admin API the way the admin application in a browser will: one cookie jar
@@ -29,6 +35,11 @@ trait InteractsWithAdminApi
     private array $usedTotpSteps = [];
 
     protected const ADMIN_PASSWORD = 'correct horse battery staple';
+
+    /**
+     * What GET me reports for an owner (B3.1b). An admin holds only account.manage-own.
+     */
+    protected const OWNER_PERMISSIONS = ['account.manage-own', 'users.view', 'users.invite', 'users.change-role', 'users.suspend', 'users.reset-credentials', 'audit.view-all'];
 
     /**
      * Switch to another browser with its own cookies.
@@ -135,6 +146,57 @@ trait InteractsWithAdminApi
     protected function totpSecret(User $user): string
     {
         return Fortify::currentEncrypter()->decrypt($user->fresh()->two_factor_secret);
+    }
+
+    /**
+     * Confirm the password for the routes behind password.confirm (15 minutes).
+     */
+    protected function confirmAdminPassword(string $password = self::ADMIN_PASSWORD): TestResponse
+    {
+        return $this->adminRequest('POST', 'auth/confirm-password', ['password' => $password])->assertCreated();
+    }
+
+    /**
+     * An active owner, signed in with a fresh password confirmation, in the current client.
+     */
+    protected function signInConfirmedOwner(): User
+    {
+        $owner = $this->createActiveAdmin(AdminRole::Owner);
+        $this->signIn($owner);
+        $this->confirmAdminPassword();
+
+        return $owner;
+    }
+
+    /**
+     * The token of an access link URL (ADMIN_URL/access#token=...).
+     */
+    protected function tokenFromAccessLink(string $url): string
+    {
+        $this->assertStringStartsWith(config('admin.url').'/access#token=', $url, 'the token travels in the fragment');
+
+        return substr($url, strlen(config('admin.url').'/access#token='));
+    }
+
+    /**
+     * Make RecordAdminAuditEvent fail for one action, as a database error would, while
+     * every other event (sign-in, confirmation) is still written.
+     */
+    protected function failAuditWritesFor(AdminAuditAction $failing): void
+    {
+        $this->app->instance(RecordAdminAuditEvent::class, new class($failing) extends RecordAdminAuditEvent
+        {
+            public function __construct(private readonly AdminAuditAction $failing) {}
+
+            public function handle(AdminAuditAction $action, AdminActorType $actorType, ?User $actor = null, ?Model $subject = null, array $metadata = []): AdminAuditEvent
+            {
+                if ($action === $this->failing) {
+                    throw new RuntimeException('Simulated audit storage failure.');
+                }
+
+                return parent::handle($action, $actorType, $actor, $subject, $metadata);
+            }
+        });
     }
 
     /**

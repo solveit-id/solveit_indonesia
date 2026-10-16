@@ -58,7 +58,7 @@ class AdminAccessLinkTest extends TestCase
         $this->assertSame('owner@example.com', $owner->email);
         $this->assertTrue($owner->canSignInToAdmin());
         $this->assertTrue(Hash::check(self::NEW_PASSWORD, $owner->password));
-        $this->adminRequest('GET', 'me')->assertOk()->assertJsonPath('data.permissions', ['account.manage-own']);
+        $this->adminRequest('GET', 'me')->assertOk()->assertJsonPath('data.permissions', self::OWNER_PERMISSIONS);
         $this->assertDatabaseHas('admin_audit_events', ['action' => AdminAuditAction::AccountActivated->value, 'subject_id' => $owner->id]);
     }
 

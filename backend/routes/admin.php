@@ -2,16 +2,20 @@
 
 use App\Http\Controllers\Api\V1\Admin\AccessLinkController;
 use App\Http\Controllers\Api\V1\Admin\AccountController;
+use App\Http\Controllers\Api\V1\Admin\AuditEventController;
 use App\Http\Controllers\Api\V1\Admin\CsrfCookieController;
+use App\Http\Controllers\Api\V1\Admin\InvitationController;
 use App\Http\Controllers\Api\V1\Admin\SessionController;
+use App\Http\Controllers\Api\V1\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
 
-// Admin API (B3.1a), loaded by bootstrap/app.php under /api/v1/admin with the "admin"
-// middleware group: host and origin boundary, encrypted cookies, database session,
-// request-forgery check. Contract: docs/api/admin-auth.md.
+// Admin API (B3.1a; user administration B3.1b), loaded by bootstrap/app.php under
+// /api/v1/admin with the "admin" middleware group: host and origin boundary, encrypted
+// cookies, database session, request-forgery check. Contracts: docs/api/admin-auth.md,
+// docs/api/admin-users.md.
 //
 // Every route belongs to exactly one tier below; tests/Feature/Admin/AdminRouteCoverageTest.php
 // fails for a route that is not listed there with its tier.
@@ -66,5 +70,42 @@ Route::middleware(['auth:web', 'auth.session', 'admin.active', 'admin.session-li
         Route::delete('me/sessions/{session}', [SessionController::class, 'destroy'])
             ->whereAlphaNumeric('session')
             ->name('me.sessions.destroy');
+    });
+
+    // Owner user administration and audit reading (B3.1b). Each route names its own
+    // permission; only the owner role holds them. Every write also needs a password
+    // confirmation from the last 15 minutes (checked after the permission, so a caller
+    // without it gets 403, not 423) and counts against admin-administration.
+    Route::get('users', [UserController::class, 'index'])->middleware('can:users.view')->name('users.index');
+    Route::get('users/{user}', [UserController::class, 'show'])->middleware('can:users.view')->whereNumber('user')->name('users.show');
+    Route::get('invitations', [InvitationController::class, 'index'])->middleware('can:users.view')->name('invitations.index');
+    Route::get('invitations/{invitation}', [InvitationController::class, 'show'])->middleware('can:users.view')->whereNumber('invitation')->name('invitations.show');
+    Route::get('audit-events', [AuditEventController::class, 'index'])->middleware('can:audit.view-all')->name('audit-events.index');
+
+    Route::middleware('throttle:admin-administration')->group(function (): void {
+        Route::post('invitations', [InvitationController::class, 'store'])
+            ->middleware(['can:users.invite', 'password.confirm'])
+            ->name('invitations.store');
+        Route::delete('invitations/{invitation}', [InvitationController::class, 'destroy'])
+            ->middleware(['can:users.invite', 'password.confirm'])
+            ->whereNumber('invitation')
+            ->name('invitations.destroy');
+
+        Route::put('users/{user}/role', [UserController::class, 'updateRole'])
+            ->middleware(['can:users.change-role', 'password.confirm'])
+            ->whereNumber('user')
+            ->name('users.role.update');
+        Route::post('users/{user}/suspension', [UserController::class, 'suspend'])
+            ->middleware(['can:users.suspend', 'password.confirm'])
+            ->whereNumber('user')
+            ->name('users.suspension.store');
+        Route::delete('users/{user}/suspension', [UserController::class, 'reactivate'])
+            ->middleware(['can:users.suspend', 'password.confirm'])
+            ->whereNumber('user')
+            ->name('users.suspension.destroy');
+        Route::post('users/{user}/credential-reset', [UserController::class, 'resetCredentials'])
+            ->middleware(['can:users.reset-credentials', 'password.confirm'])
+            ->whereNumber('user')
+            ->name('users.credential-reset.store');
     });
 });

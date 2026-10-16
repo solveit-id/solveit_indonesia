@@ -1,13 +1,13 @@
 # Admin API: identitas dan sesi (B3.1a)
 
-Kontrak endpoint `/api/v1/admin` yang dibangun pada B3.1a: aktivasi akun lewat tautan akses, masuk dengan kata sandi dan TOTP, serta keamanan akun sendiri. Status: **dibangun dan dites, belum di-deploy**. Belum ada aplikasi admin yang memanggilnya (B3.2), dan administrasi pengguna (B3.1b) belum punya endpoint. Arsitektur dan keputusan: `docs/architecture/admin-dashboard.md` bagian 3.
+Kontrak endpoint `/api/v1/admin` yang dibangun pada B3.1a: aktivasi akun lewat tautan akses, masuk dengan kata sandi dan TOTP, serta keamanan akun sendiri. Status: **dibangun dan dites, belum di-deploy**. Belum ada aplikasi admin yang memanggilnya (B3.2). Administrasi pengguna dan pembacaan audit oleh owner (B3.1b) punya kontrak sendiri: `admin-users.md`. Arsitektur dan keputusan: `docs/architecture/admin-dashboard.md` bagian 3.
 
 Implementasi: `backend/routes/admin.php` (route dan tingkatnya), `bootstrap/app.php` (grup middleware `admin`), `app/Http/Controllers/Api/V1/Admin/`, `app/Actions/Admin/`, `app/Http/Middleware/{AdminRequestBoundary,AdminPreventRequestForgery,EnsureAdminGuest,EnsureAdminAccountActive,EnforceAdminSessionLifetime,EnsureLoginChallengeIsValid}.php`, `config/admin.php`, `config/session.php`, `config/fortify.php`. Tes: `backend/tests/Feature/Admin/`.
 
 ## Konvensi
 
 - **Satu origin.** Aplikasi admin dan API-nya disajikan dari origin yang sama, `ADMIN_URL` (`config/admin.php`). Request untuk host lain mendapat `404 {"message":"Not Found."}` tanpa sesi. Request dengan `Origin` lain, `Origin: null`, atau `Sec-Fetch-Site` `same-site`/`cross-site` mendapat `403 {"message":"Cross-origin requests to the admin API are not allowed."}`. Setiap request selain `GET`/`HEAD`/`OPTIONS` wajib membawa `Origin` yang sama dengan `ADMIN_URL`. Tidak ada CORS untuk path admin (CORS hanya untuk `api/v1/inquiries`).
-- **Sesi cookie.** Sesi database, cookie host-only `HttpOnly`, `SameSite=Strict`, `Path=/`, kedaluwarsa saat browser ditutup; dengan `ADMIN_URL` https juga `Secure` dan bernama `__Host-solveit-admin-session` (HTTP lokal: `solveit-admin-session`). Tidak ada token di `localStorage`, tidak ada token API, tidak ada "remember me".
+- **Sesi cookie.** Sesi database (driver `database` ditetapkan di `config/session.php`, bukan dari `SESSION_DRIVER`; bila driver lain aktif saat runtime, setiap request admin mendapat `503 {"message":"The admin API is unavailable."}` tanpa sesi, karena pencabutan sesi tidak akan bekerja), cookie host-only `HttpOnly`, `SameSite=Strict`, `Path=/`, kedaluwarsa saat browser ditutup; dengan `ADMIN_URL` https juga `Secure` dan bernama `__Host-solveit-admin-session` (HTTP lokal: `solveit-admin-session`). Tidak ada token di `localStorage`, tidak ada token API, tidak ada "remember me".
 - **CSRF.** Ambil `GET auth/csrf-cookie` dulu. Setiap penulisan mengirim header `X-XSRF-TOKEN` berisi nilai cookie `XSRF-TOKEN` (yang di-URL-decode), atau dikirim browser dengan `Sec-Fetch-Site: same-origin`. Tanpa keduanya: `419 {"message":"CSRF token mismatch."}`.
 - **Format.** JSON. Respons berisi data dibungkus `data`. Galat `{"message": "..."}`, galat validasi menambah `errors` (format Laravel). Semua respons `Cache-Control: no-store, private`.
 - **Tanpa sesi atau sesi berakhir:** `401 {"message":"Unauthenticated."}` (idle 30 menit, batas absolut 12 jam, keluar, dicabut, atau akun tidak lagi boleh masuk). Klien kembali ke layar masuk.
@@ -19,7 +19,7 @@ Implementasi: `backend/routes/admin.php` (route dan tingkatnya), `bootstrap/app.
 |---|---|---|
 | Publik, autentikasi | `GET auth/csrf-cookie`, `POST auth/login`, `POST auth/two-factor-challenge` | Tanpa akun; login dan tantangan hanya tanpa sesi masuk (`409` bila sudah masuk) |
 | Pra-aktivasi | `POST access-links/inspect`, `POST access-links/redeem`, `POST access-links/confirm` | Tanpa akun, tanpa izin; sesi masuk ditolak (`409`) |
-| Terautentikasi | Semua route lain | Masuk dengan kata sandi dan TOTP, akun aktif, dalam batas absolut, izin `account.manage-own` |
+| Terautentikasi | Semua route lain | Masuk dengan kata sandi dan TOTP, akun aktif, dalam batas absolut, dan izin route itu: `account.manage-own` untuk route di dokumen ini, izin owner untuk route di `admin-users.md` (B3.1b) |
 
 Path di bawah relatif terhadap `/api/v1/admin/`.
 
@@ -112,12 +112,14 @@ Harus dari browser (sesi) yang menebus, dalam 15 menit.
     "name": "Nama Owner",
     "email": "owner@example.com",
     "role": "owner",
-    "permissions": ["account.manage-own"],
+    "permissions": ["account.manage-own", "users.view", "users.invite", "users.change-role", "users.suspend", "users.reset-credentials", "audit.view-all"],
     "two_factor": { "confirmed_at": "2026-10-16T05:31:00+00:00", "recovery_codes_remaining": 8 },
     "session": { "signed_in_at": "2026-10-16T05:31:00+00:00", "absolute_expires_at": "2026-10-16T17:31:00+00:00", "idle_timeout_minutes": 30 }
   }
 }
 ```
+
+`permissions` untuk `owner` seperti di atas (sejak B3.1b); untuk `admin` hanya `["account.manage-own"]`.
 
 ### `POST auth/logout`
 
@@ -160,7 +162,7 @@ Butuh konfirmasi kata sandi terbaru, selain itu `423 {"message":"Password confir
 | Perintah | Fungsi |
 |---|---|
 | `php artisan admin:bootstrap-owner <email>` | Owner pertama dan tautan aktivasi 30 menit; ditolak bila sudah ada owner aktif. Di production: konfirmasi di terminal, atau `--force` (tanpa terminal wajib `--force`) |
-| `php artisan admin:reset-credentials <email>` | Pemulihan darurat: hapus autentikator, akhiri semua sesi, tautan reset 30 menit |
+| `php artisan admin:reset-credentials <email>` | Pemulihan darurat: hapus autentikator, akhiri semua sesi, tautan reset 30 menit. Tidak butuh owner aktif; reset oleh owner lewat API (24 jam) ada di `admin-users.md` |
 
 Tautan dicetak sekali ke terminal operator, tidak disimpan, tidak di-log. Serahkan lewat kanal tepercaya. Di Docker produksi: `docker compose ... exec backend php artisan admin:bootstrap-owner <email>`. Belum ada akun produksi; bootstrap produksi menunggu deployment dan keputusan pemilik.
 

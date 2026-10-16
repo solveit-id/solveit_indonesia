@@ -28,7 +28,7 @@ class AdminSignInTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.email', $user->email)
             ->assertJsonPath('data.role', 'owner')
-            ->assertJsonPath('data.permissions', ['account.manage-own'])
+            ->assertJsonPath('data.permissions', self::OWNER_PERMISSIONS)
             ->assertJsonPath('data.two_factor.recovery_codes_remaining', 8)
             ->assertJsonPath('data.session.idle_timeout_minutes', 30)
             ->assertJsonMissingPath('data.password')

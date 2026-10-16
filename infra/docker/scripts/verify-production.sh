@@ -125,13 +125,14 @@ status 422 "invalid payload" "${json[@]}" -d '{}' "$base/api/v1/inquiries"
 status 429 "rate limit after five attempts" "${json[@]}" -H "Idempotency-Key: $key" -d "$payload" "$base/api/v1/inquiries"
 [[ -n "$(header Retry-After)" ]] || fail "429 without Retry-After"
 
-echo "== admin isolation (B3.1a: the admin API is not served on the public listener)"
+echo "== admin isolation (B3.1a, B3.1b: the admin API is not served on the public listener)"
 # --path-as-is keeps curl from normalising the spellings before nginx sees them.
 for path in \
   /api/v1/admin /api/v1/admin/ /api/v1/admin/auth/csrf-cookie /api/v1/admin/auth/login \
   /API/V1/ADMIN/auth/login /api/v1/Admin/me /api//v1//admin/auth/csrf-cookie \
   /api/v1/%61dmin/auth/csrf-cookie /api/v1/admin%2Fauth/login /api/v1/./admin/me \
-  /api/v1/inquiries/../admin/auth/csrf-cookie; do
+  /api/v1/inquiries/../admin/auth/csrf-cookie \
+  /api/v1/admin/users /api/v1/admin/invitations /api/v1/admin/audit-events /api/v1/admin/users/1/credential-reset; do
   for method in GET POST; do
     status 404 "$method $path on the public listener" --path-as-is -X "$method" -H 'Accept: application/json' -H "Origin: $base" "$base$path"
     [[ -z "$(header Set-Cookie)" ]] || fail "$method $path set a cookie"
@@ -162,7 +163,10 @@ for statement in "UPDATE admin_audit_events SET action = 'tampered'" "DELETE FRO
   output="$(as_app_user "$statement" || true)"
   [[ "$output" == *"append-only"* ]] || fail "audit log accepted: $statement ($output)"
 done
+# TRUNCATE is DDL and fires no trigger, so it must need a privilege the application user lacks.
+output="$(as_app_user "TRUNCATE TABLE admin_audit_events" || true)"
+[[ "$output" == *"denied"* ]] || fail "application user may truncate the audit log ($output)"
 [[ "$(as_app_user "SELECT COUNT(*) FROM admin_audit_events WHERE action = 'smoke.test'")" == 1 ]] || fail "audit event missing after refused changes"
-pass "audit log is append-only for the application user (UPDATE and DELETE refused)"
+pass "audit log is append-only for the application user (UPDATE, DELETE, and TRUNCATE refused)"
 
 echo "All production smoke checks passed."

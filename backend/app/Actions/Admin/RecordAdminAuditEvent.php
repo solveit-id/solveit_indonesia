@@ -31,6 +31,9 @@ class RecordAdminAuditEvent
         'email_fingerprint',
         'recovery_codes_remaining',
         'sessions_ended',
+        'access_link_id',
+        'access_links_revoked',
+        'account_created',
     ];
 
     /**

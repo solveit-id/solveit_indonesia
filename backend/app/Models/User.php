@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AdminAccountStatus;
 use App\Enums\AdminPermission;
 use App\Enums\AdminRole;
 use Database\Factories\UserFactory;
@@ -18,7 +19,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 
 /**
  * An admin account of the website (B3.1a). Accounts are created only by the owner
- * bootstrap command (later by invitation); there is no registration. Role, activation,
+ * bootstrap command or an owner's invitation (B3.1b); there is no registration. Role, activation,
  * suspension, and the TOTP columns are never mass assignable.
  *
  * @property AdminRole|null $role
@@ -74,6 +75,11 @@ class User extends Authenticatable
             && $this->activated_at !== null
             && $this->suspended_at === null
             && $this->hasEnabledTwoFactorAuthentication();
+    }
+
+    public function adminStatus(): AdminAccountStatus
+    {
+        return AdminAccountStatus::of($this);
     }
 
     public function hasAdminPermission(AdminPermission $permission): bool
