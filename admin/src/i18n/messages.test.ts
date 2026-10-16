@@ -24,6 +24,9 @@ function strings(value: unknown, path = ""): [string, string][] {
   return [];
 }
 
+/** Built from its code point, so this file itself contains no em dash. */
+const EM_DASH = String.fromCharCode(0x2014);
+
 const catalogues = { id, en, referenceId: referenceCopy.id, referenceEn: referenceCopy.en };
 
 describe("interface copy", () => {
@@ -39,7 +42,7 @@ describe("interface copy", () => {
     (_, catalogue) => {
       for (const [path, text] of strings(catalogue)) {
         expect(text.trim(), path).not.toBe("");
-        expect(text, path).not.toMatch(/[—]/);
+        expect(text, path).not.toContain(EM_DASH);
       }
     },
   );
