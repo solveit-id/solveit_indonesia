@@ -18,17 +18,17 @@ Untuk pemeriksaan koneksi, Laravel harus berjalan: `php artisan serve` di `backe
 
 ## Perintah
 
-| Perintah | Fungsi |
-|---|---|
-| `npm run dev` | Server dev dengan proxy satu origin dan header keamanan (tanpa CSP: HMR butuh skrip inline) |
-| `npm run build` | `tsc` lalu build produksi ke `dist/` (CSP di `<meta>`, tanpa halaman referensi) |
-| `npm run check:build` | Memeriksa `dist/`: CSP, `noindex`, tanpa skrip inline, tanpa origin lain, tanpa source map, tanpa halaman referensi, anggaran JS awal 150 KB dan CSS 20 KB gzip |
-| `npm run build:reference` | Build produksi ditambah halaman referensi komponen, ke `dist-reference/` (untuk tes browser) |
-| `npm run preview:reference` | Menyajikan `dist-reference/` di 127.0.0.1:4175 dengan header produksi (CSP lengkap termasuk `frame-ancestors 'none'`) |
-| `npm run lint` / `typecheck` / `test` | ESLint (termasuk `no-console` di kode aplikasi), `tsc`, Vitest |
-| `npm run test:e2e` | Playwright pada `dist-reference/` (desktop 1440, tablet 820, Pixel 7), axe di kedua tema, header keamanan, tema, reduced motion. Satu worker. Jalankan `build:reference` dulu |
-| `npm run format` / `format:check` | Prettier dengan pengurutan kelas Tailwind |
-| `npm run check` | format, lint, typecheck, test, build, check:build |
+| Perintah                              | Fungsi                                                                                                                                                                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                         | Server dev dengan proxy satu origin dan header keamanan (tanpa CSP: HMR butuh skrip inline)                                                                                   |
+| `npm run build`                       | `tsc` lalu build produksi ke `dist/` (CSP di `<meta>`, tanpa halaman referensi)                                                                                               |
+| `npm run check:build`                 | Memeriksa `dist/`: CSP, `noindex`, tanpa skrip inline, tanpa origin lain, tanpa source map, tanpa halaman referensi, anggaran JS awal 150 KB dan CSS 20 KB gzip               |
+| `npm run build:reference`             | Build produksi ditambah halaman referensi komponen, ke `dist-reference/` (untuk tes browser)                                                                                  |
+| `npm run preview:reference`           | Menyajikan `dist-reference/` di 127.0.0.1:4175 dengan header produksi (CSP lengkap termasuk `frame-ancestors 'none'`)                                                         |
+| `npm run lint` / `typecheck` / `test` | ESLint (termasuk `no-console` di kode aplikasi), `tsc`, Vitest                                                                                                                |
+| `npm run test:e2e`                    | Playwright pada `dist-reference/` (desktop 1440, tablet 820, Pixel 7), axe di kedua tema, header keamanan, tema, reduced motion. Satu worker. Jalankan `build:reference` dulu |
+| `npm run format` / `format:check`     | Prettier dengan pengurutan kelas Tailwind                                                                                                                                     |
+| `npm run check`                       | format, lint, typecheck, test, build, check:build                                                                                                                             |
 
 ## Struktur
 
