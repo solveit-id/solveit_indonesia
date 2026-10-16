@@ -2,6 +2,91 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B3.1a identitas admin backend dan pengerasan keamanan (2026-10-16)
+
+Cakupan: fondasi identitas admin di `backend/` (`/api/v1/admin`): bootstrap owner lewat CLI, tautan akses sekali pakai, TOTP wajib sebelum aktivasi, masuk dan tantangan TOTP, sesi database, peran `owner` dan `admin`, audit log hanya-tambah, isolasi listener gateway publik (kontrak: `docs/api/admin-auth.md`; keputusan: `docs/architecture/admin-dashboard.md`). Tidak ada aplikasi admin, akun produksi, listener admin, atau deployment. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/frontend` = `28b3557`, `origin/staging` `ce89476` (tree sama), working tree bersih, tanpa stash, satu worktree, tanpa PR terbuka.
+
+Keputusan selama tugas: Sanctum **tidak** dipakai (Sanctum 4.3.3 menimpa `session.same_site` menjadi `lax` di setiap request; admin satu origin), Fortify 1.41 headless dengan `ignoreRoutes()`. Pemilik memilih trigger MySQL dengan `log_bin_trust_function_creators = ON` untuk audit hanya-tambah, dan retensi audit tetap tertunda (tanpa pemangkasan).
+
+Laravel Boost: koneksi MCP sesi Claude Code habis waktu saat start; server yang sama menjawab lewat stdio (`application-info`: Laravel 13.36.0, PHP 8.5, MySQL) dan `search-docs` dipakai untuk CSRF Laravel 13 (verifikasi `Sec-Fetch-Site`), sesi, dan validasi kata sandi. Perilaku Fortify dan Sanctum dibaca dari sumber paket yang terpasang dan dokumentasi resmi 13.x.
+
+### Temuan yang diverifikasi sebelum implementasi
+
+| Temuan | Bukti | Tindakan |
+|---|---|---|
+| Seeder membuat `test@example.com` dengan kata sandi `password` | `DatabaseSeeder` B0 | Dihapus; tes regresi |
+| Sanctum memaksa `SameSite=Lax` | `EnsureFrontendRequestsAreStateful::configureSecureCookieSessions()` v4.3.3 | Sanctum tidak dipasang |
+| `PreventRequestForgery` melewati CSRF saat unit test | `runningUnitTests()` Laravel 13.36 | `AdminPreventRequestForgery` tanpa bypass; tes CSRF nyata |
+| Event `Failed` Fortify membawa kata sandi mentah | `RedirectIfTwoFactorAuthenticatable::fireFailedEvent()` | Listener audit hanya menyimpan sidik jari HMAC alamat |
+| `authenticateUsing` Fortify melewati `Timebox` bawaan | Sumber Fortify 1.41 | `AuthenticateAdmin` memakai `Timebox` 400 ms dan hash buangan |
+| Kode pemulihan bekas diganti kode baru yang tidak terlihat | `TwoFactorAuthenticatable::replaceRecoveryCode()` | Kode dihapus; sisa kode dilaporkan benar |
+| Rahasia TOTP bawaan 80 bit | `secret-length` 16 | 32 karakter base32 (160 bit) |
+| Pengguna non-SUPER tidak dapat membuat trigger | MySQL 8.4.11, `log_bin=1`, `log_bin_trust_function_creators=0`: error 1419 di database tes | Setelan server (keputusan pemilik); setelah `SET PERSIST`, `solveit_test` membuat trigger dan `DELETE` ditolak SQLSTATE 45000 |
+| `Referrer-Policy: no-referrer` membuat `Origin: null` pada POST same-origin | Spesifikasi Fetch | Dicatat untuk B3.2: halaman admin memakai `same-origin` |
+
+### Pemeriksaan otomatis (lokal, Windows 11, PHP 8.5.7, MySQL 8.4.11)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `vendor/bin/pint --test` | Lulus |
+| `php artisan test` (database `solveit_indonesia_testing`) | **261 tes, 1.211 asersi lulus** (151 dan 466 sebelumnya; 110 tes admin baru). Tes B1, B2.1 tidak berubah dan lulus |
+| `composer validate --strict`, `check-platform-reqs`, `audit` | Lulus, tanpa advisory (`laravel/fortify` 1.41.0, `pragmarx/google2fa` 9.1.0, `bacon/bacon-qr-code` 3.1.1, `laravel/passkeys` 0.2.1, `web-auth/webauthn-lib` 5.3.9) |
+| `php artisan route:list` | 16 route: 14 di `api/v1/admin`, `POST api/v1/inquiries`, `GET up`. Tidak ada route Fortify, passkey, atau Sanctum bawaan |
+| Migrasi | Empat migrasi aditif lulus di database tes, database pengembangan (`solveit_indonesia`, sebagai `solveit_dev`), dan smoke test produksi (sebagai `solveit_migrator`) |
+
+Tes admin (`tests/Feature/Admin/`), lewat `Tests\Support\InteractsWithAdminApi`: cookie jar per browser, `Origin` admin, `X-XSRF-TOKEN` dari cookie, kode TOTP nyata, tanpa `actingAs()`. Status guard, store sesi, dan controller direset di antara request agar setiap request hanya diautentikasi oleh cookie-nya (perilaku proses PHP-FPM).
+
+| Area | Yang dibuktikan |
+|---|---|
+| Masuk | Kata sandi lalu TOTP; kata sandi saja tidak masuk; jawaban `422` identik untuk kata sandi salah, alamat tidak ada, belum aktif, ditangguhkan, tanpa peran, autentikator belum dikonfirmasi; remember me diabaikan; TOTP salah dicatat; kode TOTP yang dipakai ditolak di browser lain; kode pemulihan sekali pakai (sisa 7); tantangan kedaluwarsa setelah 5 menit; akun ditangguhkan di antara langkah tidak dapat menyelesaikan; batas laju login dan TOTP; login kedua saat sudah masuk `409`; keluar |
+| Batas permintaan | Atribut `Set-Cookie` nyata (host-only, `Path=/`, `HttpOnly`, `SameSite=Strict`, tanpa `Expires`; tanpa `Secure` di HTTP); dengan `ADMIN_URL` https cookie `__Host-solveit-admin-session` dan `Secure`; nilai kebijakan mengabaikan `SESSION_*` di environment; `419` tanpa token, dengan token palsu, dengan token sesi lain; `Sec-Fetch-Site: same-origin` diterima; `403` untuk origin website publik, origin lain, `Origin: null`, `same-site`, `cross-site`, dan penulisan tanpa `Origin`, tanpa baris sesi; host lain `404` tanpa cookie; ejaan path lain dan route Fortify, Sanctum, passkey bawaan tidak ada; inquiry publik `201` tanpa `Set-Cookie` meski cookie admin dikirim; preflight admin tanpa header CORS |
+| Sesi | ID sesi berganti saat masuk dan cookie anonim lama tidak berguna (fiksasi); idle 30 menit; batas absolut 12 jam meski aktif (28 x 25 menit lalu 721 menit), dicatat; `401` tanpa sesi; penangguhan atau peran hilang mengakhiri sesi yang ada; daftar sesi dengan handle HMAC (bukan ID tersimpan); mengakhiri sesi lain, satu per satu atau semua; sesi saat ini dan sesi akun lain tidak dapat diakhiri lewat handle; ganti kata sandi mengakhiri sesi lain dan mengganti ID sesi saat ini; kode pemulihan baru butuh konfirmasi kata sandi dan kedaluwarsa setelah 15 menit; batas laju konfirmasi |
+| Tautan akses | Aktivasi owner lengkap (QR SVG, kunci 160 bit, 8 kode pemulihan, alamat dinormalkan); token hanya sebagai SHA-256; penebusan tanpa konfirmasi tidak memberi akses apa pun; kode pertama salah tidak mengubah apa pun; tautan tidak dapat ditebus dua kali (juga tidak menimpa kata sandi); konfirmasi hanya dari browser yang menebus; tautan kedaluwarsa setelah 30 menit; konfirmasi kedaluwarsa setelah 15 menit; tautan baru mencabut yang lama, juga pendaftaran tertunda; validasi tidak memakai tautan; route pra-aktivasi menolak sesi masuk; batas laju; reset kredensial menghapus baris sesi, menolak kredensial lama, dan memulihkan dengan kata sandi dan autentikator baru; akun ditangguhkan tidak dapat memakai tautannya; rahasia TOTP terenkripsi di database |
+| Perintah CLI | Seeder tidak membuat akun; bootstrap mencetak tautan, akun belum dapat masuk, dicatat sebagai `cli` tanpa IP, tanpa log; ditolak bila owner aktif ada (dicatat), bila owner lain tertunda, bila alamat milik akun non-owner, bila alamat tidak valid; konfirmasi di production; reset kredensial mengakhiri sesi dan menolak akun tidak dikenal, tertunda, ditangguhkan |
+| Audit | Model menolak update dan delete; database menolak `UPDATE` dan `DELETE` (SQLSTATE 45000); kedua trigger ada; metadata di luar daftar izin ditolak; satu alur masuk lengkap tidak meninggalkan kata sandi, tebakan, kode TOTP, rahasia, atau kode pemulihan di audit |
+| Invarian akun | Owner mengubah peran akun lain dan sesinya dihapus; tidak ada yang mengubah peran atau menangguhkan dirinya sendiri; admin dan owner yang ditangguhkan tidak dapat bertindak; owner aktif terakhir tidak dapat dihapus; owner yang diturunkan tidak lagi bertindak; penangguhan menghapus sesi dan memblokir masuk sampai diaktifkan lagi |
+| Route dan izin | Setiap route admin terdaftar tepat di satu tingkat dengan perlindungannya (grup `admin` pertama, batas laju, guest atau `auth:web`, `auth.session`, `admin.active`, `admin.session-lifetime`, `can:`); tidak ada route lain yang memakai sesi; matriks Gate: owner dan admin punya `account.manage-own`, akun yang tidak boleh masuk tidak punya izin, kemampuan tidak terdefinisi ditolak, hanya dua peran |
+
+### Uji mutasi (setiap pertahanan dirusak sementara, lalu dipulihkan)
+
+| Mutasi | Tes yang gagal |
+|---|---|
+| CSRF memakai `PreventRequestForgery` Laravel (dengan bypass tes) | 2 dari 24 (batas permintaan) |
+| `admin.active` dihapus dari route terautentikasi | 2 dari 14 (sesi) |
+| `admin.session-lifetime` dihapus | 1 dari 14 |
+| Pemeriksaan origin dimatikan | 6 dari 24 |
+| Pemeriksaan host dimatikan | 1 dari 24 |
+| `AuthenticateAdmin` menerima akun yang tidak boleh masuk | 1 dari 17 (masuk) |
+| Penggantian kode pemulihan bawaan Fortify dipulihkan | 1 dari 17 |
+| Penghapusan sesi saat reset diterbitkan, saat reset selesai, saat penangguhan, saat perubahan peran | Awalnya tidak terdeteksi (pemeriksaan akun aktif tetap mengakhiri sesi itu); tes ditambah asersi baris tabel `sessions`; setelah itu masing-masing 1 tes gagal |
+| Trigger `DELETE` diganti | 5 dari 10 (audit) |
+
+### HTTP nyata (`php artisan serve`, environment testing, curl)
+
+`GET csrf-cookie` `204` dengan `Cache-Control: no-store, private`, `XSRF-TOKEN` (`Max-Age=1800; path=/; samesite=strict`, tanpa `HttpOnly`) dan `solveit-admin-session` (`path=/; httponly; samesite=strict`, tanpa `Domain` dan `Expires`); login tanpa token `419`; dengan token dan akun tidak dikenal `422` dengan pesan umum; `Origin: http://localhost:5173` `403`; `Host: www.example.test` `404`; `POST /api/v1/inquiries` `201` tanpa `Set-Cookie`.
+
+### Docker
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Smoke test produksi lokal (proyek terisolasi `solveit-prod-smoke`, secret sintetis, `verify-production.sh`) | **59 pemeriksaan lulus** (33 sebelumnya), termasuk 22 ejaan path admin x `GET`/`POST` yang ditolak listener publik tanpa cookie, sesi admin efektif di container (`database`, `__Host-`, `Secure`, `Strict`, `HttpOnly`, terenkripsi, 30, tanpa `Domain`), inquiry tanpa cookie, dan `UPDATE`/`DELETE` audit ditolak untuk `solveit_app`. Proyek uji dan volumenya dihapus setelahnya |
+| Lapisan yang menolak | Semua ejaan diblokir nginx (`Cache-Control: no-store` dari `gateway.conf`); `/API/V1/ADMIN/...` tidak masuk blok `/api/` sama sekali dan dijawab 404 situs statis |
+| Percobaan pertama smoke test | Gagal di MySQL: `openssl` Git for Windows menulis secret dengan CRLF dan `initdb` menolaknya. Artefak skrip uji lokal (CI di Linux tidak terkena); dicatat di `docker-production.md` |
+| `docker compose -f infra/docker/compose.dev.yaml config --quiet` | Lulus; hash konfigurasi `mysql` sama dengan label container `solveit-mysql` yang berjalan (`f62aba90...`), jadi container tidak dibuat ulang |
+| shellcheck 0.10.0 (container resmi) | Lulus untuk skrip `infra/docker/scripts/`, entrypoint, dan kedua skrip `initdb` |
+
+### Mesin pemilik
+
+- `SET PERSIST log_bin_trust_function_creators = ON` dijalankan sekali sebagai root di `solveit-mysql` (persetujuan pemilik). Container ID `7286975bacf9` dan waktu start sama sebelum dan sesudah; volume `solveit-mysql-data`, XAMPP, dan file secret tidak disentuh.
+- Migrasi B3.1a dijalankan di database pengembangan (aditif). Tidak ada akun admin yang dibuat di database pengembangan.
+- `backend/.env` lokal tidak diubah: tanpa `ADMIN_URL` berlaku default `http://127.0.0.1:5174`, dan `SESSION_LIFETIME`/`SESSION_ENCRYPT` lamanya kini diabaikan karena kebijakan ditetapkan di config.
+
+### Belum diverifikasi
+
+- Backend CI dan Docker CI di GitHub: lihat PR (`.ai/project-status.md`).
+- Perilaku `SameSite=Strict` di browser sungguhan: header dibuktikan di tingkat HTTP; penegakannya milik browser dan akan diuji bersama aplikasi admin (B3.2).
+- Pemanggilan tool Boost dari sesi Codex.
+
 ## B2.2 idempotensi inquiry di frontend dan percobaan ulang yang aman (2026-10-16)
 
 Cakupan: klien website mengirim `Idempotency-Key` per kiriman logis, memeriksa hasil yang tidak pasti dengan kunci yang sama, dan menangani `400`, `409`, `429`, serta `503` dari gateway (kontrak: `docs/api/inquiries.md`, Penerapan di frontend). Kanal **Kirim melalui website** tetap **nonaktif secara default**; build yang dirilis tidak memanggil API. Baseline yang diverifikasi: `origin/main`, `origin/frontend`, `origin/backend` = `cf55c2f`, `origin/staging` `b6b429b` (tree sama); B2.1 dirilis sebagai `d22a079`; working tree bersih, tanpa stash, worktree lain, PR terbuka, atau proteksi branch. Backend, Docker, dan konfigurasi CORS tidak diubah.

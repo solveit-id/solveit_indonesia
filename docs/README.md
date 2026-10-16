@@ -18,9 +18,10 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 |---|---|---|
 | [api/](api) | [README.md](api/README.md) | Daftar endpoint backend yang sudah dibangun, format galat, CORS, rate limit, health check |
 | | [inquiries.md](api/inquiries.md) | Kontrak `POST /api/v1/inquiries`: validasi, respons, proteksi spam, penyimpanan, privasi |
+| | [admin-auth.md](api/admin-auth.md) | Kontrak API admin B3.1a: tautan akses, masuk dengan TOTP, sesi, CSRF, keamanan akun sendiri |
 | [architecture/](architecture) | [architecture-overview.md](architecture/architecture-overview.md) | Gambaran repository, lapisan backend dan frontend, routing dan prerender, keputusan teknis |
 | | [integration-plan.md](architecture/integration-plan.md) | Batas sistem dengan Solveit OpsHub, endpoint usulan, peta jalan backend |
-| | [admin-dashboard.md](architecture/admin-dashboard.md) | Rancangan (Planned) dashboard admin website: opsi frontend, autentikasi, peran, modul, desain, performa |
+| | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas backend B3.1a (dibangun), keputusan autentikasi, sesi, peran, audit; aplikasi admin, modul, desain, dan performa (Planned) |
 | | [visitor-analytics.md](architecture/visitor-analytics.md) | Rancangan (Planned) analitik pengunjung first-party: definisi metrik, privasi dan UU PDP, penyimpanan, near-real-time |
 | | [github-integration.md](architecture/github-integration.md) | Rancangan (Planned) integrasi GitHub organisasi `solveit-id`: kepemilikan OpsHub, GitHub App, webhook, tindakan berisiko |
 | [design/](design) | [design-system.md](design/design-system.md) | Prinsip visual, token, komponen, aturan motion dan aksesibilitas |
