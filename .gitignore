@@ -4,6 +4,7 @@ vendor/
 
 # Build output
 dist/
+dist-*/
 build/
 .react-router/
 coverage/

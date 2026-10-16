@@ -70,6 +70,10 @@ Hasil build adalah situs statis di `frontend/build/client`. Hosting harus:
 
 Netlify, Cloudflare Pages, Vercel (output statis), atau Nginx memenuhi ini dengan konfigurasi standar. Image Docker produksi frontend (`infra/docker/frontend/Dockerfile`, nginx dengan `infra/docker/nginx/frontend.conf`) sudah menerapkan ketiganya dan diuji; deployment Docker lengkap bersama API ada di `docker-production.md` (disiapkan, belum di-deploy).
 
+## Konsol admin (`admin/`, B3.2a)
+
+Aplikasi terpisah dengan build dan CI sendiri; panduan lengkap di `admin/README.md`. Ringkas: `cd admin && npm install && npm run dev`, lalu buka **`http://127.0.0.1:5174`** (bukan `localhost`: `ADMIN_URL` backend default-nya persis origin itu). Server dev mem-proxy hanya `/api/v1/admin` ke Laravel (`php artisan serve` di 127.0.0.1:8000, atau `SOLVEIT_ADMIN_API_TARGET`), dengan header `Host` dan `Origin` browser apa adanya; tidak ada CORS. Website (5173) dan admin (5174) dapat berjalan bersamaan. Pemeriksaan: `npm run check`, lalu `npm run build:reference` dan Playwright per project dengan `--workers=1`. Admin membaca token merek, font, path logo, dan favicon dari `frontend/` di tempat (`docs/project-structure.md` 7.1), jadi perubahan pada file itu juga dicek oleh Admin CI.
+
 ## Backend (Laravel)
 
 Ringkasan untuk pengembangan harian. Rincian environment, struktur, dan keamanan ada di `backend/README.md`; kontrak endpoint di `docs/api/`; aturan Laravel Boost di `docs/project-structure.md` bagian 9.

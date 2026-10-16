@@ -1,72 +1,9 @@
 @import "tailwindcss";
+/* Brand tokens (palette, type, motion), shared with the admin console. */
+@import "./tokens.css";
 
-/* Archivo (OFL-1.1), subset and axis-limited by scripts/subset-font.py:
-   width 100-120%, weight 400-800, Latin glyphs for Indonesian copy. */
-@font-face {
-  font-family: "Archivo Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 400 800;
-  font-stretch: 100% 120%;
-  src: url("../assets/fonts/archivo-solveit.woff2") format("woff2");
-}
-
-/*
- * Solveit Indonesia design tokens, derived from the logo SVGs.
- * See docs/design/design-system.md for the rationale and contrast checks.
- *
- * Shape rule: anything single-line and interactive is a full capsule (the
- * logo's own geometry); containers and multi-line fields use --radius-panel.
- * Angle rule: the logo's capsules sit at 33deg; that is the only diagonal.
- */
+/* Website layout tokens; the brand tokens live in tokens.css. */
 :root {
-  color-scheme: light;
-
-  /* Logo palette, unchanged */
-  --brand-navy: #082a56;
-  --brand-slate: #5c7392;
-  --brand-cobalt: #1452ed;
-  --brand-deep: #1136d6;
-  --brand-azure: #178bff;
-  --brand-cyan: #19b8f2;
-
-  /* Light scene: daylight office or phone at midday */
-  --paper: #f1f4f9;
-  --paper-raised: #f8fafd;
-  --paper-sunken: #e6ecf5;
-  --ink: #082a56;
-  --ink-muted: #4a6283;
-  --ink-faint: #6b809d;
-  --line: rgb(8 42 86 / 0.13);
-  --line-strong: rgb(8 42 86 / 0.28);
-  /* Outline of floating capsules (the condensed header): firmer than a
-     hairline so the capsule stays legible over any section. */
-  --capsule-rim: rgb(8 42 86 / 0.2);
-  --accent: #1452ed;
-  --accent-hover: #1136d6;
-  --accent-ink: #f6f9ff;
-  --accent-text: #1146d8;
-  --field: #1136d6;
-  --field-ink: #f4f7ff;
-  --field-ink-muted: #c9d6fb;
-  --field-line: rgb(244 247 255 / 0.22);
-  --focus: #1452ed;
-  --selection: rgb(20 82 237 / 0.18);
-  --danger: #b42318;
-  --danger-soft: rgb(180 35 24 / 0.1);
-  --shadow-tint: 8 42 86;
-  --logo-word: #082a56;
-  --logo-sub: #5c7392;
-
-  /* Motion vocabulary (docs/design/design-system.md): feedback, state, overlay, and
-     authored moments. Exits run faster than entrances. */
-  --dur-instant: 100ms;
-  --dur-quick: 180ms;
-  --dur-state: 280ms;
-  --dur-overlay: 420ms;
-  --dur-exit: 220ms;
-  --dur-focal: 700ms;
-
   /* Fixed header box (src/components/layout/site-header.tsx). */
   --header-h: 4.75rem;
 }
@@ -77,71 +14,7 @@
   }
 }
 
-/*
- * Night scene. Light is the default for every visitor (the OS preference is
- * deliberately not followed); dark applies only when chosen with the theme
- * switch, restored before first paint by the boot script in root.tsx.
- */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --paper: #050f22;
-  --paper-raised: #0a1830;
-  --paper-sunken: #030a18;
-  --ink: #e9effa;
-  --ink-muted: #a3b5cf;
-  --ink-faint: #8094b3;
-  --line: rgb(233 239 250 / 0.12);
-  --line-strong: rgb(233 239 250 / 0.26);
-  --capsule-rim: rgb(233 239 250 / 0.2);
-  --accent: #1452ed;
-  --accent-hover: #2a66ff;
-  --accent-ink: #f6f9ff;
-  --accent-text: #6aa6ff;
-  --field: #0f34cc;
-  --focus: #6aa6ff;
-  --selection: rgb(106 166 255 / 0.3);
-  --danger: #ff9c8f;
-  --danger-soft: rgb(255 156 143 / 0.14);
-  --shadow-tint: 0 0 0;
-  --logo-word: #e9effa;
-  --logo-sub: #a3b5cf;
-}
-
-/* Tailwind's `dark:` variant follows the chosen theme, not the OS. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-
-@theme inline {
-  --color-paper: var(--paper);
-  --color-paper-raised: var(--paper-raised);
-  --color-paper-sunken: var(--paper-sunken);
-  --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-ink-faint: var(--ink-faint);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-text: var(--accent-text);
-  --color-field: var(--field);
-  --color-field-ink: var(--field-ink);
-  --color-field-ink-muted: var(--field-ink-muted);
-  --color-field-line: var(--field-line);
-  --color-danger: var(--danger);
-  --color-cyan: var(--brand-cyan);
-  --color-azure: var(--brand-azure);
-}
-
 @theme {
-  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
-
-  --radius-panel: 1.75rem;
-  --radius-field: 1.25rem;
-
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
-  --ease-in-quart: cubic-bezier(0.5, 0, 0.75, 0);
-
   --spacing-gutter: clamp(1rem, 4vw, 3rem);
   --spacing-section: clamp(5rem, 11vw, 9.5rem);
 
