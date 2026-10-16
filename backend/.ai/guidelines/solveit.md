@@ -22,6 +22,16 @@ These rules come from the repository and take precedence over the generic Larave
 - Never return 201 or a reference unless the row is stored. Never add a public endpoint that lists, reads, changes, or deletes inquiries.
 - `POST /api/v1/inquiries` is idempotent per `Idempotency-Key` (B2.1): the UNIQUE `idempotency_key_hash` column decides, never a read-before-insert. Keep that contract (docs/api/inquiries.md, Idempotensi) and its multi-process tests (`tests/Feature/Actions/SubmitInquiryConcurrencyTest.php`).
 
+## Admin API (B3.1a)
+
+- Admin routes live only in `routes/admin.php` (served at `/api/v1/admin`, middleware group `admin`), the only routes with a session. Never add `web` or session middleware to `routes/api.php`, and never install Sanctum or apply `statefulApi()`: Sanctum forces `SameSite=Lax` and the admin is same-origin (`docs/architecture/admin-dashboard.md` 3.1).
+- Fortify is used as a library only: keep `Fortify::ignoreRoutes()` (`App\Providers\FortifyServiceProvider`) and map controllers explicitly in `routes/admin.php`. Generic Fortify guidance about its own routes, views, registration, password reset, profile updates, passkeys, or disabling two-factor authentication does not apply; enabling any of them needs an owner decision.
+- Every new admin route goes into one tier (public authentication, pre-activation, authenticated) and into `tests/Feature/Admin/AdminRouteCoverageTest.php`. Authenticated routes need `can:<permission>`; add an `AdminPermission` case only with the endpoint that needs it. Roles stay `owner` and `admin` until the modules for other roles exist.
+- Session, cookie, and password-confirmation policy is fixed in `config/session.php`, `config/auth.php`, and `config/admin.php`; do not move it to environment variables.
+- Security events are written only through `App\Actions\Admin\RecordAdminAuditEvent` with allowlisted metadata. Never store or log passwords, TOTP codes or secrets, recovery codes, access-link tokens, session IDs, or request payloads. `admin_audit_events` is append-only (model guards and MySQL triggers); retention is pending an owner decision, so do not add pruning.
+- No default accounts or passwords: seeders create no users, factories use random passwords. Accounts come from `admin:bootstrap-owner` or, later, owner invitations. Never run the bootstrap or reset commands against shared or production data; tests use synthetic addresses.
+- Admin HTTP tests use `Tests\Support\InteractsWithAdminApi` (real cookies, Origin, CSRF, and TOTP), not `actingAs()`.
+
 ## Personal data
 
 - Inquiries hold names, contacts, and messages. Never log them, include them in exception messages or context, or print them in agent output. Do not chain a `QueryException` into a reported exception: its message contains the SQL bindings.

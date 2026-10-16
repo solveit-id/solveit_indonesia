@@ -106,12 +106,11 @@ return [
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |
-    | Here you may define the number of seconds before a password confirmation
-    | window expires and users are asked to re-enter their password via the
-    | confirmation screen. By default, the timeout lasts for three hours.
+    | Seconds a password confirmation stays valid for sensitive admin actions
+    | (middleware "password.confirm"). Approved policy: 15 minutes, fixed in code.
     |
     */
 
-    'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
+    'password_timeout' => 900,
 
 ];
