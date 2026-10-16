@@ -12,7 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Change another account's role (domain operation for B3.1b user administration).
+ * Change another account's role (PUT /api/v1/admin/users/{user}/role, B3.1b).
  */
 class ChangeAdminRole
 {
@@ -35,12 +35,8 @@ class ChangeAdminRole
         }
 
         return DB::transaction(function () use ($actor, $target, $role): User {
-            $activeOwners = ActiveOwners::lock();
+            $activeOwners = ActiveOwners::lockForActor($actor);
             $target = User::query()->whereKey($target->getKey())->lockForUpdate()->firstOrFail();
-
-            if (! $activeOwners->contains(fn (User $owner): bool => $owner->is($actor))) {
-                throw new AuthorizationException;
-            }
 
             if ($target->role === null || $target->activated_at === null) {
                 throw AdminAccountStateException::notActivated();
@@ -67,6 +63,6 @@ class ChangeAdminRole
             );
 
             return $target;
-        });
+        }, ActiveOwners::TRANSACTION_ATTEMPTS);
     }
 }

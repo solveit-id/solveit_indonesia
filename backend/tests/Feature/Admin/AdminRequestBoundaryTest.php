@@ -63,8 +63,9 @@ class AdminRequestBoundaryTest extends TestCase
 
     public function test_policy_values_ignore_the_environment(): void
     {
-        $config = $this->sessionConfigFor('http://127.0.0.1:5174', ['SESSION_LIFETIME' => '600', 'SESSION_SAME_SITE' => 'none', 'SESSION_ENCRYPT' => 'false', 'SESSION_DOMAIN' => '.example.test']);
+        $config = $this->sessionConfigFor('http://127.0.0.1:5174', ['SESSION_LIFETIME' => '600', 'SESSION_SAME_SITE' => 'none', 'SESSION_ENCRYPT' => 'false', 'SESSION_DOMAIN' => '.example.test', 'SESSION_DRIVER' => 'file']);
 
+        $this->assertSame('database', $config['driver'], 'revocation needs the sessions table');
         $this->assertSame('solveit-admin-session', $config['cookie']);
         $this->assertFalse($config['secure']);
         $this->assertSame(30, $config['lifetime']);
@@ -74,6 +75,19 @@ class AdminRequestBoundaryTest extends TestCase
         $this->assertNull($config['domain']);
         $this->assertTrue($config['http_only']);
         $this->assertSame(900, config('auth.password_timeout'));
+    }
+
+    public function test_the_admin_api_refuses_to_run_without_the_database_session_driver(): void
+    {
+        config(['session.driver' => 'file']);
+
+        $this->adminRequest('GET', 'auth/csrf-cookie')
+            ->assertStatus(503)
+            ->assertExactJson(['message' => 'The admin API is unavailable.'])
+            ->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->assertSame([], $this->adminCookies(), 'no session was started');
+        $this->assertSame(0, DB::table('sessions')->count());
     }
 
     public function test_writes_without_a_csrf_token_get_419(): void

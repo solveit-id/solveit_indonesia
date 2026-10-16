@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -20,6 +21,10 @@ use Symfony\Component\HttpFoundation\Response;
  *   requests, unless the page sets Referrer-Policy: no-referrer, which the admin
  *   application must not (use same-origin).
  * - Responses are JSON and never cached.
+ * - Without the database session driver the admin API refuses to run (503): session
+ *   revocation (suspension, role change, credential reset, sign-out elsewhere) would
+ *   otherwise silently do nothing. config/session.php fixes the driver; this check
+ *   catches a runtime override.
  */
 class AdminRequestBoundary
 {
@@ -28,6 +33,12 @@ class AdminRequestBoundary
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if (config('session.driver') !== 'database') {
+            Log::critical('Admin API refused a request: the session driver is not "database".');
+
+            return $this->noStore(new JsonResponse(['message' => 'The admin API is unavailable.'], 503));
+        }
+
         if (! $this->isAdminHost($request)) {
             return $this->noStore(new JsonResponse(['message' => 'Not Found.'], 404));
         }

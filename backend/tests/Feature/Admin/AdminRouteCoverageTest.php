@@ -42,6 +42,32 @@ class AdminRouteCoverageTest extends TestCase
         'GET api/v1/admin/me/sessions',
         'DELETE api/v1/admin/me/sessions',
         'DELETE api/v1/admin/me/sessions/{session}',
+        ...self::OWNER_READS,
+        ...self::OWNER_WRITES,
+    ];
+
+    /**
+     * Tier 3 routes of user administration and audit reading (B3.1b), with the exact
+     * permission each must ask for. Only the owner role holds these permissions.
+     */
+    private const OWNER_READS = [
+        'GET api/v1/admin/users' => 'users.view',
+        'GET api/v1/admin/users/{user}' => 'users.view',
+        'GET api/v1/admin/invitations' => 'users.view',
+        'GET api/v1/admin/invitations/{invitation}' => 'users.view',
+        'GET api/v1/admin/audit-events' => 'audit.view-all',
+    ];
+
+    /**
+     * Owner writes: their permission, then a fresh password confirmation, and their own limit.
+     */
+    private const OWNER_WRITES = [
+        'POST api/v1/admin/invitations' => 'users.invite',
+        'DELETE api/v1/admin/invitations/{invitation}' => 'users.invite',
+        'PUT api/v1/admin/users/{user}/role' => 'users.change-role',
+        'POST api/v1/admin/users/{user}/suspension' => 'users.suspend',
+        'DELETE api/v1/admin/users/{user}/suspension' => 'users.suspend',
+        'POST api/v1/admin/users/{user}/credential-reset' => 'users.reset-credentials',
     ];
 
     /**
@@ -51,7 +77,7 @@ class AdminRouteCoverageTest extends TestCase
 
     public function test_every_admin_route_is_classified_exactly_once(): void
     {
-        $classified = [...self::PUBLIC_AUTH, ...self::PRE_ACTIVATION, ...self::AUTHENTICATED];
+        $classified = [...self::PUBLIC_AUTH, ...self::PRE_ACTIVATION, ...self::authenticated()];
 
         $this->assertSame(count($classified), count(array_unique($classified)));
         $this->assertEqualsCanonicalizing($classified, array_keys($this->adminRoutes()));
@@ -86,7 +112,7 @@ class AdminRouteCoverageTest extends TestCase
 
     public function test_authenticated_routes_carry_the_full_protection_and_a_permission(): void
     {
-        foreach (self::AUTHENTICATED as $key) {
+        foreach (self::authenticated() as $key) {
             $middleware = $this->adminRoutes()[$key]->gatherMiddleware();
 
             foreach (['auth:web', 'auth.session', 'admin.active', 'admin.session-lifetime', 'throttle:admin-account'] as $required) {
@@ -100,6 +126,32 @@ class AdminRouteCoverageTest extends TestCase
         $this->assertContains('password.confirm', $this->adminRoutes()['POST api/v1/admin/me/two-factor-recovery-codes']->gatherMiddleware());
     }
 
+    public function test_owner_routes_ask_for_their_exact_permission_and_writes_for_a_fresh_password(): void
+    {
+        foreach ([...self::OWNER_READS, ...self::OWNER_WRITES] as $key => $permission) {
+            $middleware = $this->adminRoutes()[$key]->gatherMiddleware();
+
+            $this->assertSame(["can:{$permission}"], array_values(preg_grep('/^can:/', $middleware)), "{$key} must ask for exactly {$permission}");
+            $this->assertNotContains('can:account.manage-own', $middleware);
+        }
+
+        foreach (array_keys(self::OWNER_WRITES) as $key) {
+            $middleware = $this->adminRoutes()[$key]->gatherMiddleware();
+
+            $this->assertContains('throttle:admin-administration', $middleware, "{$key} lacks the administration limit");
+            $this->assertContains('password.confirm', $middleware, "{$key} lacks password confirmation");
+            $this->assertLessThan(
+                array_search('password.confirm', $middleware, true),
+                array_search('can:'.self::OWNER_WRITES[$key], $middleware, true),
+                "{$key} must check the permission before asking for a password",
+            );
+        }
+
+        foreach (array_keys(self::OWNER_READS) as $key) {
+            $this->assertNotContains('password.confirm', $this->adminRoutes()[$key]->gatherMiddleware());
+        }
+    }
+
     public function test_no_other_route_starts_a_session(): void
     {
         foreach (Router::getRoutes()->getRoutes() as $route) {
@@ -111,6 +163,18 @@ class AdminRouteCoverageTest extends TestCase
             $this->assertNotContains('web', $middleware, "{$route->uri()} uses the session-backed web group");
             $this->assertNotContains(self::ADMIN_GROUP, $middleware, "{$route->uri()} uses the admin group outside /api/v1/admin");
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function authenticated(): array
+    {
+        return array_map(
+            fn (int|string $key, string $value): string => is_string($key) ? $key : $value,
+            array_keys(self::AUTHENTICATED),
+            self::AUTHENTICATED,
+        );
     }
 
     /**

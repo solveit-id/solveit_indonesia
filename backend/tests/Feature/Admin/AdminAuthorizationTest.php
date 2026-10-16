@@ -27,6 +27,40 @@ class AdminAuthorizationTest extends TestCase
     }
 
     /**
+     * The complete matrix (B3.1b): owners hold every permission, admins only their own
+     * account. A permission added later must be added here, or this test fails.
+     *
+     * @return array<string, array{AdminPermission, bool, bool}>
+     */
+    public static function permissionMatrix(): array
+    {
+        return [
+            'account.manage-own' => [AdminPermission::ManageOwnAccount, true, true],
+            'users.view' => [AdminPermission::ViewUsers, true, false],
+            'users.invite' => [AdminPermission::InviteUsers, true, false],
+            'users.change-role' => [AdminPermission::ChangeUserRoles, true, false],
+            'users.suspend' => [AdminPermission::SuspendUsers, true, false],
+            'users.reset-credentials' => [AdminPermission::ResetUserCredentials, true, false],
+            'audit.view-all' => [AdminPermission::ViewAllAuditEvents, true, false],
+        ];
+    }
+
+    #[DataProvider('permissionMatrix')]
+    public function test_the_permission_matrix(AdminPermission $permission, bool $owner, bool $admin): void
+    {
+        $this->assertSame($owner, Gate::forUser(User::factory()->owner()->create())->allows($permission->value));
+        $this->assertSame($admin, Gate::forUser(User::factory()->activeAdmin()->create())->allows($permission->value));
+    }
+
+    public function test_the_matrix_covers_every_permission(): void
+    {
+        $this->assertEqualsCanonicalizing(
+            array_map(fn (AdminPermission $permission): string => $permission->value, AdminPermission::cases()),
+            array_keys(self::permissionMatrix()),
+        );
+    }
+
+    /**
      * @return array<string, array{\Closure(): User}>
      */
     public static function accountsWithoutAccess(): array

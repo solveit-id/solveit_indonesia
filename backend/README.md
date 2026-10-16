@@ -166,7 +166,7 @@ Semua variabel terdokumentasi di `.env.example`. Yang khusus proyek ini:
 | `INQUIRY_RATE_LIMIT_PER_MINUTE` / `_PER_HOUR` | `5` / `20` | Batas kiriman inquiry per IP |
 | `INQUIRY_MAX_BODY_BYTES` | `65536` | Batas body; di atasnya `413` |
 | `CACHE_STORE` | `database` | Juga menyimpan penghitung rate limit dan kode TOTP yang sudah dipakai; tidak butuh Redis |
-| `SESSION_DRIVER` | `database` | Wajib `database` untuk admin (daftar dan pencabutan sesi). Umur, enkripsi, dan atribut cookie ditetapkan di `config/session.php`, bukan lewat environment; `SESSION_LIFETIME`, `SESSION_ENCRYPT`, `SESSION_DOMAIN`, dan sejenisnya di `.env` lama diabaikan |
+| `SESSION_DRIVER` | `database` | Sejak B3.1b diabaikan: driver `database` (daftar dan pencabutan sesi admin) ditetapkan di `config/session.php`, dan API admin menjawab `503` bila driver lain aktif saat runtime. Umur, enkripsi, dan atribut cookie juga ditetapkan di sana; `SESSION_LIFETIME`, `SESSION_ENCRYPT`, `SESSION_DOMAIN`, dan sejenisnya di `.env` lama diabaikan |
 | `ADMIN_URL` | `http://127.0.0.1:5174` | Origin persis aplikasi admin. API admin hanya menjawab host dan `Origin` ini, membuat tautan akses darinya, dan memakai cookie `Secure` `__Host-` bila https |
 
 Nilai dibaca lewat `config/` (`config/database.php`, `config/cors.php`, `config/trustedproxy.php`, `config/inquiries.php`, `config/admin.php`), tidak pernah lewat `env()` di kode, sehingga `php artisan config:cache` aman.
@@ -226,12 +226,13 @@ tests/Unit/...                                   Aturan kontak, nomor referensi,
 
 Jangan menjalankan `migrate:fresh`, `migrate:reset`, `db:wipe`, `migrate:rollback`, atau `DROP` selain pada database sekali pakai yang memang dibuat untuk itu. CI menguji rollback pada database MySQL sekali pakai di service container.
 
-## Admin (B3.1a)
+## Admin (B3.1a, B3.1b)
 
-Kontrak: `docs/api/admin-auth.md`; arsitektur dan keputusan: `docs/architecture/admin-dashboard.md`.
+Kontrak: `docs/api/admin-auth.md` (identitas dan sesi), `docs/api/admin-users.md` (administrasi pengguna dan audit oleh owner); arsitektur dan keputusan: `docs/architecture/admin-dashboard.md`.
 
 - **Tidak ada akun bawaan dan tidak ada kata sandi bawaan.** `DatabaseSeeder` tidak membuat pengguna. Akun pertama hanya lewat `php artisan admin:bootstrap-owner <email>`, yang mencetak satu tautan aktivasi 30 menit ke terminal (tidak disimpan, tidak di-log). Pemilik tautan menetapkan kata sandi, memindai QR, dan mengonfirmasi kode TOTP pertama; baru setelah itu akun dapat masuk. Ditolak bila sudah ada owner aktif.
-- **Pemulihan darurat:** `php artisan admin:reset-credentials <email>` menghapus autentikator dan kode pemulihan, mengakhiri semua sesi, dan mencetak tautan reset 30 menit.
+- **Akun berikutnya (B3.1b):** owner aktif mengundang lewat `POST /api/v1/admin/invitations`; tautan 48 jam muncul sekali di respons dan diserahkan owner sendiri (tidak ada email). Owner juga mengubah peran, menangguhkan, mengaktifkan ulang, dan menerbitkan reset kredensial 24 jam lewat API.
+- **Pemulihan darurat:** `php artisan admin:reset-credentials <email>` menghapus autentikator dan kode pemulihan, mengakhiri semua sesi, dan mencetak tautan reset 30 menit. Jalur ini tidak butuh owner aktif (misalnya owner satu-satunya kehilangan autentikatornya).
 - **Pengembangan lokal:** belum ada aplikasi admin (B3.2). `ADMIN_URL` default `http://127.0.0.1:5174` (server dev admin yang nanti mem-proxy `/api` ke Laravel). Untuk mencoba API secara manual, kirim header `Origin` yang sama dengan `ADMIN_URL` dan request ke host itu; pakai alamat sintetis dan database pengembangan saja.
 
 ### Trigger audit dan `log_bin_trust_function_creators`
@@ -247,6 +248,10 @@ Kontrak: `docs/api/admin-auth.md`; arsitektur dan keputusan: `docs/architecture/
 
   Menjalankan ulang `initdb/10-solveit-databases.sh` (bagian Server lokal) juga menyetelnya.
 - MySQL terkelola: setel sebagai parameter server. Server MySQL lain yang dikelola sendiri: `SET PERSIST` sebagai root, atau `log_bin_trust_function_creators=ON` di konfigurasi `mysqld`.
+
+**Berlaku untuk seluruh server, bukan per database.** `log_bin_trust_function_creators` adalah variabel global: setelah `ON`, setiap pengguna di server itu yang punya hak `TRIGGER` atau `CREATE ROUTINE` pada database mana pun boleh membuat trigger dan fungsi tersimpan tanpa SUPER, dan MySQL tidak lagi memeriksa apakah rutin itu aman untuk binary log. Di server bersama, itu juga berlaku untuk database dan pengguna lain. Karena itu ini **prasyarat penyedia produksi**: sebelum memilih hosting atau MySQL terkelola, pastikan penyedia mengizinkan setelan ini (biasanya lewat parameter group atau panel konfigurasi server); tanpa itu migrasi B3.1a berhenti dengan error 1419 dan audit log tidak dapat dibuat. Lebih aman bila database website berada di server MySQL sendiri, bukan server bersama, dan pengguna aplikasi tetap hanya punya hak DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) sehingga tidak dapat membuat trigger, rutin, atau menjalankan `TRUNCATE`.
+
+**Batas jaminan hanya-tambah.** Trigger menolak `UPDATE` dan `DELETE` untuk setiap pengguna, tetapi tidak melindungi dari pengguna dengan hak DDL: `DROP TRIGGER`, `DROP TABLE`, atau `TRUNCATE TABLE` (yang tidak menjalankan trigger) tetap mungkin bagi pengguna migrasi, root, atau DBA penyedia. Audit log ini mencegah perubahan oleh aplikasi dan pengguna aplikasinya; perlindungan terhadap pemegang hak DDL bergantung pada pembatasan akses ke pengguna itu dan pada backup.
 
 ## Laravel Boost
 

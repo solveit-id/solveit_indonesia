@@ -19,6 +19,7 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 | [api/](api) | [README.md](api/README.md) | Daftar endpoint backend yang sudah dibangun, format galat, CORS, rate limit, health check |
 | | [inquiries.md](api/inquiries.md) | Kontrak `POST /api/v1/inquiries`: validasi, respons, proteksi spam, penyimpanan, privasi |
 | | [admin-auth.md](api/admin-auth.md) | Kontrak API admin B3.1a: tautan akses, masuk dengan TOTP, sesi, CSRF, keamanan akun sendiri |
+| | [admin-users.md](api/admin-users.md) | Kontrak API owner B3.1b: akun, undangan, peran, penangguhan, reset kredensial, pembacaan audit log |
 | [architecture/](architecture) | [architecture-overview.md](architecture/architecture-overview.md) | Gambaran repository, lapisan backend dan frontend, routing dan prerender, keputusan teknis |
 | | [integration-plan.md](architecture/integration-plan.md) | Batas sistem dengan Solveit OpsHub, endpoint usulan, peta jalan backend |
 | | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas backend B3.1a (dibangun), keputusan autentikasi, sesi, peran, audit; aplikasi admin, modul, desain, dan performa (Planned) |

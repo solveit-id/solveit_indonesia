@@ -31,6 +31,8 @@ enum AdminAuditAction: string
     case SessionExpired = 'session.expired';
     case SessionEndedInactiveAccount = 'session.ended-inactive-account';
 
+    case InvitationIssued = 'invitation.issued';
+    case InvitationRevoked = 'invitation.revoked';
     case RoleChanged = 'account.role-changed';
     case AccountSuspended = 'account.suspended';
     case AccountReactivated = 'account.reactivated';

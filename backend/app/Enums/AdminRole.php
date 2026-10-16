@@ -19,7 +19,18 @@ enum AdminRole: string
     public function permissions(): array
     {
         return match ($this) {
-            self::Owner, self::Admin => [AdminPermission::ManageOwnAccount],
+            // Listed one by one: a permission added later is granted to nobody until a
+            // role names it here.
+            self::Owner => [
+                AdminPermission::ManageOwnAccount,
+                AdminPermission::ViewUsers,
+                AdminPermission::InviteUsers,
+                AdminPermission::ChangeUserRoles,
+                AdminPermission::SuspendUsers,
+                AdminPermission::ResetUserCredentials,
+                AdminPermission::ViewAllAuditEvents,
+            ],
+            self::Admin => [AdminPermission::ManageOwnAccount],
         };
     }
 

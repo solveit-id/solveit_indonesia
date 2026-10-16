@@ -46,12 +46,23 @@ return [
     'access_links' => [
         // Lifetime of a link issued on the server shell (owner bootstrap, credential reset).
         'cli_ttl_minutes' => 30,
+        // Lifetime of a link an owner issues through the API (owner decision, B3.1b). The
+        // owner delivers it by hand, so it lives longer than a shell link; it can be revoked
+        // (invitation) or replaced (reset) at any time.
+        'invitation_ttl_minutes' => 2880,
+        'owner_reset_ttl_minutes' => 1440,
         // Time between redeeming a link (password set, TOTP secret shown) and confirming
         // the first code.
         'enrollment_ttl_minutes' => 15,
         // Path of the admin application page that reads the token from the URL fragment.
         // The fragment never reaches a server, a proxy log, or a Referer header.
         'path' => '/access',
+    ],
+
+    'pagination' => [
+        // Page size of the owner lists (users, invitations, audit events).
+        'default_per_page' => 25,
+        'max_per_page' => 100,
     ],
 
 ];
