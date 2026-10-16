@@ -5,14 +5,14 @@ namespace App\Actions\Admin;
 use App\Enums\AdminActorType;
 use App\Enums\AdminAuditAction;
 use App\Exceptions\AdminAccountStateException;
+use App\Models\AdminAccessLink;
 use App\Models\User;
 use App\Services\AdminSessionStore;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Suspend or reactivate another account (domain operation for B3.1b user administration).
+ * Suspend or reactivate another account (/api/v1/admin/users/{user}/suspension, B3.1b).
  */
 class SuspendAdminAccount
 {
@@ -23,7 +23,9 @@ class SuspendAdminAccount
 
     /**
      * Only an active owner may suspend, never themselves and never the last active owner.
-     * Every session of the account ends at once; sign-in is refused while suspended.
+     * Every session of the account ends at once; sign-in is refused while suspended. Open
+     * access links (invitation or credential reset) are revoked too, so lifting the
+     * suspension never revives a link issued before it: the owner issues a new one.
      *
      * @throws AuthorizationException
      * @throws AdminAccountStateException
@@ -35,7 +37,7 @@ class SuspendAdminAccount
         }
 
         return DB::transaction(function () use ($actor, $target): User {
-            $activeOwners = $this->lockActorAsActiveOwner($actor);
+            $activeOwners = ActiveOwners::lockForActor($actor);
             $target = User::query()->whereKey($target->getKey())->lockForUpdate()->firstOrFail();
 
             if ($target->suspended_at !== null) {
@@ -48,21 +50,27 @@ class SuspendAdminAccount
 
             $target->forceFill(['suspended_at' => now()])->save();
             $sessionsEnded = $this->sessions->revokeAll($target);
+            $linksRevoked = AdminAccessLink::query()
+                ->where('user_id', $target->getKey())
+                ->whereNull('completed_at')
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => now()]);
 
             $this->recordAuditEvent->handle(
                 AdminAuditAction::AccountSuspended,
                 AdminActorType::User,
                 actor: $actor,
                 subject: $target,
-                metadata: ['sessions_ended' => $sessionsEnded],
+                metadata: ['sessions_ended' => $sessionsEnded, 'access_links_revoked' => $linksRevoked],
             );
 
             return $target;
-        });
+        }, ActiveOwners::TRANSACTION_ATTEMPTS);
     }
 
     /**
-     * Lift a suspension. The account signs in again with its existing credentials.
+     * Lift a suspension. The account signs in again with its existing credentials; no
+     * session is created here (the person signs in with password and TOTP again).
      *
      * @throws AuthorizationException
      * @throws AdminAccountStateException
@@ -74,7 +82,7 @@ class SuspendAdminAccount
         }
 
         return DB::transaction(function () use ($actor, $target): User {
-            $this->lockActorAsActiveOwner($actor);
+            ActiveOwners::lockForActor($actor);
             $target = User::query()->whereKey($target->getKey())->lockForUpdate()->firstOrFail();
 
             if ($target->suspended_at === null) {
@@ -91,22 +99,6 @@ class SuspendAdminAccount
             );
 
             return $target;
-        });
-    }
-
-    /**
-     * @return Collection<int, User>
-     *
-     * @throws AuthorizationException
-     */
-    private function lockActorAsActiveOwner(User $actor): Collection
-    {
-        $activeOwners = ActiveOwners::lock();
-
-        if (! $activeOwners->contains(fn (User $owner): bool => $owner->is($actor))) {
-            throw new AuthorizationException;
-        }
-
-        return $activeOwners;
+        }, ActiveOwners::TRANSACTION_ATTEMPTS);
     }
 }

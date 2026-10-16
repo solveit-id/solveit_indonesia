@@ -2,6 +2,94 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B3.1b administrasi pengguna admin dan pembacaan audit (2026-10-16)
+
+Cakupan: endpoint khusus owner di `backend/` (`/api/v1/admin`): daftar dan detail akun, undangan, pencabutan undangan, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner, dan pembacaan audit log (kontrak: `docs/api/admin-users.md`; keputusan: `docs/architecture/admin-dashboard.md` bagian 4). Backend saja: tidak ada aplikasi admin, akun produksi, listener admin, atau deployment. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/frontend` = `ffe07fc` (rilis B3.1a, PR #33), `origin/staging` `769d1b6` dengan tree yang sama (`ad928b0`), working tree bersih, tanpa stash, satu worktree, tanpa PR terbuka, CI terakhir hijau.
+
+Keputusan pemilik yang dikonfirmasi langsung pada awal tugas (bukan diambil dari dokumen usulan): undangan diserahkan manual dengan tautan yang hanya tampil sekali kepada owner penerbit; hanya `owner` yang membaca seluruh audit log; undangan 48 jam; reset oleh owner 24 jam. Retensi audit tetap tertunda (tanpa pemangkasan, tanpa ekspor).
+
+Laravel Boost MCP menjawab di sesi ini (`application-info`: Laravel 13.36.0, PHP 8.5, Fortify 1.41.0, MySQL; `search-docs` untuk cursor pagination, pessimistic locking, resource pagination, dan Gate). Perilaku `Cursor::fromEncoded`, `RequirePassword` (423 untuk JSON), kunci limiter bernama, dan percobaan ulang transaksi dibaca dari sumber framework yang terpasang. Playwright MCP gagal tersambung (tidak dibutuhkan: backend saja).
+
+### Komponen B3.1a yang dipakai ulang dan temuan
+
+| Temuan | Bukti | Tindakan |
+|---|---|---|
+| `ResetAdminCredentials` tidak memeriksa pelaku | Dipanggil hanya dari CLI di B3.1a | Lewat HTTP pelaku wajib owner aktif dan bukan akun itu sendiri, di bawah kunci owner; CLI tetap jalur darurat tanpa owner |
+| Dua owner dapat saling mereset dan meninggalkan nol owner yang dapat masuk | `ActiveOwners` menghitung owner tanpa autentikator terkonfirmasi | Owner aktif = dapat masuk (autentikator terkonfirmasi); reset dikunci bersama operasi lain. Uji mutasi di bawah |
+| Deadlock InnoDB saat dua owner saling menurunkan | Tes multi-proses: `1213 Deadlock found` pada `SELECT ... FOR UPDATE` owner; pembaruan `role` pemenang menulis ke gap index yang dikunci yang menunggu | Semua operasi owner memakai `DB::transaction(..., 3)`; percobaan ulang melihat perubahan yang sudah commit dan menjawab `403`. Tanpa perbaikan: `500` (tidak ada data yang rusak) |
+| Pemeriksaan "undangan hidup" bergantung pada waktu snapshot REPEATABLE READ | Uji mutasi: tanpa kunci owner, enam undangan bersamaan semuanya "berhasil" | Dibaca dengan `FOR UPDATE` (current read); kini lulus juga tanpa kunci owner |
+| Satu tautan terbuka per akun hanya dijaga kode | `IssueAdminAccessLink` cabut lalu sisipkan | Kolom tergenerasi `open_for_user_id` + `UNIQUE`; MySQL menolak tautan terbuka kedua (dites) |
+| `SESSION_DRIVER` dari environment dapat mematikan pencabutan sesi diam-diam | `config/session.php` B3.1a | Driver ditetapkan `database` di config; `AdminRequestBoundary` menjawab `503` tanpa sesi bila driver lain aktif |
+| Tautan yang dibuka sebelum penangguhan hidup lagi setelah aktivasi ulang | `accountFits()` hanya menolak selama ditangguhkan | Penangguhan mencabut tautan terbuka (`access_links_revoked` di audit) |
+| Route model binding akan menjawab `404` sebelum `can:` | Prioritas middleware Laravel (`SubstituteBindings` sebelum `Authorize`) | Tanpa binding: akun dicari setelah izin, `admin` mendapat `403` yang identik untuk ID ada dan tidak ada |
+| `password.confirm` sebelum `can:` membuat `admin` mendapat `423`, bukan `403` | Urutan middleware grup | `can:` dipasang sebelum `password.confirm` pada setiap penulisan (dites di route coverage) |
+| `TRUNCATE` melewati trigger audit | Perilaku MySQL (DDL) | Smoke test produksi memastikan `solveit_app` ditolak; dokumentasi menyebut batas terhadap pemegang hak DDL |
+
+### Pemeriksaan otomatis (lokal, Windows 11, PHP 8.5.7, MySQL 8.4.11)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `vendor/bin/pint --test` | Lulus |
+| `php artisan test` (database `solveit_indonesia_testing`) | **376 tes, 2.836 asersi lulus** (261 dan 1.216 di baseline `ffe07fc`, juga diverifikasi lulus sebelum perubahan). Tes B1, B2.1, B3.1a tetap lulus; dua asersi izin B3.1a diperbarui karena owner kini memegang tujuh izin, dan route coverage diperluas |
+| `composer validate --strict`, `check-platform-reqs`, `audit` | Lulus (`check-platform-reqs` exit 0), tanpa advisory. Tidak ada dependensi baru |
+| `php artisan route:list` | 27 route: 25 di `api/v1/admin` (14 B3.1a, 11 baru), `POST api/v1/inquiries`, `GET up` |
+| Migrasi | Satu migrasi aditif baru lulus di database tes (setiap run) dan database pengembangan (`migrate`, bukan `fresh`; tidak ada akun admin di sana); `--pretend` diperiksa lebih dulu. Up, down, up di Backend CI |
+| `EXPLAIN` (database pengembangan, lewat Boost `database-query`) | Filter `actor_user_id` dan `subject_type, subject_id` memakai index masing-masing dengan backward index scan; `action` memakai PRIMARY pada tabel kosong (index `action` tersedia). Tidak ada index baru untuk audit |
+
+Tes baru di `tests/Feature/Admin/`, semua lewat `InteractsWithAdminApi` (cookie, `Origin`, CSRF, TOTP nyata, tanpa `actingAs()`):
+
+| Area | Yang dibuktikan |
+|---|---|
+| Matriks izin | Gate: owner tujuh izin, admin hanya `account.manage-own`; matriks mencakup setiap kasus enum. HTTP: 11 route owner menolak `admin` (`403`, bahkan dengan konfirmasi kata sandi baru, tanpa perubahan dan tanpa audit) dan tanpa sesi (`401`) |
+| IDOR | `admin` mendapat jawaban identik untuk ID ada dan tidak ada; baris tanpa peran tidak pernah tampil (`404`) |
+| Privasi daftar dan detail | Kunci field persis; tanpa hash kata sandi, rahasia TOTP, kode pemulihan, remember token, `token_hash`, atau ID sesi; detail hanya jumlah sesi |
+| Pagination | Cursor, filter `role`/`status`, `per_page` 1 sampai 100, parameter tak dikenal dan cursor rusak, berkolom lain, atau ber-`id` string ditolak `422` |
+| Undangan | Alur penuh dari tautan respons sampai aktivasi; owner mengundang owner; tautan hanya di respons penerbit (tidak di daftar, detail, akun, audit, log); 48 jam; kedaluwarsa, dicabut, dipakai ulang; field tambahan tidak mengubah status; enam keadaan alamat yang ada tanpa duplikat; akun tertunda dengan undangan hidup ditolak sampai dicabut; pendaftaran yang sedang berjalan dihentikan oleh pencabutan; pendaftaran yang ditinggal membebaskan akun; MySQL menolak tautan terbuka kedua |
+| Peran dan penangguhan | Perubahan peran dan penangguhan mengakhiri sesi target; aktivasi ulang tidak membuat sesi; tindakan pada diri sendiri `409 own_account`; owner yang tidak dapat masuk tidak dihitung; owner yang diturunkan kehilangan akses owner |
+| Reset kredensial | Akun terkunci seketika, kata sandi lama dan saja tidak cukup, pulih hanya dengan kata sandi dan autentikator baru; persetujuan `acknowledge_access_loss` wajib; tautan hilang, kedaluwarsa (24 jam), dan pendaftaran setengah jalan diganti dengan reset baru; penangguhan mencabut tautan reset; akun tertunda, ditangguhkan, dan diri sendiri ditolak |
+| Konfirmasi kata sandi | `423` tanpa konfirmasi, berlaku 14 menit, ditolak setelah 16 menit; baca tidak butuh konfirmasi |
+| CSRF dan origin | `419` tanpa token; `403` untuk origin lain, tanpa `Origin`, `same-site`, `cross-site`; tanpa perubahan |
+| Batas laju | Penulisan ke-21 dalam semenit `429` dengan `Retry-After`; baca tetap jalan |
+| Kegagalan audit | Gagal menulis audit (peran, penangguhan, undangan, reset) membatalkan seluruh tindakan: peran, penangguhan, sesi, akun, dan tautan tidak berubah; `500 {"message":"Server Error"}` tanpa tautan |
+| Log | Token, URL, dan kata sandi tidak ada di log, juga saat kegagalan dilaporkan |
+| Audit reader | Owner saja, terbaru dulu, kunci field persis, tanpa celah atau pengulangan antarhalaman walau kejadian baru masuk, ukuran bawaan 25 dan maksimal 100, filter aksi, pelaku, subjek, dan waktu, sebelas parameter di luar allowlist (termasuk cursor yang dimanipulasi) ditolak, metadata di luar allowlist tidak pernah tampil, tidak ada rahasia setelah satu putaran administrasi lengkap, tidak ada `POST`/`PUT`/`PATCH`/`DELETE` (`405`), detail, atau ekspor (`404`) |
+| Driver sesi | `SESSION_DRIVER=file` di environment diabaikan; driver lain saat runtime: `503` tanpa cookie dan tanpa baris sesi |
+| Route coverage | Setiap route owner meminta tepat izinnya; penulisan punya `admin-administration` dan `password.confirm` setelah `can:`; baca tanpa konfirmasi |
+
+### Konkurensi nyata (proses PHP dan koneksi MySQL terpisah)
+
+`AdminAdministrationConcurrencyTest` menjalankan setiap operasi di prosesnya sendiri (`tests/Support/admin-administration-worker.php`, dijaga `TestDatabaseGuard`), dilepas pada saat yang sama, tiga putaran per skenario: enam undangan bersamaan dari dua owner untuk alamat baru (satu berhasil, lima `invitation_pending`, satu akun, satu tautan, satu audit); empat undangan ulang bersamaan untuk akun tertunda; dua owner saling menurunkan, saling menangguhkan, saling mereset, serta penangguhan melawan reset (tepat satu berhasil, sisanya `403`, tepat satu owner yang dapat masuk tersisa, dan dialah pemenangnya). Dijalankan tiga kali berturut-turut, semuanya lulus (6 tes, 74 asersi).
+
+### Uji mutasi (setiap pertahanan dirusak sementara, lalu dipulihkan dan diverifikasi)
+
+| Mutasi | Hasil |
+|---|---|
+| `lockForUpdate()` dihapus dari `ActiveOwners::lock()` | Keenam tes konkurensi gagal: kedua owner saling menurunkan, menangguhkan, atau mereset (nol owner), enam undangan "berhasil" |
+| Sama, setelah pembacaan undangan hidup memakai `FOR UPDATE` | Kedua tes undangan lulus (pertahanan berlapis: kunci baris akun, current read, `UNIQUE` email). Untuk mutasi ini hanya tes undangan yang dijalankan |
+| Syarat autentikator terkonfirmasi dihapus dari definisi owner aktif | Tes saling mereset gagal: kedua reset berhasil, tidak ada owner yang dapat masuk |
+
+### Docker
+
+- `verify-production.sh`: empat path B3.1b (`users`, `invitations`, `audit-events`, `users/1/credential-reset`) ditambahkan ke daftar path admin yang wajib `404` di listener publik (26 ejaan, `GET` dan `POST`), dan `TRUNCATE TABLE admin_audit_events` dari `solveit_app` wajib ditolak. `bash -n` dan shellcheck 0.10.0 bersih.
+- Smoke test produksi lokal (proyek terisolasi `solveit-prod-smoke`, secret acak sintetis di luar repository, image dibangun ulang dari working tree): migrasi sebagai `solveit_migrator` termasuk migrasi baru, **semua pemeriksaan lulus** (skrip berhenti pada kegagalan pertama). Proyek dan volumenya dihapus setelahnya; `solveit-mysql` tidak tersentuh.
+
+### Mesin pemilik
+
+- Migrasi aditif `add_open_link_constraint_to_admin_access_links_table` dijalankan pada database pengembangan `solveit_indonesia` (tidak ada akun admin dibuat). `solveit-mysql`, volumenya, XAMPP, dan file secret tidak diubah; tidak ada `.env` yang dibaca atau diedit.
+
+### CI pertama pada PR #34
+
+Backend CI run 38875997334 (push `8725192`): 18 dari 376 tes gagal, semuanya karena CI menjalankan suite dengan `APP_DEBUG=true`, sehingga badan galat `403`, `404`, dan `500` memuat `exception`, `file`, dan `trace` dan asersi badan persis gagal (perilaku produk benar: di luar pengembangan lokal `APP_DEBUG=false` wajib). Direproduksi lokal dengan `APP_DEBUG=true` (18 gagal), lalu tiga kelas tes menyematkan `config(['app.debug' => false])` seperti tes B1 dan B3.1a. Setelahnya 376 lulus dengan `APP_DEBUG=true` dan tanpa itu.
+
+Saat verifikasi ulang satu tes gagal sekali secara acak (`419`). Penyebab, dibuktikan dengan lotre garbage collection sesi dipaksa 100%: browser yang mengirim cookie sesi yang sudah melewati batas idle 30 menit membuat `DatabaseSessionHandler` menandai baris lama sebagai ada; bila lotre GC (2%) di `StartSession` menghapus baris itu sebelum sesi disimpan, penyimpanan menjadi `UPDATE` nol baris, sesi hilang, dan `POST` berikutnya `419`. Dengan GC 100% tes lama selalu gagal dan tes yang diperbaiki (browser baru setelah jeda panjang, seperti kenyataannya) selalu lulus. Dampak produk kecil dan aman (tidak ada akses yang terbuka): admin yang kembali setelah sesinya kedaluwarsa kadang mendapat satu `419`; klien B3.2 harus mengambil ulang `auth/csrf-cookie` sekali lalu mengulang (`admin-auth.md`, CSRF).
+
+### Belum diverifikasi
+
+- HTTP nyata lewat `php artisan serve` untuk endpoint B3.1b: tidak dijalankan, karena butuh akun owner di database pengembangan dan pernyataan "tidak ada akun admin di mana pun" harus tetap benar. Seluruh stack middleware, sesi database, CSRF, dan TOTP dijalankan oleh tes fitur.
+- Aplikasi admin (B3.2), WebKit, dan Lighthouse: tidak relevan untuk perubahan backend saja.
+- `EXPLAIN` dengan data volume produksi: tabel pengembangan kosong.
+- Hasil CI setelah perbaikan: di GitHub (`gh pr checks 34`).
+
 ## B3.1a identitas admin backend dan pengerasan keamanan (2026-10-16)
 
 Cakupan: fondasi identitas admin di `backend/` (`/api/v1/admin`): bootstrap owner lewat CLI, tautan akses sekali pakai, TOTP wajib sebelum aktivasi, masuk dan tantangan TOTP, sesi database, peran `owner` dan `admin`, audit log hanya-tambah, isolasi listener gateway publik (kontrak: `docs/api/admin-auth.md`; keputusan: `docs/architecture/admin-dashboard.md`). Tidak ada aplikasi admin, akun produksi, listener admin, atau deployment. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/frontend` = `28b3557`, `origin/staging` `ce89476` (tree sama), working tree bersih, tanpa stash, satu worktree, tanpa PR terbuka.

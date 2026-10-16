@@ -1,6 +1,6 @@
 # Dashboard Admin Website
 
-Status (2026-10-16): **B3.1a dibangun dan dites, belum di-deploy.** Fondasi identitas backend (akun, aktivasi lewat tautan sekali pakai, TOTP wajib, sesi, peran `owner` dan `admin`, audit log) ada di `backend/` di bawah `/api/v1/admin`; kontraknya di `docs/api/admin-auth.md`. **Belum ada:** aplikasi admin (`admin/`, B3.2), administrasi pengguna lewat API (B3.1b), modul inquiry (B4), analitik, konten. Tidak ada akun produksi, listener admin publik, atau domain. Keputusan yang masih milik pemilik ditandai **Owner decision required**.
+Status (2026-10-16): **B3.1a dirilis ke `main` (PR #33, `ffe07fc`); B3.1b dibangun dan dites di `backend`; keduanya belum di-deploy.** Fondasi identitas backend (akun, aktivasi lewat tautan sekali pakai, TOTP wajib, sesi, peran `owner` dan `admin`, audit log) ada di `backend/` di bawah `/api/v1/admin`, kontraknya di `docs/api/admin-auth.md`. Administrasi pengguna dan pembacaan audit oleh owner (B3.1b, backend saja): `docs/api/admin-users.md`. **Belum ada:** aplikasi admin (`admin/`, B3.2), modul inquiry (B4), analitik, konten. Tidak ada akun produksi, listener admin publik, atau domain. Keputusan yang masih milik pemilik ditandai **Owner decision required**.
 
 Terkait: `docs/api/admin-auth.md` (kontrak B3.1a), `visitor-analytics.md` (data analitik yang ditampilkan dashboard), `github-integration.md` (integrasi yang dimiliki sistem lain), `integration-plan.md` (batas antarsistem), `docs/api/inquiries.md` (data inquiry dan privasi).
 
@@ -61,13 +61,13 @@ Karena admin dan API-nya satu origin di sisi browser, Sanctum tidak menambah apa
 2. **Tautan akses**: token 256 bit (base64url, 43 karakter) di fragmen URL `ADMIN_URL/access#token=...`, sehingga tidak pernah sampai ke server, log proxy, atau header Referer. Database hanya menyimpan SHA-256-nya. Satu tautan hidup per akun (yang lama dicabut), sekali pakai, kedaluwarsa. Tujuan: `activation` dan `credential-reset`.
 3. **Penebusan** (`access-links/inspect`, `redeem`, `confirm`): set kata sandi (dan nama, untuk aktivasi), rahasia TOTP baru 160 bit, delapan kode pemulihan; tautan ditandai ditebus. Sesi hanya menyimpan "pendaftaran tertunda" selama 15 menit dan **tidak memberi izin apa pun**: akun baru masuk setelah kode TOTP pertama dikonfirmasi, di browser yang sama. Kode pemulihan hanya ditampilkan di respons konfirmasi.
 4. **Masuk**: kata sandi lalu TOTP (atau satu kode pemulihan). Akun tanpa peran, belum aktif, ditangguhkan, atau tanpa autentikator terkonfirmasi mendapat jawaban yang sama dengan kata sandi salah dan alamat yang tidak ada; setiap percobaan dibungkus `Timebox` (400 ms) dan alamat yang tidak ada dicek terhadap hash buangan. Kata sandi yang benar saja tidak pernah membuat sesi masuk. Tantangan TOTP berlaku 5 menit dan dibatalkan bila akun berubah status di antaranya. Kode TOTP yang sudah dipakai ditolak (cache Fortify per kode). Kode pemulihan dihapus setelah dipakai (Fortify menggantinya dengan kode baru yang tidak pernah dilihat orang; diubah di `User::replaceRecoveryCode`).
-5. **Reset kredensial** (`php artisan admin:reset-credentials <email>`, untuk B3.1b juga lewat owner): autentikator dan kode pemulihan dihapus, semua sesi berakhir seketika, tautan `credential-reset` 30 menit. Penebusan mengganti kata sandi dan mendaftarkan autentikator baru; tidak ada jalan yang memulihkan akses dengan satu faktor.
+5. **Reset kredensial** (`php artisan admin:reset-credentials <email>`, tautan 30 menit; sejak B3.1b juga oleh owner lewat `POST users/{id}/credential-reset`, tautan 24 jam, dengan persetujuan eksplisit bahwa akun kehilangan akses): autentikator dan kode pemulihan dihapus, semua sesi berakhir seketika. Tautan yang hilang atau kedaluwarsa diganti dengan menerbitkan reset lagi; akun tetap terkunci sampai itu selesai. Penebusan mengganti kata sandi dan mendaftarkan autentikator baru; tidak ada jalan yang memulihkan akses dengan satu faktor.
 
 ### 3.3 Sesi, cookie, dan CSRF
 
 | Aturan | Penerapan |
 |---|---|
-| Penyimpanan | Driver `database` (tabel `sessions`), payload terenkripsi, serialisasi JSON |
+| Penyimpanan | Driver `database` (tabel `sessions`), payload terenkripsi, serialisasi JSON. Sejak B3.1b driver ditetapkan di config (bukan `SESSION_DRIVER`), dan `AdminRequestBoundary` menjawab `503` bila driver lain aktif saat runtime, karena pencabutan sesi akan diam-diam gagal |
 | Cookie | Host-only (tanpa `Domain`), `Path=/`, `HttpOnly`, `SameSite=Strict`, kedaluwarsa saat browser ditutup. Dengan `ADMIN_URL` https: `Secure` dan nama `__Host-solveit-admin-session`; pada HTTP lokal: nama `solveit-admin-session` tanpa `Secure` |
 | Idle | 30 menit, ditegakkan server lewat `last_activity` |
 | Absolut | 12 jam sejak masuk (`EnforceAdminSessionLifetime`); sesi tanpa waktu masuk dianggap kedaluwarsa |
@@ -91,6 +91,7 @@ Kebijakan ini ditulis tetap di `config/session.php` dan `config/auth.php`, bukan
 | `admin-csrf` | 30 per menit per IP (setiap sesi anonim adalah satu baris tabel) |
 | `admin-password-confirm` | 5 per menit per akun |
 | `admin-account` | 120 per menit per akun |
+| `admin-administration` | 20 per menit per akun, untuk penulisan owner B3.1b (undangan, pencabutan, peran, penangguhan, reset) |
 
 ## 4. Peran dan izin (RBAC)
 
@@ -101,14 +102,18 @@ Satu peran per pengguna (`users.role`, enum `AdminRole`), izin sempit (`AdminPer
 | Izin | owner | admin | Fase |
 |---|---|---|---|
 | `account.manage-own` (profil, kata sandi, kode pemulihan, sesi sendiri) | Ya | Ya | B3.1a, dibangun |
-| Kelola pengguna, undangan, peran, penangguhan, reset kredensial | Ya | Tidak | B3.1b (operasi domain sudah ada, endpoint belum) |
-| Lihat seluruh audit log | Ya | Tidak | B3.1b |
+| `users.view` (daftar dan detail akun dan undangan) | Ya | Tidak | B3.1b, dibangun |
+| `users.invite` (undang, cabut undangan) | Ya | Tidak | B3.1b, dibangun |
+| `users.change-role` | Ya | Tidak | B3.1b, dibangun |
+| `users.suspend` (tangguhkan, aktifkan ulang) | Ya | Tidak | B3.1b, dibangun |
+| `users.reset-credentials` | Ya | Tidak | B3.1b, dibangun |
+| `audit.view-all` (seluruh audit log; keputusan pemilik: owner saja) | Ya | Tidak | B3.1b, dibangun |
 | Lihat daftar inquiry (kontak disamarkan), ubah status dan catatan | Ya | Ya | B4 |
 | Buka kontak inquiry lengkap (dicatat per tampilan) | Ya | Ya | B4 |
 | Ekspor inquiry, hapus inquiry (permintaan subjek data) | Ya | Tidak | B4 |
 | Kelola konten (`editor`), lihat analitik (`analyst`) | | | Nanti, bersama modulnya |
 
-Invarian yang sudah ditegakkan di `ChangeAdminRole` dan `SuspendAdminAccount`: hanya owner aktif yang bertindak, tidak ada yang mengubah peran atau penangguhan dirinya sendiri, dan owner aktif terakhir tidak dapat diturunkan atau ditangguhkan (baris owner dikunci). Sesi target berakhir seketika. **Owner decision required:** siapa memegang peran apa dan berapa owner (disarankan dua orang berbeda bila memungkinkan; selain itu pemulihan darurat lewat `admin:reset-credentials` di shell server).
+Invarian yang ditegakkan oleh setiap operasi owner (`InviteAdminAccount`, `RevokeAdminInvitation`, `ChangeAdminRole`, `SuspendAdminAccount`, `ResetAdminCredentials` lewat HTTP): hanya owner aktif yang bertindak, tidak ada yang mengubah peran, penangguhan, atau kredensial dirinya sendiri, dan owner aktif terakhir tidak dapat diturunkan atau ditangguhkan. **Owner aktif** berarti dapat masuk: aktif, tidak ditangguhkan, dan autentikator terkonfirmasi, sehingga owner yang sedang direset tidak dihitung. Setiap operasi mengunci baris owner aktif (`ActiveOwners::lockForActor`), memeriksa ulang pelaku di bawah kunci itu, dan mengulang transaksi bila InnoDB memutus deadlock (maksimal tiga kali). Sesi target berakhir seketika; penangguhan juga mencabut tautan yang masih terbuka. Diuji dengan proses PHP dan koneksi MySQL terpisah (`AdminAdministrationConcurrencyTest`), dan uji mutasi menunjukkan tes itu gagal tanpa kunci atau tanpa syarat autentikator terkonfirmasi. **Owner decision required:** siapa memegang peran apa dan berapa owner (disarankan dua orang berbeda bila memungkinkan; selain itu pemulihan darurat lewat `admin:reset-credentials` di shell server).
 
 Setiap route admin masuk tepat satu tingkat (publik-autentikasi, pra-aktivasi, terautentikasi) dan `tests/Feature/Admin/AdminRouteCoverageTest.php` gagal untuk route baru yang belum diklasifikasikan atau tanpa perlindungan tingkatnya.
 
@@ -120,7 +125,7 @@ Setiap route admin masuk tepat satu tingkat (publik-autentikasi, pra-aktivasi, t
 | Inquiry | Daftar dengan filter (status, layanan, tanggal), detail, riwayat status, catatan internal, ekspor | Status baru (misalnya `in_review`, `contacted`, `closed`) ditambahkan ke `InquiryStatus` dengan riwayatnya. Penerusan ke OpsHub lewat event `inquiry.received.v1` bila OpsHub siap |
 | Analitik | Tren, sumber, halaman populer, pengunjung aktif (definisi di dokumen analitik) | Data agregat; tidak ada data per orang |
 | Konten dan portofolio | Proyek, layanan, FAQ, testimoni berizin | Konten saat ini ada di `frontend/src/data/`. Memindahkannya ke API memerlukan build ulang situs statis setiap kali konten berubah (webhook build ke hosting), atau mengubah sebagian halaman menjadi data saat runtime. **Owner decision required** |
-| Audit log | Siapa, kapan, tindakan, objek | Hanya-tambah (bagian 6.2); pembacaan lewat API pada B3.1b |
+| Audit log | Siapa, kapan, tindakan, objek | Hanya-tambah (bagian 6.2); pembacaan khusus owner lewat `GET audit-events` (B3.1b, dibangun): cursor, filter yang diizinkan, tanpa ekspor |
 | Pengaturan | Kanal kontak, flag fitur, origin CORS tidak termasuk (tetap di environment) | Dibatasi peran |
 | Integrasi | Tautan dan status baca-saja produk Solveit lain | Lewat API berversi milik produk itu |
 
@@ -128,17 +133,19 @@ Setiap route admin masuk tepat satu tingkat (publik-autentikasi, pra-aktivasi, t
 
 ### 6.1 Struktur (B3.1a)
 
-- Route di `routes/admin.php`, dimuat `bootstrap/app.php` di bawah `/api/v1/admin` (nama `api.v1.admin.*`) dengan grup middleware `admin`: `AdminRequestBoundary`, `EncryptCookies`, `AddQueuedCookiesToResponse`, `StartSession`, `AdminPreventRequestForgery`, `SubstituteBindings`. Route terautentikasi menambah `auth:web`, `auth.session`, `admin.active`, `admin.session-lifetime`, batas laju, dan `can:<izin>`.
+- Route di `routes/admin.php`, dimuat `bootstrap/app.php` di bawah `/api/v1/admin` (nama `api.v1.admin.*`) dengan grup middleware `admin`: `AdminRequestBoundary`, `EncryptCookies`, `AddQueuedCookiesToResponse`, `StartSession`, `AdminPreventRequestForgery`, `SubstituteBindings`. Route terautentikasi menambah `auth:web`, `auth.session`, `admin.active`, `admin.session-lifetime`, batas laju, dan `can:<izin>`; penulisan owner B3.1b menambah `throttle:admin-administration` dan `password.confirm` (setelah `can:`). Controller B3.1b: `UserController`, `InvitationController`, `AuditEventController`; akun dan undangan dicari setelah pemeriksaan izin, tanpa route model binding.
 - Operasi di `app/Actions/Admin/`, sesi di `app/Services/AdminSessionStore.php` (ID sesi tidak pernah keluar dari server; API memakai handle HMAC), pencatatan kejadian autentikasi di `app/Listeners/RecordAdminAuthenticationEvents.php` (didaftarkan eksplisit), perintah di `app/Console/Commands/`.
-- Migrasi (aditif): kolom TOTP Fortify dan `role`, `activated_at`, `suspended_at`, `last_login_at` pada `users`; tabel `admin_access_links`; tabel `admin_audit_events` dengan dua trigger.
+- Migrasi (aditif): kolom TOTP Fortify dan `role`, `activated_at`, `suspended_at`, `last_login_at` pada `users`; tabel `admin_access_links`; tabel `admin_audit_events` dengan dua trigger. B3.1b: kolom tergenerasi `admin_access_links.open_for_user_id` dengan index `UNIQUE`, sehingga MySQL sendiri menolak tautan terbuka kedua untuk satu akun.
 - `DatabaseSeeder` tidak membuat pengguna (dulu membuat `test@example.com` dengan kata sandi `password`; dites). Factory memakai kata sandi acak kecuali tes memintanya.
 - Rencana B4 tetap: pagination di server, index pada kolom filter (`inquiries.status` sudah ada; tambah `created_at`), kontak disamarkan di daftar, setiap pembukaan kontak lengkap dan ekspor dicatat. Masa simpan inquiry tetap **Owner decision required** (`docs/api/inquiries.md`). Tidak ada endpoint publik baru untuk inquiry; aturan B1 tetap berlaku.
 
 ### 6.2 Audit log
 
-Tabel `admin_audit_events`: `occurred_at`, `action`, `actor_type` (`user`, `cli`, `anonymous`), `actor_user_id`, `subject_type`, `subject_id`, `ip_address`, `user_agent` (dipotong), `metadata` JSON. Ditulis hanya oleh `RecordAdminAuditEvent`, yang menerima metadata dari daftar kunci yang diizinkan dengan nilai skalar saja. Tidak pernah disimpan atau di-log: kata sandi, kode TOTP, kode pemulihan, rahasia TOTP, token tautan, ID sesi, payload request, isi inquiry. Login gagal hanya menyimpan sidik jari HMAC dari alamat yang diketik. Kejadian: bootstrap (diterbitkan dan ditolak), reset kredensial diterbitkan dan selesai, tautan ditebus dan ditolak, aktivasi, pendaftaran MFA gagal, login berhasil dan gagal, tantangan MFA gagal, kode pemulihan dipakai dan dibuat ulang, kata sandi diganti, keluar, sesi dicabut, sesi kedaluwarsa, sesi diakhiri karena akun tidak aktif, perubahan peran, penangguhan, aktivasi ulang.
+Tabel `admin_audit_events`: `occurred_at`, `action`, `actor_type` (`user`, `cli`, `anonymous`), `actor_user_id`, `subject_type`, `subject_id`, `ip_address`, `user_agent` (dipotong), `metadata` JSON. Ditulis hanya oleh `RecordAdminAuditEvent`, yang menerima metadata dari daftar kunci yang diizinkan dengan nilai skalar saja. Tidak pernah disimpan atau di-log: kata sandi, kode TOTP, kode pemulihan, rahasia TOTP, token tautan, ID sesi, payload request, isi inquiry. Login gagal hanya menyimpan sidik jari HMAC dari alamat yang diketik. Kejadian: bootstrap (diterbitkan dan ditolak), reset kredensial diterbitkan dan selesai, tautan ditebus dan ditolak, aktivasi, pendaftaran MFA gagal, login berhasil dan gagal, tantangan MFA gagal, kode pemulihan dipakai dan dibuat ulang, kata sandi diganti, keluar, sesi dicabut, sesi kedaluwarsa, sesi diakhiri karena akun tidak aktif, perubahan peran, penangguhan, aktivasi ulang; sejak B3.1b juga undangan diterbitkan dan dicabut, dan reset kredensial oleh owner (aktor `user`). Owner membacanya lewat `GET audit-events`; metadata disaring lagi dengan daftar kunci yang sama saat dibaca.
 
-**Tidak dapat diubah atau dihapus**: model menolak update dan delete, dan dua trigger MySQL (`BEFORE UPDATE`, `BEFORE DELETE`) menolak keduanya untuk setiap pengguna database, termasuk pengguna aplikasi (dites dan diperiksa di smoke test produksi). Membuat trigger dengan binary logging aktif (bawaan MySQL 8.4) tanpa SUPER butuh `log_bin_trust_function_creators = ON` di server (keputusan pemilik B3.1a). Skrip `initdb` pengembangan dan produksi serta Backend CI menyetelnya; MySQL lokal yang sudah ada disetel sekali dengan `SET PERSIST` (`backend/README.md`); MySQL terkelola menyetelnya sebagai parameter. Migrasi berhenti dengan pesan jelas bila setelan itu belum ada.
+**Tidak dapat diubah atau dihapus**: model menolak update dan delete, dan dua trigger MySQL (`BEFORE UPDATE`, `BEFORE DELETE`) menolak keduanya untuk setiap pengguna database, termasuk pengguna aplikasi (dites dan diperiksa di smoke test produksi). Membuat trigger dengan binary logging aktif (bawaan MySQL 8.4) tanpa SUPER butuh `log_bin_trust_function_creators = ON` di server (keputusan pemilik B3.1a). Skrip `initdb` pengembangan dan produksi serta Backend CI menyetelnya; MySQL lokal yang sudah ada disetel sekali dengan `SET PERSIST` (`backend/README.md`); MySQL terkelola menyetelnya sebagai parameter. Migrasi berhenti dengan pesan jelas bila setelan itu belum ada. Setelan itu berlaku untuk seluruh server MySQL, jadi menjadi prasyarat penyedia produksi (`backend/README.md`, Trigger audit).
+
+**Batas jaminan:** trigger tidak melindungi dari pemegang hak DDL. Pengguna migrasi, root, atau DBA penyedia tetap dapat `DROP TRIGGER`, `DROP TABLE`, atau `TRUNCATE TABLE` (yang tidak menjalankan trigger). Pengguna aplikasi hanya punya hak DML, sehingga `TRUNCATE` darinya ditolak (diperiksa smoke test produksi sejak B3.1b). Audit log ini mencegah perubahan oleh aplikasi, bukan oleh administrator database.
 
 **Retensi: menunggu keputusan pemilik.** Sampai diputuskan, tidak ada baris yang dapat dihapus dan tidak ada pemangkasan. Mekanisme yang direncanakan: migrasi yang ditinjau menggantikan trigger `DELETE` dengan versi yang hanya mengizinkan baris lebih tua dari masa simpan yang disetujui, ditambah satu perintah Artisan pemangkas yang dijalankan sadar. Alamat IP di audit adalah data pribadi; masa simpannya ikut keputusan ini (UU PDP). **Owner decision required.**
 
@@ -165,8 +172,8 @@ Mengikuti bahasa visual Solveit (`docs/DESIGN.md`, `docs/design/design-system.md
 |---|---|---|
 | B2, B2.1, B2.2 | Kanal `api` formulir kontak di balik flag yang nonaktif, idempotensi backend dan frontend | Dibangun, dirilis ke `main` |
 | B3.0 | Arsitektur dan keputusan keamanan | Selesai; keputusan pemilik di bagian 3 |
-| **B3.1a** | Identitas backend: bootstrap owner, tautan akses, TOTP wajib, login, sesi, peran `owner`/`admin`, audit log, isolasi gateway publik | **Dibangun dan dites, belum di-deploy** |
-| B3.1b | API administrasi pengguna: undangan (tautan ditampilkan sekali kepada owner, tanpa SMTP), daftar pengguna, perubahan peran, penangguhan, reset kredensial oleh owner, pembacaan audit log | Berikutnya; memakai operasi domain yang sudah ada |
+| B3.1a | Identitas backend: bootstrap owner, tautan akses, TOTP wajib, login, sesi, peran `owner`/`admin`, audit log, isolasi gateway publik | Dirilis ke `main` (PR #33, `ffe07fc`), belum di-deploy |
+| **B3.1b** | API administrasi pengguna: undangan (tautan 48 jam ditampilkan sekali kepada owner, tanpa email), daftar dan detail pengguna, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner (24 jam), pembacaan audit log khusus owner (`docs/api/admin-users.md`) | **Dibangun dan dites di `backend`, backend saja, belum di-deploy** |
 | B3.2 | Aplikasi `admin/` (React, TypeScript, Vite), shell dashboard, layar masuk dan aktivasi, keamanan akun; image Docker admin dan listener gateway admin terpisah (loopback secara default) | Setelah keputusan bagian 2 |
 | B4 | Modul inquiry (status, catatan, riwayat, penyamaran kontak, ekspor terkendali). Field yang dikirim pengunjung tidak diubah, karena idempotensi B2.1 membandingkan percobaan ulang dengan field itu (`docs/api/inquiries.md`, Idempotensi) | Setelah keputusan retensi dan penanganan inquiry |
 | Nanti | Analitik (setelah tinjauan privasi, `visitor-analytics.md`), konten dan portofolio (setelah keputusan build statis vs data runtime), passkey, email transaksional, titik masuk OpsHub (setelah kontrak API OpsHub ada) | Rencana |

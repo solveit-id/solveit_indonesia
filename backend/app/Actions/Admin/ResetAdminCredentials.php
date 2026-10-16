@@ -8,6 +8,7 @@ use App\Enums\AdminAuditAction;
 use App\Exceptions\AdminAccountStateException;
 use App\Models\User;
 use App\Services\AdminSessionStore;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 class ResetAdminCredentials
@@ -25,11 +26,31 @@ class ResetAdminCredentials
      * so a stolen password or session stops working at once. The password itself is
      * replaced only when the link is redeemed.
      *
+     * From the shell (AdminActorType::Cli) this is the emergency path and needs no owner.
+     * Over HTTP (AdminActorType::User) the issuer must be an active owner other than the
+     * account, checked under the owner lock: the target stops counting as an active owner
+     * until it completes the reset, so two owners resetting each other cannot both win.
+     * Issuing again for an account whose reset is still pending replaces the link (lost,
+     * expired, or never delivered).
+     *
+     * @throws AuthorizationException
      * @throws AdminAccountStateException
      */
     public function handle(User $user, AdminActorType $actorType, int $ttlMinutes, ?User $issuer = null): IssuedAdminAccessLink
     {
+        if ($actorType === AdminActorType::User && $issuer === null) {
+            throw new AuthorizationException;
+        }
+
+        if ($actorType === AdminActorType::User && $issuer->is($user)) {
+            throw AdminAccountStateException::ownCredentials();
+        }
+
         return DB::transaction(function () use ($user, $actorType, $ttlMinutes, $issuer): IssuedAdminAccessLink {
+            if ($actorType === AdminActorType::User) {
+                ActiveOwners::lockForActor($issuer);
+            }
+
             $user = User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
 
             if ($user->role === null) {
@@ -62,10 +83,11 @@ class ResetAdminCredentials
                 metadata: [
                     'purpose' => AdminAccessLinkPurpose::CredentialReset->value,
                     'sessions_ended' => $sessionsEnded,
+                    'access_link_id' => $issued->link->getKey(),
                 ],
             );
 
             return $issued;
-        });
+        }, ActiveOwners::TRANSACTION_ATTEMPTS);
     }
 }

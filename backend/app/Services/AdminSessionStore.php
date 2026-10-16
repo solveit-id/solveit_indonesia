@@ -30,6 +30,18 @@ class AdminSessionStore
     }
 
     /**
+     * Sessions of the account that are still inside the idle limit (rows past it wait for
+     * the session garbage collector but can no longer be used).
+     */
+    public function activeCountFor(User $user): int
+    {
+        return $this->table()
+            ->where('user_id', $user->getKey())
+            ->where('last_activity', '>', now()->subMinutes((int) config('session.lifetime'))->getTimestamp())
+            ->count();
+    }
+
+    /**
      * Opaque, stable reference to a session that does not reveal its ID.
      */
     public function handleFor(string $sessionId): string
