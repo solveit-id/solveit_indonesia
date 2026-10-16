@@ -79,7 +79,10 @@ jobs:
           # Grants name each database exactly: "\_" escapes the underscore, which MySQL otherwise
           # treats as a wildcard in database-level grants. The test suite refuses a test user
           # with any other privilege (tests/Support/TestDatabaseGuard.php).
+          # log_bin_trust_function_creators lets the non-SUPER migration and test users create the
+          # append-only audit triggers while binary logging is on (MySQL 8.4 default).
           sql <<SQL
+          SET PERSIST log_bin_trust_function_creators = ON;
           CREATE DATABASE solveit_indonesia_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
           CREATE DATABASE solveit_indonesia_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
           CREATE USER 'ci_migrator'@'%' IDENTIFIED BY '$CI_MIGRATOR_PASSWORD';
