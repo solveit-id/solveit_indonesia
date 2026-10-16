@@ -2,7 +2,7 @@
 
 Referensi endpoint backend Laravel milik website ini (`backend/`). Hanya kontrak yang benar-benar dibangun dan dites yang ditulis di sini; rencana endpoint lain ada di `docs/architecture/integration-plan.md`.
 
-Status: **dibangun dan dites secara lokal dan di CI (B1, idempotensi B2.1, identitas admin B3.1a, administrasi pengguna dan audit B3.1b), belum di-deploy.** Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
+Status: **dibangun, dites lokal dan di CI, dan dirilis ke `main` (B1, idempotensi B2.1, identitas admin B3.1a lewat PR #33, administrasi pengguna dan audit B3.1b lewat PR #35, merge `4874c73`), belum di-deploy.** Konsumen API admin adalah konsol `admin/` (B3.2a, belum di-deploy): klien bertipe di `admin/src/services/admin-api/`, yang mengikuti kontrak `admin-auth.md` dan `admin-users.md` dan aturan klien untuk 419 (`admin-auth.md`, CSRF). Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
 
 ## Endpoint
 
