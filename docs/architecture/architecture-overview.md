@@ -6,7 +6,8 @@
 solveit_indonesia/
 ├── frontend/   React 19 + TypeScript (strict) + Vite 8 + React Router 7 (framework mode, prerender statis)
 │               Logo asli: frontend/public/brand/solveit-logo-{full,icon}.svg (jangan diubah bentuknya)
-├── backend/    Laravel 13 API (PHP 8.5 minimal 8.5.7, MySQL 8.4 LTS): POST /api/v1/inquiries dan GET /up; lihat backend/README.md
+├── backend/    Laravel 13 API (PHP 8.5 minimal 8.5.7, MySQL 8.4 LTS): POST /api/v1/inquiries, GET /up, dan identitas
+│               admin di /api/v1/admin (B3.1a); lihat backend/README.md
 ├── infra/      Infrastruktur bersama: infra/docker/ (Compose pengembangan dan produksi, Dockerfile, nginx, skrip)
 ├── docs/       Dokumentasi. PRODUCT.md (fakta produk) dan DESIGN.md (spesifikasi desain) di tingkat atas,
 │               sisanya per kelompok. Peta: docs/README.md; aturan struktur: docs/project-structure.md
@@ -15,9 +16,9 @@ solveit_indonesia/
 └── CLAUDE.md   Memuat AGENTS.md ditambah catatan khusus Claude Code
 ```
 
-Rancangan yang belum dibangun (status Planned): dashboard admin website (`admin-dashboard.md`), analitik pengunjung first-party (`visitor-analytics.md`), dan batas integrasi GitHub organisasi (`github-integration.md`, dimiliki OpsHub).
+Rancangan yang belum dibangun (status Planned): aplikasi dan modul dashboard admin website (`admin-dashboard.md`; fondasi identitas backend B3.1a sudah dibangun), analitik pengunjung first-party (`visitor-analytics.md`), dan batas integrasi GitHub organisasi (`github-integration.md`, dimiliki OpsHub).
 
-Frontend publik sudah dirilis. Backend berisi fondasi API, endpoint inquiry (B0, B1), dan idempotensinya (B2.1), dites secara lokal dan di CI, tetapi **belum di-deploy**. Klien frontend (B2) sudah dibangun di balik flag yang nonaktif, jadi build yang dirilis tidak memanggil API: formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email. Sejak B2.2 klien mengirim `Idempotency-Key` per kiriman logis dan memeriksa hasil yang tidak pasti dengan kunci yang sama.
+Frontend publik sudah dirilis. Backend berisi fondasi API, endpoint inquiry (B0, B1), idempotensinya (B2.1), dan fondasi identitas admin (B3.1a: aktivasi lewat tautan akses, TOTP wajib, sesi, peran `owner` dan `admin`, audit log hanya-tambah), dites secara lokal dan di CI, tetapi **belum di-deploy**. Klien frontend (B2) sudah dibangun di balik flag yang nonaktif, jadi build yang dirilis tidak memanggil API: formulir konsultasi tetap menyusun pesan yang dikirim pengunjung sendiri lewat WhatsApp atau email. Sejak B2.2 klien mengirim `Idempotency-Key` per kiriman logis dan memeriksa hasil yang tidak pasti dengan kunci yang sama.
 
 ### Batas sistem
 
@@ -29,12 +30,13 @@ Aplikasi Laravel 13 standar di `backend/`, hanya JSON API tanpa halaman Blade at
 
 | Lapisan | Lokasi | Isi |
 |---|---|---|
-| Routing | `routes/api.php`, `bootstrap/app.php` | `/api` dari Laravel, grup `v1`; `GET /up` di luar grup `web` (tanpa sesi) |
+| Routing | `routes/api.php`, `routes/admin.php`, `bootstrap/app.php` | `/api` dari Laravel, grup `v1`; `GET /up` di luar grup `web` (tanpa sesi). API admin di `/api/v1/admin` dengan grup middleware `admin` sendiri: satu-satunya route dengan sesi (`docs/api/admin-auth.md`) |
 | Validasi | `app/Http/Requests/Api/V1/` | Form Request per endpoint; enum di `app/Enums/` sama dengan tipe frontend |
 | Operasi | `app/Actions/` | `SubmitInquiry`: nomor referensi acak, status `received`, idempotensi lewat indeks `UNIQUE` pada hash `Idempotency-Key`, galat database menjadi 503 |
 | Respons | `app/Http/Resources/` | `InquiryResource` hanya `{ id, status }`, tanpa data pribadi |
 | Perlindungan | `AppServiceProvider` (rate limiter), `LimitRequestBodySize`, `config/cors.php`, `config/trustedproxy.php` | Batas laju per IP, batas body 64 KB, CORS dengan daftar origin, proxy tepercaya lewat environment |
-| Data | `database/migrations/`, `app/Models/` | Tabel `inquiries` di MySQL 8.4 (`utf8mb4`, strict mode, InnoDB); database pengembangan dan database tes `_testing` terpisah, produksi juga MySQL 8.4 |
+| Admin (B3.1a) | `app/Actions/Admin/`, `app/Http/Middleware/Admin*`, `app/Services/AdminSessionStore.php`, `app/Listeners/`, `app/Console/Commands/`, `config/admin.php` | Laravel Fortify headless (route sendiri tidak didaftarkan), guard sesi `web`, Gates per izin, audit log; detail di `admin-dashboard.md` bagian 3 dan 6 |
+| Data | `database/migrations/`, `app/Models/` | Tabel `inquiries`, `users`, `sessions`, `admin_access_links`, `admin_audit_events` di MySQL 8.4 (`utf8mb4`, strict mode, InnoDB); database pengembangan dan database tes `_testing` terpisah, produksi juga MySQL 8.4 |
 
 Alur `POST /api/v1/inquiries`: CORS dan proxy (middleware global) → rate limiter `inquiries` → batas body → `StoreInquiryRequest` (`400` untuk `Idempotency-Key` rusak, `422` bila validasi gagal) → `SubmitInquiry` menyimpan baris → `201 { id, status }`. Dengan kunci yang sudah tersimpan: `201` dengan referensi yang sama (`Idempotent-Replayed: true`) atau `409` bila isinya berbeda. Bila database gagal: `503` tanpa nomor referensi, dan log hanya berisi kode SQLSTATE.
 
@@ -140,6 +142,8 @@ Laravel Boost (`laravel/boost`, dev dependency) adalah alat pengembangan untuk c
 | Terang sebagai default | Brief: pemilik bisnis menilai vendor di siang hari; gelap tetap tersedia sebagai pilihan sadar |
 | Bootstrap JS setelah first paint | HTML statis sudah lengkap; menunda unduhan modul ke belakang FCP menurunkan LCP mobile tersimulasi dari sekitar 3 detik ke sekitar 1,6 detik tanpa mengubah tampilan |
 | Backend tanpa `install:api` dan tanpa Sanctum | `install:api` selalu memasang Sanctum; endpoint publik tidak butuh autentikasi, dan autentikasi admin baru dirancang pada fase admin. Route API diaktifkan langsung lewat `withRouting(api:)` |
+| Admin (B3.1a): guard sesi Laravel dan Fortify headless, tetap tanpa Sanctum | Admin dan API-nya satu origin di sisi browser, jadi middleware stateful Sanctum tidak dibutuhkan; Sanctum 4.3.3 juga menimpa `session.same_site` menjadi `lax` di setiap request, padahal keputusan pemilik `Strict`. Fortify dipakai sebagai pustaka (pipeline login, TOTP, konfirmasi kata sandi) dengan `ignoreRoutes()`, sehingga hanya route yang ditinjau di `routes/admin.php` yang ada. Kebijakan sesi ditulis tetap di `config/session.php`, bukan dari environment |
+| Audit admin hanya-tambah lewat trigger MySQL, dengan `log_bin_trust_function_creators = ON` | Hak database tidak dapat mengecualikan satu tabel dari `UPDATE`/`DELETE` tingkat database; trigger `BEFORE UPDATE` dan `BEFORE DELETE` menolak keduanya untuk setiap pengguna. Dengan binary logging (bawaan MySQL 8.4) pengguna non-SUPER hanya boleh membuat trigger bila setelan server itu aktif (error 1419 diverifikasi); keputusan pemilik, disetel di `initdb`, Backend CI, dan sekali dengan `SET PERSIST` pada MySQL lokal yang ada. Retensi menunggu keputusan pemilik, jadi belum ada pemangkasan |
 | PHP `^8.5.7` dan `config.platform.php` 8.5.7 (B1.1, menggantikan `^8.3` dan platform 8.3.0) | Keputusan pemilik: PHP 8.5.7 menjadi baseline. Platform disamakan dengan minimum agar lock selalu dapat dipasang di 8.5.7; patch 8.5 yang lebih baru tetap diizinkan. Tidak ada versi paket yang berubah (hanya hash lock); Symfony tetap 7.4 LTS karena didukung lebih lama daripada 8.x. CI menegaskan 8.5 dan minimal 8.5.7 serta mencatat patch yang diuji |
 | MySQL 8.4 LTS untuk pengembangan, tes, dan produksi (B1.1, menggantikan SQLite) | Keputusan pemilik. Tes pada engine yang sama dengan produksi menangkap perbedaan nyata (DDL yang commit implisit, strict mode, kode galat unique 1062, collation). Oracle MySQL, bukan MariaDB; versi ditegaskan di tes dan CI |
 | Kegagalan penyimpanan diuji dengan baris yang ditolak MySQL, bukan `Schema::drop` | DDL di MySQL melakukan commit implisit, memutus transaksi `RefreshDatabase` dan memaksa `migrate:fresh` ulang. Nilai yang melebihi kolom (SQLSTATE 22001, strict mode) menguji jalur 503 tanpa mengubah skema |

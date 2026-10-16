@@ -53,6 +53,8 @@ Semua service: `restart: unless-stopped` (kecuali `migrate`), `no-new-privileges
 - Default **satu origin**: gateway menyajikan situs dan `/api`, sehingga browser tidak butuh CORS (`CORS_ALLOWED_ORIGINS` kosong).
 - **Origin terpisah** (misalnya `api.<domain>`): jalankan gateway kedua atau server block lain untuk API, isi `CORS_ALLOWED_ORIGINS` dengan origin website yang persis (tanpa `*`), dan bangun frontend dengan `SOLVEIT_API_BASE_URL=https://api.<domain>`.
 - `VITE_*` adalah konfigurasi publik saat build, bukan rahasia. `compose.prod.yaml` mengunci `VITE_INQUIRY_API_ENABLED: "false"`: build Docker tidak dapat mengaktifkan kanal **Kirim melalui website** secara tidak sengaja. Mengubahnya butuh persetujuan pemilik (privasi, retensi, hosting, database, penanganan inquiry). B2.2 (idempotensi di frontend) sudah selesai, jadi syarat teknis dari sisi klien terpenuhi.
+- **API admin (B3.1a) tidak disajikan di listener publik.** `gateway.conf` menjawab setiap path `/api/v1/admin...` dengan `404` JSON di dalam blok `/api/` (tanpa membedakan huruf besar kecil, setelah nginx mendekode `%XX`, menggabung garis miring, dan menyelesaikan segmen titik); Laravel sendiri menolak host selain `ADMIN_URL` dengan `404`. `verify-production.sh` menguji 22 ejaan path. Listener admin terpisah (port gateway lain, loopback secara default, dilindungi proxy TLS) baru ditambahkan pada B3.2 bersama aplikasi admin; tidak ada yang di-deploy.
+- **Sesi hanya untuk admin.** `SESSION_DRIVER=database` (tabel `sessions`); `POST /api/v1/inquiries` dan `/up` tidak pernah memulai sesi atau memasang cookie (diperiksa smoke test). `ADMIN_URL` di `production.env` adalah origin https aplikasi admin: dengan itu cookie admin `Secure` dan bernama `__Host-solveit-admin-session` (template memakai placeholder `https://admin.example.invalid` sampai domain ada).
 - Galat `502` atau `504` yang dibuat gateway (backend tidak terjangkau, timeout) berarti hasil **tidak pasti** bagi klien; hanya `503` dengan body JSON dari Laravel berarti pasti tidak tersimpan (`docs/api/inquiries.md`).
 
 ## File konfigurasi dan rahasia
@@ -61,7 +63,7 @@ Semua service: `restart: unless-stopped` (kecuali `migrate`), `no-new-privileges
 |---|---|---|
 | `infra/docker/compose.prod.yaml` | Ya | Service, jaringan, volume, secret, batas |
 | `infra/docker/production.env.example` | Ya | Template konfigurasi runtime backend tanpa rahasia; nilainya langsung dapat dipakai untuk uji lokal |
-| `infra/docker/production.env` | **Tidak** (`*.env` diabaikan) | Salinan yang disesuaikan untuk server: `APP_URL`, `DB_HOST`, `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXIES` |
+| `infra/docker/production.env` | **Tidak** (`*.env` diabaikan) | Salinan yang disesuaikan untuk server: `APP_URL`, `ADMIN_URL`, `DB_HOST`, `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXIES` |
 | `infra/docker/secrets/` | **Tidak** | `app_key`, `db_app_password`, `db_migrator_password`, `mysql_root_password` |
 
 Variabel Compose (shell atau `infra/docker/.env`, keduanya tidak di-commit): `SOLVEIT_HTTP_BIND` dan `SOLVEIT_HTTP_PORT` (alamat publikasi gateway), `SOLVEIT_IMAGE_TAG` (tag image, default `local`), `SOLVEIT_SITE_URL`, `SOLVEIT_API_BASE_URL`, `SOLVEIT_GOOGLE_SITE_VERIFICATION` (build frontend), `SOLVEIT_ENV_FILE`, `SOLVEIT_SECRETS_DIR`, `SOLVEIT_DB_MIGRATOR_USERNAME`.
@@ -104,14 +106,25 @@ docker compose -f infra/docker/compose.prod.yaml --profile bundled-db up -d --wa
 curl -fsS http://127.0.0.1:8080/up
 ```
 
-Dengan MySQL terkelola: hilangkan `--profile bundled-db`, isi `DB_HOST` (dan `MYSQL_ATTR_SSL_CA` bila TLS), buat sendiri database dan kedua pengguna dengan hak seperti di `infra/docker/mysql/initdb-production/10-solveit-production.sh`, dan beri jaringan `internal` akses keluar (ganti `internal: true` dengan jaringan biasa yang dibatasi firewall), karena jaringan `internal` tidak punya rute ke luar host.
+Dengan MySQL terkelola: hilangkan `--profile bundled-db`, isi `DB_HOST` (dan `MYSQL_ATTR_SSL_CA` bila TLS), buat sendiri database dan kedua pengguna dengan hak seperti di `infra/docker/mysql/initdb-production/10-solveit-production.sh`, setel parameter server `log_bin_trust_function_creators = ON` (tanpa itu pengguna migrasi tidak dapat membuat trigger audit B3.1a; `backend/README.md`, Trigger audit), dan beri jaringan `internal` akses keluar (ganti `internal: true` dengan jaringan biasa yang dibatasi firewall), karena jaringan `internal` tidak punya rute ke luar host.
 
 ## Migrasi
 
 - Hanya lewat `docker compose ... --profile ops run --rm migrate`, sebagai `solveit_migrator`. Container `backend` tidak pernah menjalankan migrasi saat start dan pengguna aplikasinya tidak punya hak DDL.
 - Sebelum migrasi: backup (di bawah) dan baca diff migrasi pada rilis itu.
 - Tidak ada `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, atau `DROP` pada database produksi. Pembalikan skema dilakukan dengan migrasi baru yang ditinjau.
-- Migrasi harus kompatibel dengan versi aplikasi sebelumnya (menambah kolom nullable, bukan mengganti nama), agar rollback image tidak butuh rollback skema. Migrasi B2.1 (`idempotency_key_hash`, nullable) memenuhi ini.
+- Migrasi harus kompatibel dengan versi aplikasi sebelumnya (menambah kolom nullable, bukan mengganti nama), agar rollback image tidak butuh rollback skema. Migrasi B2.1 (`idempotency_key_hash`, nullable) dan B3.1a (kolom admin nullable di `users`, tabel `admin_access_links` dan `admin_audit_events` baru) memenuhi ini.
+- Migrasi B3.1a membuat dua trigger yang membuat `admin_audit_events` hanya-tambah untuk setiap pengguna, termasuk `solveit_app`. MySQL bawaan (profil `bundled-db`) menyetel `log_bin_trust_function_creators` di `initdb`; volume yang dibuat sebelum B3.1a butuh `SET PERSIST log_bin_trust_function_creators = ON` sekali sebagai root sebelum migrasi.
+
+## Akun admin pertama
+
+Belum ada akun produksi, dan bootstrap menunggu deployment yang disetujui pemilik. Saat waktunya, operator di shell server menjalankan:
+
+```bash
+docker compose -f infra/docker/compose.prod.yaml exec backend php artisan admin:bootstrap-owner <email-owner> --force
+```
+
+Perintah mencetak satu tautan aktivasi 30 menit (tidak disimpan, tidak di-log); serahkan lewat kanal tepercaya. Tautan baru menggantikan yang lama; setelah owner aktif, perintah ditolak. Pemulihan darurat: `admin:reset-credentials <email> --force`. Rincian: `docs/api/admin-auth.md`.
 
 ## Pembaruan dan rollback
 
@@ -158,4 +171,6 @@ bash infra/docker/scripts/verify-production.sh
 docker compose -p $SOLVEIT_PROD_PROJECT -f infra/docker/compose.prod.yaml --profile bundled-db down -v   # hanya proyek uji ini
 ```
 
-`verify-production.sh` memeriksa versi PHP dan ekstensi, isi image (tanpa dev package, `.env`, kunci, dump, `.git`, Node), port yang dipublikasikan, halaman ID/EN, 404 per bahasa, cache dan kompresi aset, header, `/up`, kontrak inquiry (201, replay, 409, 400, 422, 429), hak pengguna database, dan restart. Lulus di sini **bukan** deployment publik.
+`verify-production.sh` memeriksa versi PHP dan ekstensi, isi image (tanpa dev package, `.env`, kunci, dump, `.git`, Node), port yang dipublikasikan, halaman ID/EN, 404 per bahasa, cache dan kompresi aset, header, `/up`, kontrak inquiry (201, replay, 409, 400, 422, 429), hak pengguna database, dan restart. Sejak B3.1a juga: inquiry tanpa cookie, 22 ejaan path admin (`GET` dan `POST`) yang ditolak listener publik tanpa cookie, konfigurasi sesi admin efektif di container (`database`, `__Host-`, `Secure`, `Strict`, `HttpOnly`, terenkripsi, 30 menit, tanpa `Domain`), dan audit log yang menolak `UPDATE` dan `DELETE` dari `solveit_app`. Lulus di sini **bukan** deployment publik.
+
+Di Windows (Git Bash), `openssl` dapat menulis secret dengan akhir baris CRLF, yang ditolak skrip `initdb` MySQL (hanya huruf dan angka). Tambahkan `| tr -d '\r\n'` sebelum `>` saat membuat secret uji lokal.

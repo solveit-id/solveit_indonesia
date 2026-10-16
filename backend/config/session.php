@@ -1,6 +1,24 @@
 <?php
 
-use Illuminate\Support\Str;
+/*
+|--------------------------------------------------------------------------
+| Sessions exist only for the admin application (B3.1a)
+|--------------------------------------------------------------------------
+|
+| Only routes in the "admin" middleware group (routes/admin.php) start a session. The
+| public API (routes/api.php, POST /api/v1/inquiries) and /up never do, and send no
+| cookie. The approved security policy is fixed here instead of read from the
+| environment, so a stale .env cannot weaken it: idle expiry 30 minutes, expiry when the
+| browser closes, encrypted payloads, host-only HttpOnly cookie with SameSite=Strict.
+|
+| Transport follows ADMIN_URL (config/admin.php): with an https:// admin origin the
+| cookie is Secure and named with the __Host- prefix (Secure, Path=/, no Domain, so no
+| sibling subdomain can set or overwrite it). Local HTTP development gets a plain name
+| without Secure, which browsers would otherwise reject or drop on http://.
+|
+*/
+
+$adminUsesHttps = str_starts_with(strtolower((string) env('ADMIN_URL', 'http://127.0.0.1:5174')), 'https://');
 
 return [
 
@@ -9,9 +27,9 @@ return [
     | Default Session Driver
     |--------------------------------------------------------------------------
     |
-    | This option determines the default session driver that is utilized for
-    | incoming requests. Laravel supports a variety of storage options to
-    | persist session data. Database storage is a great default choice.
+    | "database" (the sessions table) is required for the admin application: it lets
+    | an account list and revoke its sessions, and lets suspension, role changes, and
+    | credential resets end every session of an account at once.
     |
     | Supported: "file", "cookie", "database", "memcached",
     |            "redis", "dynamodb", "array"
@@ -25,29 +43,25 @@ return [
     | Session Lifetime
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the number of minutes that you wish the session
-    | to be allowed to remain idle before it expires. If you want them
-    | to expire immediately when the browser is closed then you may
-    | indicate that via the expire_on_close configuration option.
+    | Idle expiry in minutes, enforced by the server (last activity), not only by the
+    | cookie. The absolute limit from sign-in is config('admin.session').
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    'lifetime' => 30,
 
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+    'expire_on_close' => true,
 
     /*
     |--------------------------------------------------------------------------
     | Session Encryption
     |--------------------------------------------------------------------------
     |
-    | This option allows you to easily specify that all of your session data
-    | should be encrypted before it's stored. All encryption is performed
-    | automatically by Laravel and you may use the session like normal.
+    | Session payloads are encrypted with APP_KEY before they are stored.
     |
     */
 
-    'encrypt' => env('SESSION_ENCRYPT', false),
+    'encrypt' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -121,98 +135,74 @@ return [
     | Session Cookie Name
     |--------------------------------------------------------------------------
     |
-    | Here you may change the name of the session cookie that is created by
-    | the framework. Typically, you should not need to change this value
-    | since doing so does not grant a meaningful security improvement.
+    | __Host- only when the cookie is Secure, Path=/ and has no Domain (all fixed below).
     |
     */
 
-    'cookie' => env(
-        'SESSION_COOKIE',
-        Str::slug((string) env('APP_NAME', 'laravel')).'-session'
-    ),
+    'cookie' => $adminUsesHttps ? '__Host-solveit-admin-session' : 'solveit-admin-session',
 
     /*
     |--------------------------------------------------------------------------
-    | Session Cookie Path
+    | Session Cookie Path and Domain
     |--------------------------------------------------------------------------
     |
-    | The session cookie path determines the path for which the cookie will
-    | be regarded as available. Typically, this will be the root path of
-    | your application, but you're free to change this when necessary.
+    | Path "/" and no Domain attribute: the cookie belongs to the admin host only and is
+    | never sent to the public website or another subdomain.
     |
     */
 
-    'path' => env('SESSION_PATH', '/'),
+    'path' => '/',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Session Cookie Domain
-    |--------------------------------------------------------------------------
-    |
-    | This value determines the domain and subdomains the session cookie is
-    | available to. By default, the cookie will be available to the root
-    | domain without subdomains. Typically, this shouldn't be changed.
-    |
-    */
-
-    'domain' => env('SESSION_DOMAIN'),
+    'domain' => null,
 
     /*
     |--------------------------------------------------------------------------
     | HTTPS Only Cookies
     |--------------------------------------------------------------------------
     |
-    | By setting this option to true, session cookies will only be sent back
-    | to the server if the browser has a HTTPS connection. This will keep
-    | the cookie from being sent to you when it can't be done securely.
+    | Follows the scheme of ADMIN_URL (see the top of this file).
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    'secure' => $adminUsesHttps,
 
     /*
     |--------------------------------------------------------------------------
     | HTTP Access Only
     |--------------------------------------------------------------------------
     |
-    | Setting this value to true will prevent JavaScript from accessing the
-    | value of the cookie and the cookie will only be accessible through
-    | the HTTP protocol. It's unlikely you should disable this option.
+    | The session cookie is never readable by JavaScript.
     |
     */
 
-    'http_only' => env('SESSION_HTTP_ONLY', true),
+    'http_only' => true,
 
     /*
     |--------------------------------------------------------------------------
     | Same-Site Cookies
     |--------------------------------------------------------------------------
     |
-    | This option determines how your cookies behave when cross-site requests
-    | take place, and can be used to mitigate CSRF attacks. By default, we
-    | will set this value to "lax" to permit secure cross-site requests.
+    | Strict: the browser never attaches the admin cookies to a request started by
+    | another site, including a link from an email or chat. Also applied to the
+    | XSRF-TOKEN cookie. Requests from the public website are same-site but
+    | cross-origin; the admin middleware rejects those by Origin and Sec-Fetch-Site.
     |
     | See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#samesitesamesite-value
     |
-    | Supported: "lax", "strict", "none", null
-    |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    'same_site' => 'strict',
 
     /*
     |--------------------------------------------------------------------------
     | Partitioned Cookies
     |--------------------------------------------------------------------------
     |
-    | Setting this value to true will tie the cookie to the top-level site for
-    | a cross-site context. Partitioned cookies are accepted by the browser
-    | when flagged "secure" and the Same-Site attribute is set to "none".
+    | Not used: the admin cookies are first-party only.
     |
     */
 
-    'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
+    'partitioned' => false,
 
     /*
     |--------------------------------------------------------------------------

@@ -113,6 +113,8 @@ payload='{"name":"Smoke Test","contact":"smoke@example.com","service":"website",
 json=(-H 'Content-Type: application/json' -H 'Accept: application/json')
 status 201 "POST inquiry with Idempotency-Key" "${json[@]}" -H "Idempotency-Key: $key" -d "$payload" "$base/api/v1/inquiries"
 grep -Eq '^\{"id":"INQ-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}","status":"received"\}$' "$tmp/body" || fail "unexpected 201 body"
+[[ -z "$(header Set-Cookie)" ]] || fail "the public inquiry API set a cookie"
+pass "inquiry response sets no cookie (stateless public API)"
 first="$(cat "$tmp/body")"
 status 201 "retry with the same key" "${json[@]}" -H "Idempotency-Key: $key" -d "$payload" "$base/api/v1/inquiries"
 [[ "$(cat "$tmp/body")" == "$first" && "$(header Idempotent-Replayed)" == "true" ]] || fail "retry did not return the stored reference"
@@ -122,6 +124,23 @@ status 422 "invalid payload" "${json[@]}" -d '{}' "$base/api/v1/inquiries"
 # Five attempts so far from this address: the per-minute limit (5) now applies, retries included.
 status 429 "rate limit after five attempts" "${json[@]}" -H "Idempotency-Key: $key" -d "$payload" "$base/api/v1/inquiries"
 [[ -n "$(header Retry-After)" ]] || fail "429 without Retry-After"
+
+echo "== admin isolation (B3.1a: the admin API is not served on the public listener)"
+# --path-as-is keeps curl from normalising the spellings before nginx sees them.
+for path in \
+  /api/v1/admin /api/v1/admin/ /api/v1/admin/auth/csrf-cookie /api/v1/admin/auth/login \
+  /API/V1/ADMIN/auth/login /api/v1/Admin/me /api//v1//admin/auth/csrf-cookie \
+  /api/v1/%61dmin/auth/csrf-cookie /api/v1/admin%2Fauth/login /api/v1/./admin/me \
+  /api/v1/inquiries/../admin/auth/csrf-cookie; do
+  for method in GET POST; do
+    status 404 "$method $path on the public listener" --path-as-is -X "$method" -H 'Accept: application/json' -H "Origin: $base" "$base$path"
+    [[ -z "$(header Set-Cookie)" ]] || fail "$method $path set a cookie"
+  done
+done
+status 404 "Sanctum CSRF path does not exist" --path-as-is "$base/sanctum/csrf-cookie"
+session_config="$(compose exec -T backend php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo json_encode([config("session.driver"), config("session.cookie"), config("session.secure"), config("session.same_site"), config("session.http_only"), config("session.encrypt"), config("session.lifetime"), config("session.domain")]);')"
+[[ "$session_config" == '["database","__Host-solveit-admin-session",true,"strict",true,true,30,null]' ]] || fail "admin session configuration: $session_config"
+pass "admin sessions: database, __Host- cookie, Secure, SameSite=Strict, HttpOnly, encrypted, 30 min idle, no Domain"
 
 echo "== restart"
 compose restart backend > /dev/null 2>&1
@@ -135,5 +154,15 @@ pass "MySQL $(cut -f1 <<< "$rows"), exactly one inquiry stored (after a retry, a
 grants="$(compose exec -T mysql bash -c 'mysql --defaults-extra-file=<(printf "[client]\nuser=root\npassword=%s\n" "$(cat /run/secrets/mysql_root_password)") -N --raw -e "SHOW GRANTS FOR solveit_app"')"
 [[ "$grants" == *'GRANT SELECT, INSERT, UPDATE, DELETE ON `solveit\_indonesia`.*'* && "$grants" != *'ALL PRIVILEGES'* ]] || fail "application user grants: $grants"
 pass "application user has DML only on solveit_indonesia"
+# The application user may append audit events but never change or remove one: the triggers
+# created by the migration user refuse UPDATE and DELETE for every account.
+as_app_user() { compose exec -T mysql bash -c "mysql --defaults-extra-file=<(printf \"[client]\nuser=solveit_app\npassword=%s\n\" \"\$(cat /run/secrets/db_app_password)\") -N solveit_indonesia -e \"$1\"" 2>&1; }
+as_app_user "INSERT INTO admin_audit_events (action, actor_type) VALUES ('smoke.test', 'cli')" > /dev/null || fail "application user cannot append an audit event"
+for statement in "UPDATE admin_audit_events SET action = 'tampered'" "DELETE FROM admin_audit_events"; do
+  output="$(as_app_user "$statement" || true)"
+  [[ "$output" == *"append-only"* ]] || fail "audit log accepted: $statement ($output)"
+done
+[[ "$(as_app_user "SELECT COUNT(*) FROM admin_audit_events WHERE action = 'smoke.test'")" == 1 ]] || fail "audit event missing after refused changes"
+pass "audit log is append-only for the application user (UPDATE and DELETE refused)"
 
 echo "All production smoke checks passed."

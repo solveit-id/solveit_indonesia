@@ -2,16 +2,17 @@
 
 Referensi endpoint backend Laravel milik website ini (`backend/`). Hanya kontrak yang benar-benar dibangun dan dites yang ditulis di sini; rencana endpoint lain ada di `docs/architecture/integration-plan.md`.
 
-Status: **dibangun dan dites secara lokal dan di CI (B1, idempotensi B2.1), belum di-deploy.** Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
+Status: **dibangun dan dites secara lokal dan di CI (B1, idempotensi B2.1, identitas admin B3.1a), belum di-deploy.** Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
 
 ## Endpoint
 
 | Method | Path | Fungsi | Dokumen |
 |---|---|---|---|
 | `POST` | `/api/v1/inquiries` | Menyimpan permintaan konsultasi dari formulir website | [inquiries.md](inquiries.md) |
+| `GET`, `POST`, `PUT`, `DELETE` | `/api/v1/admin/...` | API admin website (B3.1a): aktivasi lewat tautan akses, masuk dengan kata sandi dan TOTP, sesi dan keamanan akun sendiri. Hanya untuk aplikasi admin di origin `ADMIN_URL`; tidak disajikan di listener publik | [admin-auth.md](admin-auth.md) |
 | `GET` | `/up` | Pemeriksaan kesehatan untuk monitor uptime: `{"status":"ok"}` (200) atau `{"status":"down"}` (503) | Bagian di bawah |
 
-Tidak ada endpoint publik lain. Tidak ada endpoint untuk membaca, mengubah, atau menghapus inquiry: data itu berisi data pribadi dan baru akan dibuka untuk admin website yang terautentikasi pada fase admin.
+Tidak ada endpoint publik lain. Tidak ada endpoint untuk membaca, mengubah, atau menghapus inquiry: data itu berisi data pribadi dan baru akan dibuka untuk admin website yang terautentikasi pada B4. Konvensi di bawah berlaku untuk API publik; API admin punya konvensinya sendiri (sesi, CSRF, satu origin) di `admin-auth.md`.
 
 ## Konvensi bersama
 
@@ -32,9 +33,9 @@ Tidak ada endpoint publik lain. Tidak ada endpoint untuk membaca, mengubah, atau
 | `500` | Galat tak terduga | `{"message": "Server Error"}` |
 | `503` | Penyimpanan gagal atau layanan tidak sehat | `{"message": "..."}` atau `{"status": "down"}` |
 
-- **CORS.** Hanya origin di `CORS_ALLOWED_ORIGINS` (daftar dipisah koma, skema, host, dan port persis) yang boleh memanggil `/api/*` dari browser. Kosong berarti tidak ada akses lintas origin. Tanpa cookie (`supports_credentials: false`). Header yang diizinkan: `Accept`, `Content-Type`, `Idempotency-Key`, `X-Requested-With`. Header yang dapat dibaca frontend: `Idempotent-Replayed`, `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. Origin produksi ditambahkan setelah domain diputuskan; jangan memakai `*`.
+- **CORS.** Hanya origin di `CORS_ALLOWED_ORIGINS` (daftar dipisah koma, skema, host, dan port persis) yang boleh memanggil `/api/v1/inquiries` dari browser (sejak B3.1a `paths` hanya endpoint itu, sehingga path admin tidak pernah menjawab preflight). Kosong berarti tidak ada akses lintas origin. Tanpa cookie (`supports_credentials: false`). Header yang diizinkan: `Accept`, `Content-Type`, `Idempotency-Key`, `X-Requested-With`. Header yang dapat dibaca frontend: `Idempotent-Replayed`, `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. Origin produksi ditambahkan setelah domain diputuskan; jangan memakai `*`.
 - **Alamat klien.** Batas laju dihitung per alamat IP. Di belakang load balancer atau CDN, isi `TRUSTED_PROXIES` dengan alamat proxy itu; tanpa itu header `X-Forwarded-For` diabaikan (dites: header palsu tidak bisa melewati batas laju).
-- **Autentikasi.** Endpoint publik saat ini tidak memakai autentikasi. Autentikasi admin (misalnya Laravel Sanctum) belum dipasang dan akan ditambahkan pada fase admin; autentikasi klien bukan tanggung jawab backend ini.
+- **Autentikasi.** Endpoint publik tidak memakai autentikasi dan tidak pernah memulai sesi atau memasang cookie (dites). Admin website memakai sesi cookie Laravel dengan TOTP wajib di `/api/v1/admin` (B3.1a, tanpa Sanctum; `admin-auth.md`). Autentikasi klien bukan tanggung jawab backend ini.
 
 ## `GET /up`
 

@@ -1,10 +1,10 @@
 # Project status
 
-Last updated: 2026-10-16 (B2.2 frontend inquiry idempotency and safe retry, from `frontend` through `staging` to `main`; previous release B2.1 and Docker, merge commit `d22a079`, status follow-up `cf55c2f`).
+Last updated: 2026-10-16 (B3.1a secure admin identity core on `backend`, PR `backend` to `staging` open for owner review; last release B2.2, merge commit `28b3557`).
 
 ## In one paragraph
 
-The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main`. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS**. Since B2.1 the inquiry endpoint is **idempotent per `Idempotency-Key`**, and since B2.2 the website client sends one key per logical submission and lets the visitor check an unconfirmed attempt with the same key. The contact form's **Send through website** channel (B2) is built but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`), so shipped builds never call the API. The repository now has a **full-Docker development environment** (`infra/docker/compose.dev.yaml`, reusing the existing MySQL container) and a **production-oriented Docker configuration** (`infra/docker/compose.prod.yaml`): production Docker configuration prepared and validated, **not publicly deployed**. No domain, hosting, certificate, or production database exists. Admin dashboard, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`). Supported coding agents: Claude Code and Codex.
+The public website (frontend) is built, bilingual (Indonesian at `/`, English at `/en/`), prerendered as static HTML, and released to `main`. The Laravel 13 backend exposes `POST /api/v1/inquiries` and `GET /up` on **PHP 8.5 (at least 8.5.7)** and **MySQL 8.4 LTS**. Since B2.1 the inquiry endpoint is **idempotent per `Idempotency-Key`**, and since B2.2 the website client sends one key per logical submission and lets the visitor check an unconfirmed attempt with the same key. The contact form's **Send through website** channel (B2) is built but **disabled by default** (`VITE_INQUIRY_API_ENABLED=false`), so shipped builds never call the API. The repository now has a **full-Docker development environment** (`infra/docker/compose.dev.yaml`, reusing the existing MySQL container) and a **production-oriented Docker configuration** (`infra/docker/compose.prod.yaml`): production Docker configuration prepared and validated, **not publicly deployed**. No domain, hosting, certificate, or production database exists. Since B3.1a (on `backend`, not yet on `main`) the backend also holds the **admin identity core** under `/api/v1/admin`: owner bootstrap on the shell, single-use access links, mandatory TOTP before activation, database sessions, roles `owner` and `admin`, and an append-only audit log. No admin account, admin application, or admin listener exists anywhere. The admin application and modules, visitor analytics, and the GitHub integration boundary are designs only (`docs/architecture/`). Supported coding agents: Claude Code and Codex.
 
 ## Shipped (on `main`)
 
@@ -17,6 +17,20 @@ The public website (frontend) is built, bilingual (Indonesian at `/`, English at
 | B2.1 and Docker | #27 (from #26) | Inquiry idempotency (backend), full-Docker development, production Docker configuration (not deployed), Docker CI, structure rules (`docs/project-structure.md` section 11). Release commit `d22a079` (2026-10-16) |
 
 Pages: `/`, `/tentang`, `/layanan`, `/proses`, `/portofolio`, five case studies, `/kontak`, 404, each mirrored under `/en/`. Case studies are labelled demonstration concepts (`isDemo: true`, no results). B2 details and evidence: `docs/api/inquiries.md` (Klien frontend) and `docs/qa/qa-report.md` (sections B2 and MySQL 8.4 lokal permanen).
+
+## B3.1a: admin identity core (backend)
+
+Status: Implemented and Tested (locally: PHPUnit on MySQL 8.4.11, real HTTP with `php artisan serve`, isolated production Docker smoke test). Not deployed; CI results on the PR. Contract: `docs/api/admin-auth.md`. Architecture and decisions: `docs/architecture/admin-dashboard.md`. Evidence: `docs/qa/qa-report.md`, section B3.1a.
+
+- **Authentication:** Laravel session guard plus Fortify 1.41 as a headless library (`Fortify::ignoreRoutes()`; only the routes in `routes/admin.php` exist). **No Sanctum**: its stateful middleware forces `SameSite=Lax` (verified in v4.3.3 source), and the admin is same-origin. Sessions exist only in the `admin` middleware group; `POST /api/v1/inquiries` and `/up` stay cookie-free (tested); CORS now applies only to `api/v1/inquiries`.
+- **Boundary:** `AdminRequestBoundary` (exact host of `ADMIN_URL`, exact `Origin`, no `same-site`/`cross-site` fetches, `Origin` required on writes, `no-store`), `AdminPreventRequestForgery` (Laravel's check without its unit-test bypass). Public gateway listener answers every `/api/v1/admin` spelling with 404.
+- **Policy fixed in config:** database sessions, encrypted, host-only `HttpOnly` `SameSite=Strict`, `__Host-` and `Secure` when `ADMIN_URL` is https, idle 30 min, absolute 12 h, password confirmation 15 min, no remember me, session ID regenerated at sign-in.
+- **Identity:** `admin:bootstrap-owner` and `admin:reset-credentials` (shell only; link printed once, never stored or logged); links are 256-bit tokens in the URL fragment, stored as SHA-256, single use, one live link per account; activation sets the password and confirms a 160-bit TOTP secret before the account can sign in; identical login failures with a 400 ms timebox; TOTP replay refused; recovery codes consumed; own sessions listed by HMAC handle and revocable; password change ends other sessions. `DatabaseSeeder` no longer creates `test@example.com` with password `password`.
+- **Authorization:** roles `owner` and `admin` only, one Gate per permission (`account.manage-own` so far), default deny; `ChangeAdminRole` and `SuspendAdminAccount` (for B3.1b) keep the last active owner, refuse self-changes, and end the target's sessions. Route coverage test classifies every admin route into one tier.
+- **Audit:** `admin_audit_events`, allowlisted metadata, no secrets or personal data beyond IP and truncated user agent; model guards plus MySQL `BEFORE UPDATE`/`BEFORE DELETE` triggers for every database user. **Retention is pending an owner decision; nothing prunes.**
+- **MySQL setting (owner decision):** `log_bin_trust_function_creators = ON`, needed for non-SUPER users to create triggers under binary logging (error 1419 verified). Set in both `initdb` scripts and Backend CI; applied once on the owner machine with `SET PERSIST` (see below).
+- **Tests:** 261 tests, 1,216 assertions (151 and 466 before), including 110 admin tests through `tests/Support/InteractsWithAdminApi.php` (real cookies, Origin, CSRF, TOTP) and mutation checks for every defence. Production smoke test: 59 checks (33 before).
+- **Dependencies added:** `laravel/fortify` ^1.41 (brings `laravel/passkeys`, `web-auth/webauthn-lib`, `pragmarx/google2fa`, `bacon/bacon-qr-code`, and Symfony 8.1 serializer/property-access/property-info/type-info used only by the inactive passkey library). `composer audit` clean.
 
 ## B2.1: inquiry idempotency (backend)
 
@@ -51,10 +65,13 @@ Status: Development Implemented and Verified (owner machine and Docker CI). Prod
 ## Owner machine (verified 2026-10-16)
 
 - XAMPP PHP 8.5.7 and MariaDB 10.4 on 3306: unchanged. `solveit-mysql` (`mysql:8.4.11`, `127.0.0.1:3307`) and `solveit-mysql-data`: unchanged, reused by the Docker dev project.
-- The B2.1 migration ran on the development database (additive). New Docker volumes: `solveit-indonesia_backend-vendor`, `solveit-indonesia_composer-cache`, `solveit-indonesia_frontend-node-modules`. Dev `backend` and `frontend` containers exist but are stopped and do not auto-start, so ports 8000 and 5173 stay free for the native workflow.
-- The isolated production smoke project (`solveit-prod-smoke`) was removed with its own volume; images `solveit-indonesia/{backend,frontend}:local` and `:dev` remain.
+- The B2.1 migration ran on the development database (additive). The four B3.1a migrations also ran there (additive; no admin account created).
+- B3.1a: `SET PERSIST log_bin_trust_function_creators = ON` was run once as root on `solveit-mysql` (owner approval). Container ID `7286975bacf9` and start time unchanged; volume, XAMPP, and secrets untouched. `backend/.env` was not edited: without `ADMIN_URL` the default `http://127.0.0.1:5174` applies, and its old `SESSION_*` values are now ignored by config. New Docker volumes: `solveit-indonesia_backend-vendor`, `solveit-indonesia_composer-cache`, `solveit-indonesia_frontend-node-modules`. Dev `backend` and `frontend` containers exist but are stopped and do not auto-start, so ports 8000 and 5173 stay free for the native workflow.
+- The isolated production smoke project (`solveit-prod-smoke`) was removed with its own volume after each run (last on 2026-10-16 for B3.1a); images `solveit-indonesia/{backend,frontend}:local` and `:dev` remain, plus `koalaman/shellcheck:v0.10.0` used for local script checks.
 
 ## Branches and CI
+
+- **B3.1a (open):** on `backend`, branched from `main` `28b3557`. Commits `8f2bf26` (feat, identity core), `b9ad074` (chore, gateway, MySQL initdb, CI), and a docs commit with this status. PR #32 (`backend` to `staging`) awaits owner review; do not merge to `main` without the owner. The first CI run failed on two environment-dependent tests (debug JSON, production prompt without TTY), fixed in a follow-up `(fix)` commit; CI run IDs: `gh pr checks 32`.
 
 - B2.2 baseline: `main`, `frontend`, `backend` at `cf55c2f`, `staging` at `b6b429b` (same tree). B2.2 is developed on `frontend` and released through a `frontend` to `staging` PR and a `staging` to `main` release PR; the PR numbers, CI runs, and merge commits are in GitHub (`gh pr list --state merged --limit 5`).
 - Previous release (B2.1 and Docker): PR #26 (`backend` to `staging`) merged as `7b232f9`; release PR #27 (`staging` to `main`) merged as `d22a079`. `main` has no commit missing from `staging`, and `6474647` is an ancestor of `d22a079`.
@@ -72,7 +89,7 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 ## Quality baseline
 
 - Frontend (B2.2, local): Prettier, ESLint, typecheck, build clean; 178 unit and component tests; default E2E 488 passed (desktop 180, tablet 161, mobile 147); API-build E2E 15 passed each on desktop, tablet, mobile, and Firefox, with axe on the new states. Lighthouse not rerun (less than 1 KB gzip added, contact page only). WebKit through the Cross-browser QA workflow on the PR head.
-- Backend (unchanged since B2.1): 151 tests, 466 assertions on MySQL 8.4.11 (native PHP 8.5.7 and container PHP 8.5.11); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally).
+- Backend (B3.1a on `backend`, local): 261 tests, 1,216 assertions on MySQL 8.4.11 with native PHP 8.5.7 (151 and 466 on `main`, B2.1); Pint, `composer validate --strict`, `check-platform-reqs`, `audit` clean (`COMPOSER_IPRESOLVE=4` locally). Production smoke test 59 checks, shellcheck clean.
 
 ## Blocked or owner action required
 
@@ -84,12 +101,14 @@ Check live state with `git fetch --prune && git branch -vv` and `gh pr list`; SH
 
 - Domain and hosting (MySQL 8.4 and PHP 8.5 are decided; Docker is a supported option, not a requirement). They unlock canonical URLs, sitemap, final SEO/GEO, the production CORS origin, `TRUSTED_PROXIES` or the gateway's `set_real_ip_from`, TLS, and API deployment.
 - Inquiry data: retention period (also ends the life of idempotency keys), export and deletion procedure, privacy notice on the form, and whether a free CAPTCHA (Turnstile) is needed after launch.
-- Admin dashboard: frontend option (recommended: separate `admin/` app on a subdomain), roles, MFA scope, content workflow. Visitor-submitted inquiry fields should stay unchanged (idempotency compares them).
+- Admin (decided for B3.1a: owner and admin roles only, mandatory TOTP for all, idle 30 min, absolute 12 h, confirmation 15 min, no remember me, no SMTP, audit triggers with `log_bin_trust_function_creators`). Still open: **audit-log retention** (also IP addresses), admin hostname and whether the admin listener is internet-exposed or restricted, `admin/` folder and `admin` branch for B3.2, admin UI language, who holds which role and how many owners, content workflow. Visitor-submitted inquiry fields should stay unchanged (idempotency compares them).
 - Visitor analytics: legal and privacy review under UU PDP before any activation.
 - GitHub integration lives in Solveit OpsHub. How inquiries reach OpsHub (versioned event or webhook) once it exists.
 - Product names other than Solveit OpsHub are proposals (`docs/product/product-naming.md`). No client has approved a testimonial or a real case study yet.
 
 ## Next task
 
-1. **Inquiry privacy and operational readiness** (owner decisions above: privacy notice text on the form, retention period, who handles inquiries, hosting and domain), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host, with `CORS_ALLOWED_ORIGINS` set to the real website origin and a staging build that enables the channel.
-2. **B3**: secure admin authentication and dashboard foundation (`docs/architecture/admin-dashboard.md`, section 9).
+1. **Owner review of the B3.1a PR** (`backend` to `staging`), then a release PR to `main` only with owner approval.
+2. **B3.1b: user administration API** (owner invitations with the link shown once, user list, role change, suspension and reactivation, owner-issued credential reset, audit-log reading), reusing `ChangeAdminRole`, `SuspendAdminAccount`, `IssueAdminAccessLink`, `ResetAdminCredentials`. Needs: confirmation that invitations are delivered manually (no SMTP) and the audit visibility rule (owner only).
+3. **Inquiry privacy and operational readiness** (owner decisions above: privacy notice text on the form, retention period, who handles inquiries, hosting and domain), then a first deployment on the approved host using `docs/development/docker-production.md` or a non-Docker host, with `CORS_ALLOWED_ORIGINS` set to the real website origin and a staging build that enables the channel.
+4. **B3.2**: `admin/` application and dashboard shell after the hostname, listener, folder, and branch decisions (`docs/architecture/admin-dashboard.md`, section 9).
