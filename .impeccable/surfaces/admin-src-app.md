@@ -31,5 +31,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Unresolved
 
+- Seed: the finish reviewer asks for a recorded concept-seed reference or the owner's explicit waiver. Neither exists yet (2026-10-17); no waiver is recorded until the owner gives one.
+
 - Production hostname, TLS, listener exposure (B3.2d).
 - Whether audit reads are themselves audited (owner).
