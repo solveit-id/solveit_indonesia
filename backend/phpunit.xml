@@ -37,7 +37,13 @@
         <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
+        <!-- Admin sessions (B3.1a) need the database driver; tests use the sessions table of the
+             testing database. The admin origin is the test host, and the sign-in timebox is
+             shortened so the suite stays fast (production keeps 400 ms, config/admin.php). -->
+        <env name="SESSION_DRIVER" value="database" force="true"/>
+        <env name="APP_URL" value="http://localhost" force="true"/>
+        <env name="ADMIN_URL" value="http://localhost" force="true"/>
+        <env name="ADMIN_LOGIN_MINIMUM_DURATION_US" value="1000" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

@@ -17,7 +17,9 @@ return [
     |
     */
 
-    'paths' => ['api/*'],
+    // Only the public endpoint. The admin API (api/v1/admin/*) is same-origin and must never
+    // answer a preflight or send CORS headers, whatever CORS_ALLOWED_ORIGINS lists.
+    'paths' => ['api/v1/inquiries'],
 
     'allowed_methods' => ['GET', 'POST'],
 

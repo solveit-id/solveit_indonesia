@@ -1,6 +1,6 @@
 # Backend: Laravel API website Solveit Indonesia
 
-Laravel 13 REST API milik website company profile Solveit Indonesia. Saat ini berisi fondasi API (B0), endpoint inquiry (B1), standardisasi MySQL serta PHP 8.5 (B1.1), dan idempotensi inquiry (B2.1). Solveit OpsHub, portal klien, proposal, kontrak, invoice, dan sistem Solveit lain **tidak** dibangun di sini; mereka punya repository dan database sendiri (`docs/architecture/integration-plan.md`).
+Laravel 13 REST API milik website company profile Solveit Indonesia. Saat ini berisi fondasi API (B0), endpoint inquiry (B1), standardisasi MySQL serta PHP 8.5 (B1.1), idempotensi inquiry (B2.1), dan fondasi identitas admin (B3.1a: aktivasi lewat tautan akses, TOTP wajib, sesi, peran `owner` dan `admin`, audit log hanya-tambah; belum di-deploy, belum ada aplikasi admin). Solveit OpsHub, portal klien, proposal, kontrak, invoice, dan sistem Solveit lain **tidak** dibangun di sini; mereka punya repository dan database sendiri (`docs/architecture/integration-plan.md`).
 
 | | |
 |---|---|
@@ -9,10 +9,11 @@ Laravel 13 REST API milik website company profile Solveit Indonesia. Saat ini be
 | Composer | 2.x |
 | Database | **MySQL 8.4 LTS** (Oracle MySQL, bukan MariaDB) untuk pengembangan, tes, dan target produksi. `utf8mb4`, collation `utf8mb4_unicode_ci`, strict mode, InnoDB |
 | Hosting | Belum ditentukan. Konfigurasi Docker produksi yang tidak bergantung penyedia sudah disiapkan dan divalidasi, belum di-deploy (`docs/development/docker-production.md`) |
-| Endpoint | `POST /api/v1/inquiries` (dengan header opsional `Idempotency-Key`), `GET /up`. Kontrak: `docs/api/` |
+| Endpoint | `POST /api/v1/inquiries` (dengan header opsional `Idempotency-Key`), `GET /up`, API admin `/api/v1/admin/...` (B3.1a). Kontrak: `docs/api/` |
+| Autentikasi admin | Guard sesi Laravel dan Laravel Fortify 1.41 headless (route Fortify tidak didaftarkan), tanpa Sanctum. Alasan: `docs/architecture/admin-dashboard.md` bagian 3.1 |
 | Alat AI wajib | [Laravel Boost](https://laravel.com/docs/13.x/boost) (`laravel/boost`, dev dependency) untuk Claude Code dan Codex |
 
-`composer.json` mengunci `config.platform.php` ke `8.5.7`, sama dengan versi minimum, agar `composer update` di mesin dengan patch 8.5 yang lebih baru tidak memilih paket yang membutuhkan lebih dari minimum. Pemeriksaan platform Composer (`vendor/composer/platform_check.php`) menolak PHP di bawah 8.5.7 saat runtime. Patch keamanan 8.5 yang lebih baru tetap boleh dan dianjurkan; tidak ada penguncian ke satu patch. Paket Symfony tetap di 7.4 LTS: kompatibel dengan PHP 8.5 dan didukung lebih lama daripada 8.x.
+`composer.json` mengunci `config.platform.php` ke `8.5.7`, sama dengan versi minimum, agar `composer update` di mesin dengan patch 8.5 yang lebih baru tidak memilih paket yang membutuhkan lebih dari minimum. Pemeriksaan platform Composer (`vendor/composer/platform_check.php`) menolak PHP di bawah 8.5.7 saat runtime. Patch keamanan 8.5 yang lebih baru tetap boleh dan dianjurkan; tidak ada penguncian ke satu patch. Komponen inti Symfony (yang dipakai Laravel) tetap di 7.4 LTS: kompatibel dengan PHP 8.5 dan didukung lebih lama daripada 8.x. Sejak B3.1a, Fortify menarik `laravel/passkeys` dan `web-auth/webauthn-lib`, yang memasang `symfony/serializer`, `property-access`, `property-info`, dan `type-info` 8.1; hanya dipakai pustaka passkey, yang tidak diaktifkan.
 
 ## Mulai dari clone baru
 
@@ -39,7 +40,7 @@ Jangan menjalankan `composer create-project laravel/laravel backend` di folder y
 
 1. `composer create-project laravel/laravel:^13.0 <folder-sementara>` di luar repository.
 2. Salin isinya ke `backend/` kecuali `README.md`, lalu buang yang tidak dipakai API ini (`package.json`, `vite.config.js`, `resources/css`, `resources/js`, view `welcome`).
-3. Aktifkan route API lewat `withRouting(api: ...)` di `bootstrap/app.php`. `php artisan install:api` sengaja tidak dipakai karena selalu memasang Sanctum, sedangkan autentikasi admin belum masuk lingkup. Sanctum dipasang pada fase admin.
+3. Aktifkan route API lewat `withRouting(api: ...)` di `bootstrap/app.php`. `php artisan install:api` sengaja tidak dipakai karena selalu memasang Sanctum. Pada fase admin (B3.1a) Sanctum dievaluasi dan tidak dipakai: admin memakai guard sesi Laravel dengan Fortify headless (`docs/architecture/admin-dashboard.md` bagian 3.1).
 
 ## Database MySQL
 
@@ -164,9 +165,11 @@ Semua variabel terdokumentasi di `.env.example`. Yang khusus proyek ini:
 | `TRUSTED_PROXIES` | kosong | IP atau CIDR load balancer/CDN; tanpa itu `X-Forwarded-For` diabaikan |
 | `INQUIRY_RATE_LIMIT_PER_MINUTE` / `_PER_HOUR` | `5` / `20` | Batas kiriman inquiry per IP |
 | `INQUIRY_MAX_BODY_BYTES` | `65536` | Batas body; di atasnya `413` |
-| `CACHE_STORE` | `database` | Juga menyimpan penghitung rate limit; tidak butuh Redis |
+| `CACHE_STORE` | `database` | Juga menyimpan penghitung rate limit dan kode TOTP yang sudah dipakai; tidak butuh Redis |
+| `SESSION_DRIVER` | `database` | Wajib `database` untuk admin (daftar dan pencabutan sesi). Umur, enkripsi, dan atribut cookie ditetapkan di `config/session.php`, bukan lewat environment; `SESSION_LIFETIME`, `SESSION_ENCRYPT`, `SESSION_DOMAIN`, dan sejenisnya di `.env` lama diabaikan |
+| `ADMIN_URL` | `http://127.0.0.1:5174` | Origin persis aplikasi admin. API admin hanya menjawab host dan `Origin` ini, membuat tautan akses darinya, dan memakai cookie `Secure` `__Host-` bila https |
 
-Nilai dibaca lewat `config/` (`config/database.php`, `config/cors.php`, `config/trustedproxy.php`, `config/inquiries.php`), tidak pernah lewat `env()` di kode, sehingga `php artisan config:cache` aman.
+Nilai dibaca lewat `config/` (`config/database.php`, `config/cors.php`, `config/trustedproxy.php`, `config/inquiries.php`, `config/admin.php`), tidak pernah lewat `env()` di kode, sehingga `php artisan config:cache` aman.
 
 ## Struktur
 
@@ -185,10 +188,22 @@ app/
 ├── Http/Requests/Api/V1/StoreInquiryRequest.php Validasi dan honeypot
 ├── Http/Resources/InquiryResource.php           { id, status }
 ├── Models/Inquiry.php
-└── Rules/EmailOrPhone.php                       Format kontak yang sama dengan frontend
-config/{cors,trustedproxy,inquiries,boost}.php
+├── Rules/EmailOrPhone.php                       Format kontak yang sama dengan frontend
+│   Admin (B3.1a):
+├── Actions/Admin/                               Bootstrap owner, tautan akses, pendaftaran TOTP, reset kredensial,
+│                                                kata sandi, peran dan penangguhan (invarian owner), audit
+├── Console/Commands/                            admin:bootstrap-owner, admin:reset-credentials
+├── Enums/Admin{Role,Permission,AuditAction,ActorType,AccessLinkPurpose}.php
+├── Http/Controllers/Api/V1/Admin/               Tautan akses, akun sendiri, sesi, cookie CSRF
+├── Http/Middleware/Admin*.php, Ensure*.php      Batas host/origin, CSRF tanpa bypass tes, akun aktif, batas absolut
+├── Listeners/RecordAdminAuthenticationEvents.php  Audit masuk/keluar, waktu masuk sesi
+├── Models/{User,AdminAccessLink,AdminAuditEvent}.php
+├── Rules/MaxBytes.php                           Batas 72 byte bcrypt
+└── Services/AdminSessionStore.php               Daftar dan pencabutan sesi (handle HMAC)
+config/{cors,trustedproxy,inquiries,boost,admin,fortify}.php
 docker/mysql/                                    MySQL 8.4 lokal (compose.yaml, initdb/); secrets/ diabaikan Git. Bukan untuk produksi
-routes/api.php                                   /api/v1/...
+routes/api.php                                   /api/v1/... (tanpa sesi)
+routes/admin.php                                 /api/v1/admin/... (grup middleware admin, tiga tingkat route)
 tests/TestCase.php, tests/Support/               Pengaman database tes (TestDatabaseGuard), worker uji konkurensi
 tests/Feature/...                                Endpoint, action, health check, konfigurasi MySQL
 tests/Unit/...                                   Aturan kontak, nomor referensi, kontrak enum dengan frontend
@@ -204,10 +219,34 @@ tests/Unit/...                                   Aturan kontak, nomor referensi,
 | `composer validate --strict` | Validasi `composer.json` dan lock |
 | `composer check-platform-reqs` | PHP dan ekstensi memenuhi lock |
 | `composer audit` | Audit keamanan dependensi |
-| `php artisan route:list --except-vendor` | Harus menampilkan `POST api/v1/inquiries` |
+| `php artisan route:list --except-vendor` | Harus menampilkan `POST api/v1/inquiries` dan route `api/v1/admin/...` (tanpa `--except-vendor` juga route admin yang dilayani controller Fortify; tidak ada `/login`, `/register`, atau `/user/...`) |
+| `php artisan admin:bootstrap-owner <email>` | Owner pertama dan tautan aktivasi sekali pakai (bagian Admin) |
+| `php artisan admin:reset-credentials <email>` | Pemulihan darurat akun admin (bagian Admin) |
 | `php artisan migrate` / `migrate:status` | Migrasi database pengembangan |
 
 Jangan menjalankan `migrate:fresh`, `migrate:reset`, `db:wipe`, `migrate:rollback`, atau `DROP` selain pada database sekali pakai yang memang dibuat untuk itu. CI menguji rollback pada database MySQL sekali pakai di service container.
+
+## Admin (B3.1a)
+
+Kontrak: `docs/api/admin-auth.md`; arsitektur dan keputusan: `docs/architecture/admin-dashboard.md`.
+
+- **Tidak ada akun bawaan dan tidak ada kata sandi bawaan.** `DatabaseSeeder` tidak membuat pengguna. Akun pertama hanya lewat `php artisan admin:bootstrap-owner <email>`, yang mencetak satu tautan aktivasi 30 menit ke terminal (tidak disimpan, tidak di-log). Pemilik tautan menetapkan kata sandi, memindai QR, dan mengonfirmasi kode TOTP pertama; baru setelah itu akun dapat masuk. Ditolak bila sudah ada owner aktif.
+- **Pemulihan darurat:** `php artisan admin:reset-credentials <email>` menghapus autentikator dan kode pemulihan, mengakhiri semua sesi, dan mencetak tautan reset 30 menit.
+- **Pengembangan lokal:** belum ada aplikasi admin (B3.2). `ADMIN_URL` default `http://127.0.0.1:5174` (server dev admin yang nanti mem-proxy `/api` ke Laravel). Untuk mencoba API secara manual, kirim header `Origin` yang sama dengan `ADMIN_URL` dan request ke host itu; pakai alamat sintetis dan database pengembangan saja.
+
+### Trigger audit dan `log_bin_trust_function_creators`
+
+`admin_audit_events` dilindungi dua trigger MySQL yang menolak `UPDATE` dan `DELETE` untuk setiap pengguna. Dengan binary logging aktif (bawaan MySQL 8.4), pengguna tanpa SUPER (pengguna migrasi dan tes) hanya boleh membuat trigger bila server memakai `log_bin_trust_function_creators = ON`; tanpa itu migrasi berhenti dengan pesan yang menunjuk ke bagian ini (MySQL error 1419).
+
+- Volume MySQL baru (`docker/mysql/initdb/`, `infra/docker/mysql/initdb-production/`) dan Backend CI menyetelnya otomatis.
+- Container `solveit-mysql` yang sudah ada disetel sekali, tanpa membuat ulang container atau volume (root password dibaca di dalam container):
+
+  ```bash
+  docker exec solveit-mysql sh -c 'mysql -uroot -p"$(cat /run/secrets/mysql_root_password)" -e "SET PERSIST log_bin_trust_function_creators = ON"'
+  ```
+
+  Menjalankan ulang `initdb/10-solveit-databases.sh` (bagian Server lokal) juga menyetelnya.
+- MySQL terkelola: setel sebagai parameter server. Server MySQL lain yang dikelola sendiri: `SET PERSIST` sebagai root, atau `log_bin_trust_function_creators=ON` di konfigurasi `mysqld`.
 
 ## Laravel Boost
 
@@ -235,3 +274,4 @@ Boost wajib untuk pengembangan berbantuan AI di backend ini. Aturan lengkap (lok
 - Tidak ada data pribadi di log. Rute penyajian file bawaan disk `local` dimatikan (`config/filesystems.php`).
 - Database: pengguna aplikasi produksi tanpa hak DDL, migrasi dengan pengguna terpisah. Diuji di CI: pengguna dengan `SELECT, INSERT, UPDATE, DELETE` saja menyimpan inquiry lewat HTTP.
 - Rahasia hanya di `.env` dan `.env.testing`; Git hanya menyimpan `.env.example`. Kunci, dump SQL, dan file database diabaikan `.gitignore` root.
+- Admin (B3.1a): satu origin (host dan `Origin` persis), sesi database terenkripsi, cookie host-only `HttpOnly` `SameSite=Strict` (`Secure` dan `__Host-` dengan https), CSRF tanpa bypass tes, TOTP wajib sebelum aktivasi, idle 30 menit dan absolut 12 jam, konfirmasi kata sandi 15 menit, tanpa remember me, pencabutan sesi saat kata sandi, peran, penangguhan, atau kredensial berubah, jawaban login yang sama untuk semua kegagalan dengan `Timebox`, token tautan dan ID sesi tidak pernah disimpan atau diekspos mentah, audit log hanya-tambah tanpa rahasia. `APP_KEY` kini juga mengenkripsi rahasia TOTP dan sesi: rotasi lewat `APP_PREVIOUS_KEYS`.

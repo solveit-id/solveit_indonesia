@@ -85,6 +85,7 @@ Jangan pernah `docker compose ... down -v` dan jangan `docker volume rm solveit-
 
 | Gejala | Penyebab dan solusi |
 |---|---|
+| Migrasi berhenti dengan "The migration user may not create triggers" (MySQL error 1419, sejak B3.1a) | Server MySQL belum memakai `log_bin_trust_function_creators = ON`. Volume baru menyetelnya di `initdb`; container `solveit-mysql` yang sudah ada disetel sekali dengan perintah `SET PERSIST` di `backend/README.md` (Trigger audit), tanpa membuat ulang container atau volume |
 | `include` tidak dikenal, atau `service "mysql" ... not found` | Compose lebih lama dari 2.20. Perbarui Docker Desktop |
 | `Bind for 127.0.0.1:8000 failed: port is already allocated` | `php artisan serve` native atau proyek lain memakai port itu. `SOLVEIT_BACKEND_PORT=8001 docker compose ... up -d` (atau `SOLVEIT_FRONTEND_PORT` untuk 5173). Jangan menghentikan layanan proyek lain |
 | Port 3307 dipakai | Lihat `backend/README.md` (Masalah umum) |

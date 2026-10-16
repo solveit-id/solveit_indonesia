@@ -23,7 +23,10 @@
   app_password="$(read_secret db_app_password)"
 
   # Escaped underscore: in database-level grants MySQL reads `_` as a wildcard.
+  # log_bin_trust_function_creators: lets solveit_migrator (no SUPER) create the append-only
+  # triggers of admin_audit_events while binary logging is on; persisted in the data volume.
   mysql --defaults-extra-file=<(printf '[client]\nuser=root\npassword=%s\n' "$root_password") --protocol=socket <<SQL
+SET PERSIST log_bin_trust_function_creators = ON;
 CREATE DATABASE IF NOT EXISTS solveit_indonesia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'solveit_migrator'@'%' IDENTIFIED BY '${migrator_password}';
 ALTER USER 'solveit_migrator'@'%' IDENTIFIED BY '${migrator_password}';

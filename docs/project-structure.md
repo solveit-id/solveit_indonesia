@@ -222,15 +222,18 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── app/                        [W] Http/{Controllers,Requests,Resources,Middleware}, Models, Providers
 │   ├── Actions/                [P] Satu operasi bisnis per kelas (SubmitInquiry)
 │   ├── Enums/                  [P] Nilai domain yang terbatas (backed enum)
+│   ├── Console/Commands/       [P] Perintah Artisan proyek (admin:bootstrap-owner)
 │   ├── Exceptions/             [P] Exception dengan render()/context() sendiri
-│   └── Rules/                  [P] Aturan validasi kustom
+│   ├── Listeners/              [P] Listener atau subscriber yang didaftarkan eksplisit
+│   ├── Rules/                  [P] Aturan validasi kustom
+│   └── Services/               [P] Layanan yang dipakai banyak operasi (AdminSessionStore)
 ├── bootstrap/app.php           [W] Routing (api:), middleware, penanganan exception
 ├── config/                     [W] Ditambah config proyek (cors.php, trustedproxy.php, <domain>.php) dan boost.php [B]
 ├── database/                   [W] migrations, factories, seeders; *.sqlite tidak di-commit
 ├── docker/mysql/               [P] Hanya pengembangan lokal: compose.yaml (MySQL 8.4) dan initdb/ (database dan pengguna). secrets/ [L], diabaikan Git. Infrastruktur milik aplikasi; disertakan oleh infra/docker/compose.dev.yaml (bagian 11.1)
 ├── public/                     [W] index.php, .htaccess, robots.txt
 ├── resources/views/            [W] Boleh kosong (.gitkeep) pada aplikasi API
-├── routes/                     [W] api.php (/api/v1/...), web.php, console.php
+├── routes/                     [W] api.php (/api/v1/..., tanpa sesi), web.php, console.php; [P] admin.php (/api/v1/admin, grup middleware admin)
 ├── storage/                    [W] Hanya file .gitignore bawaannya yang di-commit
 ├── tests/Feature/, tests/Unit/ [W] Path tes mengikuti path kelas yang dites
 ├── vendor/                     [L] Hasil composer install
@@ -526,6 +529,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 | Komponen bersama | `frontend/src/components/ui/` atau folder domainnya |
 | Panggilan API | `frontend/src/services/` |
 | Endpoint backend | `backend/routes/api.php` dan `backend/app/`, kontraknya di `docs/api/` |
+| Endpoint admin | `backend/routes/admin.php` pada tingkat yang tepat (publik-autentikasi, pra-aktivasi, terautentikasi), daftarkan di `tests/Feature/Admin/AdminRouteCoverageTest.php`, kontraknya di `docs/api/admin-auth.md` |
 | Konfigurasi backend baru | `backend/config/<domain>.php`, variabelnya di `backend/.env.example` |
 | Aturan Laravel untuk agent | `backend/.ai/guidelines/` (umum) atau `record-rule` (per area kode), lalu `php artisan boost:update` |
 | Dokumen arsitektur atau keputusan teknis | `docs/architecture/` |
