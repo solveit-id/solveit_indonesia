@@ -248,6 +248,10 @@ Kontrak: `docs/api/admin-auth.md`; arsitektur dan keputusan: `docs/architecture/
   Menjalankan ulang `initdb/10-solveit-databases.sh` (bagian Server lokal) juga menyetelnya.
 - MySQL terkelola: setel sebagai parameter server. Server MySQL lain yang dikelola sendiri: `SET PERSIST` sebagai root, atau `log_bin_trust_function_creators=ON` di konfigurasi `mysqld`.
 
+**Berlaku untuk seluruh server, bukan per database.** `log_bin_trust_function_creators` adalah variabel global: setelah `ON`, setiap pengguna di server itu yang punya hak `TRIGGER` atau `CREATE ROUTINE` pada database mana pun boleh membuat trigger dan fungsi tersimpan tanpa SUPER, dan MySQL tidak lagi memeriksa apakah rutin itu aman untuk binary log. Di server bersama, itu juga berlaku untuk database dan pengguna lain. Karena itu ini **prasyarat penyedia produksi**: sebelum memilih hosting atau MySQL terkelola, pastikan penyedia mengizinkan setelan ini (biasanya lewat parameter group atau panel konfigurasi server); tanpa itu migrasi B3.1a berhenti dengan error 1419 dan audit log tidak dapat dibuat. Lebih aman bila database website berada di server MySQL sendiri, bukan server bersama, dan pengguna aplikasi tetap hanya punya hak DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) sehingga tidak dapat membuat trigger, rutin, atau menjalankan `TRUNCATE`.
+
+**Batas jaminan hanya-tambah.** Trigger menolak `UPDATE` dan `DELETE` untuk setiap pengguna, tetapi tidak melindungi dari pengguna dengan hak DDL: `DROP TRIGGER`, `DROP TABLE`, atau `TRUNCATE TABLE` (yang tidak menjalankan trigger) tetap mungkin bagi pengguna migrasi, root, atau DBA penyedia. Audit log ini mencegah perubahan oleh aplikasi dan pengguna aplikasinya; perlindungan terhadap pemegang hak DDL bergantung pada pembatasan akses ke pengguna itu dan pada backup.
+
 ## Laravel Boost
 
 Boost wajib untuk pengembangan berbantuan AI di backend ini. Aturan lengkap (lokasi file, apa yang di-commit, MCP dari root repository, verifikasi, pembaruan) ada di `docs/project-structure.md` bagian **Official Laravel Boost & AI Agent Development Standards**. Ringkasnya:

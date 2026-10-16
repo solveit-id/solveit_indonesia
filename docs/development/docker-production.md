@@ -106,7 +106,7 @@ docker compose -f infra/docker/compose.prod.yaml --profile bundled-db up -d --wa
 curl -fsS http://127.0.0.1:8080/up
 ```
 
-Dengan MySQL terkelola: hilangkan `--profile bundled-db`, isi `DB_HOST` (dan `MYSQL_ATTR_SSL_CA` bila TLS), buat sendiri database dan kedua pengguna dengan hak seperti di `infra/docker/mysql/initdb-production/10-solveit-production.sh`, setel parameter server `log_bin_trust_function_creators = ON` (tanpa itu pengguna migrasi tidak dapat membuat trigger audit B3.1a; `backend/README.md`, Trigger audit), dan beri jaringan `internal` akses keluar (ganti `internal: true` dengan jaringan biasa yang dibatasi firewall), karena jaringan `internal` tidak punya rute ke luar host.
+Dengan MySQL terkelola: hilangkan `--profile bundled-db`, isi `DB_HOST` (dan `MYSQL_ATTR_SSL_CA` bila TLS), buat sendiri database dan kedua pengguna dengan hak seperti di `infra/docker/mysql/initdb-production/10-solveit-production.sh`, setel parameter server `log_bin_trust_function_creators = ON` (tanpa itu pengguna migrasi tidak dapat membuat trigger audit B3.1a; `backend/README.md`, Trigger audit). Setelan itu berlaku untuk **seluruh server**, bukan hanya database website, sehingga menjadi prasyarat saat memilih penyedia: pastikan penyedia mengizinkannya, dan utamakan server MySQL tersendiri daripada server bersama. Lalu beri jaringan `internal` akses keluar (ganti `internal: true` dengan jaringan biasa yang dibatasi firewall), karena jaringan `internal` tidak punya rute ke luar host.
 
 ## Migrasi
 
