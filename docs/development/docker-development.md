@@ -11,8 +11,11 @@ Aturan penempatan file Docker ada di `docs/project-structure.md` bagian 11. Depl
 | `mysql` | `mysql:8.4.11` | `127.0.0.1:3307` | Didefinisikan **hanya** di `backend/docker/mysql/compose.yaml` dan disertakan apa adanya (`include`). Container `solveit-mysql`, volume `solveit-mysql-data` |
 | `backend` | `infra/docker/backend/Dockerfile`, target `dev` (PHP 8.5.11 FPM image, Composer 2.10) | `127.0.0.1:8000` | `php artisan serve`; kode di-bind-mount dari `backend/`, `vendor/` di volume `backend-vendor` |
 | `frontend` | `infra/docker/frontend/Dockerfile`, target `dev` (Node 22.23.1) | `127.0.0.1:5173` | Server Vite dengan hot reload; kode di-bind-mount dari `frontend/`, `node_modules/` di volume `frontend-node-modules` |
+| `admin` (B3.2a) | `infra/docker/admin/Dockerfile`, target `dev` (Node 22.23.1) | `127.0.0.1:5174` | Konsol admin: server Vite dengan hot reload dan proxy satu origin `/api/v1/admin` ke service `backend` (`SOLVEIT_ADMIN_API_TARGET=http://backend:8000`). Kode di-bind-mount dari `admin/`, `node_modules/` di volume `admin-node-modules`, dan empat folder website yang dibaca admin (token merek, font, path logo, favicon) di-mount **read-only** |
 
-Semua port hanya di loopback. Port host dapat diubah lewat `SOLVEIT_BACKEND_PORT` dan `SOLVEIT_FRONTEND_PORT` (misalnya bila `php artisan serve` native sudah memakai 8000). MySQL hidup lagi bersama Docker (`restart: unless-stopped` dari file aslinya); `backend` dan `frontend` tidak, sehingga port 8000 dan 5173 hanya terpakai setelah `up`.
+Semua port hanya di loopback. Port host dapat diubah lewat `SOLVEIT_BACKEND_PORT`, `SOLVEIT_FRONTEND_PORT`, dan `SOLVEIT_ADMIN_PORT` (misalnya bila `php artisan serve` native sudah memakai 8000). MySQL hidup lagi bersama Docker (`restart: unless-stopped` dari file aslinya); `backend`, `frontend`, dan `admin` tidak, sehingga port 8000, 5173, dan 5174 hanya terpakai setelah `up`.
+
+**Konsol admin:** buka `http://127.0.0.1:5174`, bukan `localhost:5174`. `ADMIN_URL` backend default-nya persis `http://127.0.0.1:5174`, dan proxy meneruskan header `Host` dan `Origin` browser apa adanya, sehingga batas admin Laravel menerima origin itu saja (dari `localhost` jawabannya `404`). Untuk pemeriksaan koneksi, `backend` harus berjalan: `docker compose -f infra/docker/compose.dev.yaml up -d backend admin`. Admin tidak butuh perubahan `.env` atau kredensial apa pun.
 
 ### Keputusan desain: satu definisi MySQL
 
@@ -57,7 +60,7 @@ Semua dari root repository. Untuk mempersingkat, `export COMPOSE_FILE=infra/dock
 |---|---|
 | Menyalakan | `docker compose -f infra/docker/compose.dev.yaml up -d` |
 | Status dan health | `docker compose -f infra/docker/compose.dev.yaml ps` |
-| Log | `docker compose -f infra/docker/compose.dev.yaml logs -f backend frontend` |
+| Log | `docker compose -f infra/docker/compose.dev.yaml logs -f backend frontend admin` |
 | Menghentikan (container tetap, data tetap) | `docker compose -f infra/docker/compose.dev.yaml stop` |
 | Restart | `docker compose -f infra/docker/compose.dev.yaml restart backend frontend` |
 | Artisan | `docker compose -f infra/docker/compose.dev.yaml exec backend php artisan <perintah>` |
@@ -65,7 +68,8 @@ Semua dari root repository. Untuk mempersingkat, `export COMPOSE_FILE=infra/dock
 | Tes backend (database `solveit_indonesia_testing`, TestDatabaseGuard aktif) | `docker compose -f infra/docker/compose.dev.yaml exec backend php artisan test` |
 | Pint | `docker compose -f infra/docker/compose.dev.yaml exec backend vendor/bin/pint --test` |
 | Tes, lint, typecheck frontend | `docker compose -f infra/docker/compose.dev.yaml exec frontend npm test` (juga `npm run lint`, `npm run typecheck`, `npm run build`) |
-| Memperbarui dependensi setelah `composer.lock` atau `package-lock.json` berubah | `... exec backend composer install` dan `... exec frontend npm ci` |
+| Tes, lint, typecheck admin | `docker compose -f infra/docker/compose.dev.yaml exec admin npm test` (juga `npm run lint`, `npm run typecheck`, `npm run build`) |
+| Memperbarui dependensi setelah `composer.lock` atau `package-lock.json` berubah | `backend` dan `admin` melakukannya sendiri saat start (sejak B3.2a: entrypoint menyimpan hash lockfile di volume dan memasang ulang bila berbeda), cukup `restart backend admin`. `frontend` belum: `... exec frontend npm ci` |
 | Build ulang image (setelah Dockerfile berubah) | `docker compose -f infra/docker/compose.dev.yaml up -d --build backend frontend` |
 | Mengosongkan dependensi container saja | `docker compose -f infra/docker/compose.dev.yaml rm -sf backend frontend` lalu `docker volume rm solveit-indonesia_backend-vendor solveit-indonesia_frontend-node-modules` |
 
@@ -73,12 +77,13 @@ Jangan pernah `docker compose ... down -v` dan jangan `docker volume rm solveit-
 
 ### Yang tidak berjalan di container
 
-- **Playwright e2e** butuh browser yang tidak ada di image Node slim. Jalankan di host (`npm run test:e2e`) atau biarkan **Frontend CI** dan **Cross-browser QA** yang menjalankannya.
+- **Playwright e2e** butuh browser yang tidak ada di image Node slim. Jalankan di host (`npm run test:e2e` di `frontend/` atau, setelah `npm run build:reference`, di `admin/`) atau biarkan **Frontend CI**, **Admin CI**, dan **Cross-browser QA** yang menjalankannya.
 - **Laravel Boost MCP** dijalankan agent di host (`php backend/artisan boost:mcp`, `.mcp.json`). Kontributor tanpa PHP di host dapat mendaftarkan server MCP lokal (tidak di-commit) dengan perintah `docker compose -f infra/docker/compose.dev.yaml exec -T backend php artisan boost:mcp`; belum diverifikasi oleh tim.
 
 ## Hot reload
 
 - Frontend: Vite di container. Docker Desktop tidak meneruskan event perubahan file dari folder Windows ke container (diverifikasi: `fs.watch` di container tidak menerima event), jadi `compose.dev.yaml` menyetel `SOLVEIT_WATCH_POLLING=true` dan `frontend/vite.config.ts` lalu memakai polling (300 ms). Diverifikasi: perubahan CSS di host sampai ke browser sebagai HMR dalam sekitar 3 detik. Di Linux dan macOS, `SOLVEIT_WATCH_POLLING=false` menghemat CPU.
+- Admin: sama dengan frontend (polling 300 ms lewat `SOLVEIT_WATCH_POLLING`). Diverifikasi B3.2a: mengubah file di `admin/src` di host memicu HMR di container.
 - Backend: `php artisan serve` membaca file PHP pada setiap request; perubahan kode langsung berlaku. Perubahan `.env` butuh `restart backend`.
 
 ## Pemecahan masalah
@@ -90,6 +95,9 @@ Jangan pernah `docker compose ... down -v` dan jangan `docker volume rm solveit-
 | `Bind for 127.0.0.1:8000 failed: port is already allocated` | `php artisan serve` native atau proyek lain memakai port itu. `SOLVEIT_BACKEND_PORT=8001 docker compose ... up -d` (atau `SOLVEIT_FRONTEND_PORT` untuk 5173). Jangan menghentikan layanan proyek lain |
 | Port 3307 dipakai | Lihat `backend/README.md` (Masalah umum) |
 | `backend` berhenti dengan "backend/.env is missing" | Jalankan `infra/docker/scripts/setup-dev.sh` |
+| `backend` berhenti dengan `Class "Laravel\Fortify\Features" not found` (atau kelas paket lain) | Volume `backend-vendor` dibuat sebelum dependensi itu ditambahkan (Fortify sejak B3.1a). Sejak B3.2a entrypoint memasang ulang otomatis bila `composer.lock` berubah: build ulang image (`up -d --build backend`). Diverifikasi di mesin pemilik |
+| Konsol admin menjawab `404` untuk `/api/v1/admin/...` | Dibuka lewat `localhost:5174`; batas admin hanya menerima host `ADMIN_URL`. Buka `http://127.0.0.1:5174` |
+| Pemeriksaan koneksi admin: "Laravel tidak menjawab", log admin `getaddrinfo ENOTFOUND backend` | Container `backend` tidak berjalan. `docker compose -f infra/docker/compose.dev.yaml up -d backend` |
 | `SQLSTATE[HY000] [1045]` di container | Kata sandi di `.env` atau `.env.testing` tidak sama dengan secret MySQL. Jalankan ulang provisioning (Setup pertama) atau samakan nilainya |
 | `SQLSTATE[HY000] [2002]` | MySQL belum `healthy`: `docker compose ... ps`, `docker compose ... logs mysql` |
 | `SQLSTATE[HY000] [1130] Host ... is not allowed` (Linux) | File secret MySQL tidak dapat dibaca oleh pengguna `mysql` di container, sehingga start pertama tidak membuat pengguna. Lihat `backend/README.md` (Masalah umum); `setup-dev.sh` membuat file `644` di folder `700` |

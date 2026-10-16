@@ -29,6 +29,7 @@ Gunakan dokumen ini saat:
 ├── .codex/              config.toml: server MCP proyek untuk Codex (opsional)
 ├── .github/             Workflow CI dan template GitHub
 ├── .impeccable/         Kontrak desain skill impeccable (opsional, bila dipakai)
+├── admin/               Konsol admin (React + Vite), terpisah dari website (bagian 7.1)
 ├── backend/             Aplikasi backend (Laravel)
 ├── docs/                Seluruh dokumentasi proyek
 ├── frontend/            Aplikasi frontend (React + Vite)
@@ -81,7 +82,7 @@ File lain tidak diletakkan di root. Lisensi (`LICENSE`), `CHANGELOG.md`, `CONTRI
 | Gambar lain | `<konteks>-<isi>.<ext>`, tanpa spasi atau huruf besar | `solveit-og.png` |
 | File konvensi platform | Pertahankan nama yang dituntut platform | `favicon.svg`, `apple-touch-icon.png`, `site.webmanifest` |
 | Skrip | `kebab-case`, kata kerja di depan | `generate-brand-assets.mjs`, `subset-font.py` |
-| Branch | `main`, `staging`, lalu satu branch per aplikasi (`frontend`, `backend`) | |
+| Branch | `main`, `staging`, lalu satu branch per aplikasi (`frontend`, `backend`, `admin`) | |
 | Commit | `(type) deskripsi singkat` dalam bahasa Inggris, huruf kecil, tanpa titik akhir dan tanpa co-author. Type: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `update`, `release` | `(refactor) group docs by topic and consolidate agent configuration` |
 
 ## 4. `docs/`
@@ -203,6 +204,37 @@ Aturan:
 - `public/` hanya untuk file yang harus punya URL tetap (logo, ikon, manifest, OG). Aset yang diimpor kode masuk `src/assets/`.
 - File hasil build (`build/`, `.react-router/`, `test-results/`, `playwright-report/`) tidak di-commit.
 - Konfigurasi alat tetap di root `frontend/`, tempat alat mencarinya.
+- `src/styles/tokens.css` adalah sumber token merek bersama website dan admin (bagian 7.1); jangan pindahkan token itu kembali ke `app.css`.
+
+## 7.1 `admin/` (konsol admin, React, TypeScript, Vite, React Router mode data) **(proyek ini, sejak B3.2a)**
+
+```text
+admin/
+├── public/                 File dengan URL tetap: theme-init.js (tema sebelum paint), robots.txt
+├── scripts/                check-build.mjs (CSP, origin, halaman referensi, anggaran ukuran)
+├── security-policy.ts      CSP dan header keamanan, satu definisi untuk dev, preview, build
+├── src/
+│   ├── app/                Router, layout akar, error boundary, metadata route, data fase
+│   ├── components/brand/   Logo dari path asli website (tanpa salinan)
+│   ├── components/layout/  Shell: rail, bar ponsel, navigasi, preferensi
+│   ├── components/ui/      Primitif lintas layar
+│   ├── i18n/               Pesan antarmuka per bahasa (Indonesia default, Inggris)
+│   ├── lib/                Utilitas tanpa UI (tema, preferensi, tautan akses)
+│   ├── pages/              Satu modul per layar, dimuat lazy
+│   ├── routes/             Path
+│   ├── services/admin-api/ Klien API admin bertipe: satu-satunya tempat yang memanggil Laravel
+│   └── styles/admin.css    Lapisan admin di atas token merek bersama
+├── tests/e2e/              Playwright (pada build referensi)
+└── package.json, package-lock.json, tsconfig.json, vite.config.ts, vitest.config.ts,
+    playwright.config.ts, eslint.config.js, .prettierrc.json, .prettierignore, .env.example, README.md
+```
+
+Aturan:
+
+- Aplikasi terpisah dari `frontend/`: build, CI (`admin-ci.yml`), dan branch (`admin`) sendiri. Kode admin tidak pernah diimpor oleh website, dan halaman website tidak pernah memuat chunk admin.
+- **Sumber desain bersama (satu sumber, tanpa salinan).** Token merek (palet terang dan gelap, tipe, motion, radius) ada di `frontend/src/styles/tokens.css`; website mengimpornya dari `app.css`, admin dari `src/styles/admin.css`. Admin membaca persis empat file website, read-only: `tokens.css`, `frontend/src/assets/fonts/archivo-solveit.woff2`, `frontend/src/components/brand/logo-paths.ts`, `frontend/public/favicon.svg`. Daftarnya ditulis sekali di `admin/vite.config.ts` (`sharedDesignSources`, juga satu-satunya izin `server.fs.allow` di luar `admin/`), dan diulang di path trigger `admin-ci.yml` dan mount read-only `compose.dev.yaml`. Token yang hanya dipakai satu aplikasi (tinggi header website, skala tipe admin) tetap di stylesheet aplikasi itu. Menambah file bersama berarti memperbarui ketiga tempat itu; menyalin aset ke `admin/` tidak diizinkan.
+- Halaman yang hanya untuk pengembangan dan QA (referensi komponen) dipasang lewat konstanta build `__ADMIN_COMPONENT_REFERENCE__`, sehingga build produksi tidak memuatnya sama sekali (diperiksa `check-build.mjs`).
+- File hasil build (`dist/`, `dist-reference/`, `test-results/`, `playwright-report/`) tidak di-commit.
 
 ## 8. Aplikasi Laravel (`backend/`)
 
@@ -427,7 +459,7 @@ Bila Laravel menempati root repository, root aplikasi dan root repository sama:
 
 ## 10. `.github/`
 
-- `workflows/<aplikasi>-ci.yml` untuk CI per aplikasi, dipicu oleh perubahan path aplikasinya (`frontend/**`, `backend/**`). **(proyek ini)** `backend-ci.yml` juga dipicu oleh `frontend/src/types/**`, karena tes kontrak membaca tipe frontend.
+- `workflows/<aplikasi>-ci.yml` untuk CI per aplikasi, dipicu oleh perubahan path aplikasinya (`frontend/**`, `backend/**`, `admin/**`). **(proyek ini)** `backend-ci.yml` juga dipicu oleh `frontend/src/types/**`, karena tes kontrak membaca tipe frontend, dan `admin-ci.yml` oleh empat file desain website yang dibaca admin (bagian 7.1).
 - Setiap workflow menyatakan `permissions` minimum (`contents: read` bila hanya membaca); jangan bergantung pada izin bawaan repository.
 - CI Laravel minimal: kebijakan PHP (minimum ditegaskan, versi aktual dicatat), `composer validate --strict`, `composer install`, `composer check-platform-reqs`, Pint, migrasi naik-turun-naik pada database sekali pakai dengan engine yang sama dengan produksi (**proyek ini:** service container MySQL 8.4 yang versinya ditegaskan), `php artisan test` pada database tes terpisah, `composer audit`, dan instalasi `--no-dev` yang tetap boot. Kredensial database CI dibuat acak per run dan disamarkan; tidak pernah ditulis di repository dan tidak pernah memakai database produksi.
 - Workflow berat atau manual diberi nama sesuai tujuannya (`cross-browser-qa.yml`) dan dijalankan lewat `workflow_dispatch`.
@@ -445,7 +477,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 │       ├── compose.dev.yaml            Lingkungan pengembangan lengkap
 │       ├── compose.prod.yaml           Deployment produksi berbasis Docker
 │       ├── production.env.example      Template konfigurasi runtime produksi, tanpa rahasia
-│       ├── <aplikasi>/                 Satu folder per image (backend/, frontend/, nanti admin/)
+│       ├── <aplikasi>/                 Satu folder per image (backend/, frontend/, admin/)
 │       │   ├── Dockerfile              Multi-stage, target bernama (dev, build, prod)
 │       │   ├── Dockerfile.dockerignore Allowlist build context untuk Dockerfile ini
 │       │   ├── entrypoint-<target>.sh  Entrypoint per target
@@ -507,7 +539,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 
 ### 11.7 Beberapa aplikasi dan portabilitas
 
-1. Aplikasi baru di monorepo (**proyek ini:** rencana `admin/`) menambah `infra/docker/<aplikasi>/` dan layanannya di file Compose yang sama; gateway merutekan menurut path atau host. Tidak ada file Compose per aplikasi selain layanan milik aplikasi (11.1).
+1. Aplikasi baru di monorepo (**proyek ini:** `admin/` sejak B3.2a, saat ini target `dev` saja; image produksi dan listener admin privat di B3.2d) menambah `infra/docker/<aplikasi>/` dan layanannya di file Compose yang sama; gateway merutekan menurut path atau host. Tidak ada file Compose per aplikasi selain layanan milik aplikasi (11.1).
 2. Harus berjalan di Windows (Docker Desktop, Git Bash), Linux, dan macOS: skrip berakhiran LF (`.gitattributes`), path relatif, tanpa path mesin; Compose 2.20 atau lebih baru (`include`); UID/GID pengguna container dapat disetel (build argument) agar bind mount dapat ditulis di Linux; Docker Desktop tidak meneruskan event file dari folder Windows, jadi server dev menyediakan sakelar polling; port host dapat diubah lewat variabel agar tidak bentrok dengan layanan lain.
 3. Alur native tetap didukung dan didokumentasikan terpisah; Docker adalah alternatif, bukan syarat.
 
@@ -527,7 +559,9 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 | Halaman baru | `frontend/src/pages/<nama>.tsx`, daftarkan di `src/routes.ts` dan `pagePaths` |
 | Komponen untuk satu halaman | `frontend/src/components/sections/<halaman>/` |
 | Komponen bersama | `frontend/src/components/ui/` atau folder domainnya |
-| Panggilan API | `frontend/src/services/` |
+| Panggilan API | `frontend/src/services/` (website), `admin/src/services/admin-api/` (admin) |
+| Layar admin baru | `admin/src/pages/<nama>.tsx`, daftarkan lazy di `admin/src/app/router.tsx` dengan `handle.title`; teks di `admin/src/i18n/messages/{id,en}.ts`; hanya layar yang benar-benar berfungsi masuk navigasi |
+| Token merek bersama | `frontend/src/styles/tokens.css` (dibaca admin, bagian 7.1) |
 | Endpoint backend | `backend/routes/api.php` dan `backend/app/`, kontraknya di `docs/api/` |
 | Endpoint admin | `backend/routes/admin.php` pada tingkat yang tepat (publik-autentikasi, pra-aktivasi, terautentikasi), daftarkan di `tests/Feature/Admin/AdminRouteCoverageTest.php`, kontraknya di `docs/api/admin-auth.md` |
 | Konfigurasi backend baru | `backend/config/<domain>.php`, variabelnya di `backend/.env.example` |

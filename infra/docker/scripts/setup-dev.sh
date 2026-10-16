@@ -89,9 +89,9 @@ fi
 # 3. Images and services. An existing solveit-mysql container is reused, not recreated.
 say "building images"
 compose build
-say "starting MySQL, backend, frontend (first start installs Composer and npm dependencies)"
+say "starting MySQL, backend, frontend, admin (first start installs Composer and npm dependencies)"
 compose up -d --wait mysql
-compose up -d backend frontend
+compose up -d backend frontend admin
 
 # 4. Additive migrations on the development database only.
 say "waiting for the backend dependencies"
@@ -101,5 +101,5 @@ for _ in $(seq 1 120); do
 done
 compose exec -T backend php artisan migrate --no-interaction
 
-say "done. Website: http://localhost:${SOLVEIT_FRONTEND_PORT:-5173}  API: http://localhost:${SOLVEIT_BACKEND_PORT:-8000}/up"
+say "done. Website: http://localhost:${SOLVEIT_FRONTEND_PORT:-5173}  API: http://localhost:${SOLVEIT_BACKEND_PORT:-8000}/up  Admin: http://127.0.0.1:${SOLVEIT_ADMIN_PORT:-5174}"
 say "tests: docker compose -f infra/docker/compose.dev.yaml exec backend php artisan test"

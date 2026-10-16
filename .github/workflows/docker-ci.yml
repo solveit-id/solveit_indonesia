@@ -7,10 +7,10 @@ name: Docker CI
 on:
   pull_request:
     branches: [staging, main]
-    paths: ["infra/**", "backend/**", "frontend/**", ".github/workflows/docker-ci.yml"]
+    paths: ["infra/**", "backend/**", "frontend/**", "admin/**", ".github/workflows/docker-ci.yml"]
   push:
-    branches: [backend]
-    paths: ["infra/**", "backend/**", "frontend/**", ".github/workflows/docker-ci.yml"]
+    branches: [backend, admin]
+    paths: ["infra/**", "backend/**", "frontend/**", "admin/**", ".github/workflows/docker-ci.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -71,6 +71,8 @@ jobs:
           echo "Docker dev PHP: $(compose exec -T backend php -r 'echo PHP_VERSION;')" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "Docker dev Node: $(compose exec -T frontend node -v)" | tee -a "$GITHUB_STEP_SUMMARY"
           compose exec -T frontend node -e 'process.exit(process.versions.node.startsWith("22.") ? 0 : 1)'
+          echo "Docker dev admin Node: $(compose exec -T admin node -v)" | tee -a "$GITHUB_STEP_SUMMARY"
+          compose exec -T admin node -e 'process.exit(process.versions.node.startsWith("22.") ? 0 : 1)'
           compose exec -T backend php artisan --version | tee -a "$GITHUB_STEP_SUMMARY"
           compose exec -T backend php artisan db:show --no-ansi | grep -E 'MySQL[ .]+8\.4\.'
       - name: Services answer
@@ -79,10 +81,18 @@ jobs:
           test "$(curl -s http://127.0.0.1:8000/up)" = '{"status":"ok"}'
           for _ in $(seq 1 60); do curl -sf http://127.0.0.1:5173/ > /dev/null && break; sleep 2; done
           curl -sf http://127.0.0.1:5173/ | grep -q '<html'
+          for _ in $(seq 1 90); do curl -sf http://127.0.0.1:5174/ > /dev/null && break; sleep 2; done
+          curl -sf http://127.0.0.1:5174/ | grep -q 'id="root"'
+          # Same-origin proxy to the backend service: Laravel's admin boundary accepts the admin
+          # origin (204, anonymous session only) and refuses a foreign one (403).
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: http://127.0.0.1:5174' http://127.0.0.1:5174/api/v1/admin/auth/csrf-cookie)" = 204
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: https://evil.example' http://127.0.0.1:5174/api/v1/admin/auth/csrf-cookie)" = 403
       - name: Backend tests inside the container (testing database, TestDatabaseGuard)
         run: docker compose -f infra/docker/compose.dev.yaml exec -T backend php artisan test
       - name: Frontend unit tests inside the container
         run: docker compose -f infra/docker/compose.dev.yaml exec -T frontend npm test
+      - name: Admin unit tests inside the container
+        run: docker compose -f infra/docker/compose.dev.yaml exec -T admin npm test
       - name: Restart keeps data
         run: |
           compose() { docker compose -f infra/docker/compose.dev.yaml "$@"; }

@@ -1,5 +1,5 @@
-# Full-Docker development environment for Solveit Indonesia: Laravel API, React frontend, and
-# MySQL 8.4, for contributors without PHP 8.5, Node 22, or MySQL 8.4 on their machine.
+# Full-Docker development environment for Solveit Indonesia: Laravel API, React frontend, admin
+# console, and MySQL 8.4, for contributors without PHP 8.5, Node 22, or MySQL 8.4 on their machine.
 # Guide: docs/development/docker-development.md. From the repository root:
 #   bash infra/docker/scripts/setup-dev.sh                    # once: secrets, .env files, build, migrate
 #   docker compose -f infra/docker/compose.dev.yaml up -d     # daily
@@ -67,7 +67,37 @@ services:
       - ../../frontend:/app
       - frontend-node-modules:/app/node_modules
 
+  # Admin console (admin/, B3.2a): Vite dev server and the same-origin proxy for /api/v1/admin.
+  # Open http://127.0.0.1:5174 (not localhost): the backend's ADMIN_URL defaults to exactly that
+  # origin, and the proxy forwards the browser's Host and Origin unchanged to the backend
+  # service. Loopback only; no production listener here (B3.2d).
+  admin:
+    build:
+      context: ../..
+      dockerfile: infra/docker/admin/Dockerfile
+      target: dev
+      args:
+        SOLVEIT_UID: ${SOLVEIT_UID:-1000}
+        SOLVEIT_GID: ${SOLVEIT_GID:-1000}
+    image: solveit-indonesia/admin:dev
+    init: true
+    environment:
+      SOLVEIT_WATCH_POLLING: ${SOLVEIT_WATCH_POLLING:-true}
+      SOLVEIT_ADMIN_API_TARGET: http://backend:8000
+    ports:
+      - "127.0.0.1:${SOLVEIT_ADMIN_PORT:-5174}:5174"
+    volumes:
+      - ../../admin:/workspace/admin
+      - admin-node-modules:/workspace/admin/node_modules
+      # The website files the admin reads in place (admin/vite.config.ts sharedDesignSources),
+      # read-only and never copied: brand tokens, the Archivo subset, logo paths, favicon.
+      - ../../frontend/src/styles:/workspace/frontend/src/styles:ro
+      - ../../frontend/src/assets/fonts:/workspace/frontend/src/assets/fonts:ro
+      - ../../frontend/src/components/brand:/workspace/frontend/src/components/brand:ro
+      - ../../frontend/public:/workspace/frontend/public:ro
+
 volumes:
   backend-vendor:
   composer-cache:
   frontend-node-modules:
+  admin-node-modules:

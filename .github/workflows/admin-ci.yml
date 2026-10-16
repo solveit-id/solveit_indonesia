@@ -1,0 +1,74 @@
+name: Admin CI
+
+# The admin console (admin/, B3.2a). Also runs when a website file the admin reads in place
+# changes (admin/vite.config.ts sharedDesignSources): the brand tokens, the Archivo subset, the
+# logo paths, and the favicon. No secrets, no account, no backend: API answers in the browser
+# tests are a closed port (real "Laravel not answering" path) or mocked per test. Real-browser
+# sign-in against Laravel joins in B3.2b and B3.2d.
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - "admin/**"
+      - "frontend/src/styles/tokens.css"
+      - "frontend/src/assets/fonts/**"
+      - "frontend/src/components/brand/logo-paths.ts"
+      - "frontend/public/favicon.svg"
+      - ".nvmrc"
+      - ".github/workflows/admin-ci.yml"
+  push:
+    branches: [admin]
+    paths:
+      - "admin/**"
+      - "frontend/src/styles/tokens.css"
+      - "frontend/src/assets/fonts/**"
+      - "frontend/src/components/brand/logo-paths.ts"
+      - "frontend/public/favicon.svg"
+      - ".nvmrc"
+      - ".github/workflows/admin-ci.yml"
+
+concurrency:
+  group: admin-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only token: checkout and artifact upload need nothing more.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: admin
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Production build and its checks (CSP, no external origin, no reference page, budgets)
+        run: |
+          npm run build
+          npm run check:build | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Dependency audit (high and critical)
+        run: npm audit --audit-level=high
+      - name: Reference build (production plus the component reference, for the browser tests)
+        run: npm run build:reference
+      - run: npx playwright install --with-deps chromium
+      - name: Browser tests (desktop, tablet, phone; axe, security headers, themes, motion)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: admin-playwright-report
+          path: admin/playwright-report
+          retention-days: 7

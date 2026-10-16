@@ -1,0 +1,4 @@
+# Build context is the repository root; the dev image needs only its entrypoint (the source
+# is bind-mounted at run time). BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile.
+*
+!infra/docker/admin/
