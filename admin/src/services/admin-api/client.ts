@@ -17,23 +17,28 @@ export type AdminHttpMethod = "GET" | "POST" | "PUT" | "DELETE";
  *   `requiresConfirmation`, and the screen asks the person before submitting again. Required
  *   for sensitive writes: invitations, invitation revocation, role changes, suspension and
  *   reactivation, credential resets, password and recovery-code changes.
- * - `automatic`: resend once with the new token. Allowed only for the method and path pairs in
- *   `automaticReplayAllowlist`; asking for it anywhere else is a programming error and the
- *   request is refused before anything is sent.
+ * - `automatic`: resend once with the new token, sending exactly the method, URL, and body of
+ *   the first attempt (fixed when the request is made, see `prepare`). Allowed only for the
+ *   method and path pairs in `automaticReplayAllowlist`; asking for it anywhere else is a
+ *   programming error and the request is refused before anything is sent.
  *
- * A 419 is produced by the CSRF check before any controller runs, so the first attempt
- * certainly did nothing either way; the rule is about not acting twice on the person's behalf
- * without their knowledge.
+ * Why a 419 and only a 419: Laravel's CSRF check (`AdminPreventRequestForgery`, admin
+ * middleware group in backend/bootstrap/app.php) runs before the route's throttle, guards, and
+ * controller, so a 419 proves the first attempt was rejected before it did anything. Nothing
+ * else proves that: a network failure, timeout, abort, 5xx, or unreadable response leaves the
+ * outcome `uncertain`, and none of them is ever resent, whatever the policy.
  */
 export type AdminReplayPolicy = "confirm" | "automatic";
 
 /**
- * The only writes that may be resent automatically after a 419: authentication steps that
- * change no account state on their own and that a person would simply repeat
- * (docs/api/admin-auth.md). Exact method and path. Everything else, including every
- * administrative operation (invitations, roles, suspension, credential resets), every change
- * to the account's own security (password, recovery codes, sessions), redeeming or confirming
- * an access link, and any route added later, stays `confirm` until it is reviewed and listed
+ * The only writes that may be resent automatically after a 419, exact method and path
+ * (docs/api/admin-auth.md). These are not side-effect free (login starts a pending sign-in,
+ * the challenge completes it, confirm-password stamps the session, logout ends it); they are
+ * listed because a resend after a 419 does at most what the person just asked for, once, and
+ * needs no second decision from them. Everything else, including every administrative
+ * operation (invitations, roles, suspension, credential resets), every change to the
+ * account's own security (password, recovery codes, sessions), redeeming or confirming an
+ * access link, and any route added later, stays `confirm` until it is reviewed and listed
  * here on purpose.
  */
 export const automaticReplayAllowlist: ReadonlySet<string> = new Set([
@@ -94,6 +99,45 @@ export function adminApiUrl(path: string, query?: AdminRequest["query"]): string
   return `${ADMIN_API_BASE}/${path}${queryString === "" ? "" : `?${queryString}`}`;
 }
 
+/** A request as it goes on the wire, fixed once: the first attempt and any replay send these. */
+interface PreparedRequest {
+  readonly method: AdminHttpMethod;
+  readonly path: string;
+  readonly url: string;
+  /** Serialised JSON, or undefined when there is no body. */
+  readonly body: string | undefined;
+  readonly isWrite: boolean;
+  readonly automaticReplay: boolean;
+  readonly signal: AbortSignal | undefined;
+}
+
+/**
+ * Reads each field of the caller's request once, checks the replay allowlist, builds the URL
+ * (query included) and serialises the body. Strings are immutable, so a caller that changes
+ * its object, its nested body, or its query while the request is in flight changes nothing
+ * that is sent or resent. Throws (TypeError) before anything is sent.
+ */
+function prepare(request: AdminRequest): PreparedRequest {
+  const { method, path, query, body, replay, signal } = request;
+
+  if (replay === "automatic" && !mayReplayAutomatically(method, path)) {
+    throw new TypeError(
+      `replay: "automatic" is not allowed for ${method} ${path}; ` +
+        "only the authentication steps in automaticReplayAllowlist may be resent.",
+    );
+  }
+
+  return Object.freeze({
+    method,
+    path,
+    url: adminApiUrl(path, query),
+    body: body === undefined ? undefined : (JSON.stringify(body) as string | undefined),
+    isWrite: method !== "GET",
+    automaticReplay: replay === "automatic",
+    signal,
+  });
+}
+
 export interface AdminApiClient {
   request<T = undefined>(request: AdminRequest): Promise<AdminResponse<T>>;
   /** Fetch a CSRF cookie now (anonymous session). Called automatically before writes. */
@@ -108,14 +152,13 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
   // One CSRF cookie request at a time, however many writes are waiting for it.
   let pendingCsrf: Promise<void> | null = null;
 
-  async function send(request: AdminRequest): Promise<Response> {
-    const isWrite = request.method !== "GET";
+  async function send(request: PreparedRequest): Promise<Response> {
+    const { isWrite } = request;
+    // Built per attempt: a replay carries the refreshed CSRF token, nothing else differs.
     const headers = new Headers({ Accept: "application/json" });
-    let body: string | undefined;
 
     if (request.body !== undefined) {
       headers.set("Content-Type", "application/json");
-      body = JSON.stringify(request.body);
     }
 
     if (isWrite) {
@@ -131,10 +174,10 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
     );
 
     try {
-      return await fetchImpl(adminApiUrl(request.path, request.query), {
+      return await fetchImpl(request.url, {
         method: request.method,
         headers,
-        body,
+        body: request.body,
         // The session cookie is host-only and same-origin; never sent anywhere else.
         credentials: "same-origin",
         cache: "no-store",
@@ -157,7 +200,7 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
   async function refreshCsrfCookie(signal?: AbortSignal): Promise<void> {
     pendingCsrf ??= (async () => {
       try {
-        const response = await send({ method: "GET", path: CSRF_COOKIE_PATH, signal });
+        const response = await send(prepare({ method: "GET", path: CSRF_COOKIE_PATH, signal }));
 
         if (response.status !== 204) {
           throw await errorFrom(response, false);
@@ -170,8 +213,8 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
     return pendingCsrf;
   }
 
-  async function perform<T>(request: AdminRequest, isReplay = false): Promise<AdminResponse<T>> {
-    const isWrite = request.method !== "GET";
+  async function perform<T>(request: PreparedRequest, isReplay = false): Promise<AdminResponse<T>> {
+    const { isWrite } = request;
 
     if (isWrite && readXsrfToken(cookies()) === null) {
       await refreshCsrfCookie(request.signal);
@@ -190,9 +233,10 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
     if (response.status === 419 && isWrite) {
       await refreshCsrfCookie(request.signal);
 
-      // Checked again here, not only at the entry, so no path into perform() can bypass it.
+      // Checked again here, not only in prepare(), so no path into perform() can bypass it.
+      // The same frozen request is resent: same method, URL, and body string.
       if (
-        request.replay === "automatic" &&
+        request.automaticReplay &&
         mayReplayAutomatically(request.method, request.path) &&
         !isReplay
       ) {
@@ -206,22 +250,8 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
   }
 
   return {
-    request: <T = undefined>(adminRequest: AdminRequest) => {
-      // A copy, so the method and path checked here are the ones sent and resent even if the
-      // caller changes its object while the request is in flight.
-      const request = { ...adminRequest };
-
-      if (request.replay === "automatic" && !mayReplayAutomatically(request.method, request.path)) {
-        return Promise.reject(
-          new TypeError(
-            `replay: "automatic" is not allowed for ${request.method} ${request.path}; ` +
-              "only the authentication steps in automaticReplayAllowlist may be resent.",
-          ),
-        );
-      }
-
-      return perform<T>(request);
-    },
+    // async: a refusal in prepare() becomes a rejected promise, still before anything is sent.
+    request: async <T = undefined>(adminRequest: AdminRequest) => perform<T>(prepare(adminRequest)),
     refreshCsrfCookie,
   };
 }

@@ -330,6 +330,133 @@ describe("419: never replay a sensitive write behind the person's back", () => {
     ]);
   });
 
+  it("resends the identical body and query when the caller mutates nested values during the 419", async () => {
+    type LoginBody = { email: string; password: string; meta: { device: { label: string } } };
+    const body: LoginBody = {
+      email: "owner@example.com",
+      password: "first-secret",
+      meta: { device: { label: "laptop" } },
+    };
+    const query: Record<string, string | number | undefined> = { lang: "id", step: 1 };
+    const request: AdminRequest = {
+      method: "POST",
+      path: "auth/login",
+      query,
+      body,
+      replay: "automatic",
+    };
+    const { fetch, calls } = fakeFetch(
+      () => {
+        // While the first attempt waits for its 419: change everything reachable.
+        body.password = "changed-secret";
+        body.meta.device.label = "attacker";
+        query.lang = "en";
+        query.extra = "injected";
+        request.body = { email: "other@example.com" };
+        request.query = { lang: "xx" };
+        return json(419, { message: "CSRF token mismatch." });
+      },
+      () => {
+        // And again while the CSRF cookie is refreshed, just before the replay.
+        body.meta.device.label = "second-change";
+        query.step = 2;
+        return noContent();
+      },
+      json(200, { two_factor: true }),
+    );
+    const client = createAdminApiClient({ fetch, cookies: () => "XSRF-TOKEN=t" });
+
+    await client.request(request);
+
+    const expectedBody = JSON.stringify({
+      email: "owner@example.com",
+      password: "first-secret",
+      meta: { device: { label: "laptop" } },
+    });
+    const [first, refresh, replay] = calls;
+
+    expect(refresh!.url).toBe("/api/v1/admin/auth/csrf-cookie");
+    expect(first!.url).toBe("/api/v1/admin/auth/login?lang=id&step=1");
+    expect(replay!.url).toBe(first!.url);
+    expect(first!.init.body).toBe(expectedBody);
+    expect(replay!.init.body).toBe(first!.init.body);
+    expect(replay!.init.method).toBe(first!.init.method);
+    expect(header(replay!, "Content-Type")).toBe("application/json");
+  });
+
+  it("fixes the request when it is made, before the first write's CSRF prefetch", async () => {
+    const body = { email: "owner@example.com", password: "first-secret", nested: { n: 1 } };
+    const cookies = jar("");
+    const { fetch, calls } = fakeFetch(
+      () => {
+        // The first POST has not been sent yet: the token is still being fetched.
+        body.password = "changed-secret";
+        body.nested.n = 2;
+        cookies.set("XSRF-TOKEN=t");
+        return noContent();
+      },
+      json(200, { two_factor: true }),
+    );
+    const client = createAdminApiClient({ fetch, cookies: cookies.cookies });
+
+    await client.request({ method: "POST", path: "auth/login", body, replay: "automatic" });
+
+    expect(calls.map((call) => call.init.method)).toEqual(["GET", "POST"]);
+    expect(calls[1]!.init.body).toBe(
+      JSON.stringify({ email: "owner@example.com", password: "first-secret", nested: { n: 1 } }),
+    );
+  });
+
+  it("serialises the body once for the first attempt and the replay together", async () => {
+    const toJSON = vi.fn(() => ({ code: "123456" }));
+    const { fetch, calls } = fakeFetch(
+      json(419, { message: "CSRF token mismatch." }),
+      noContent(),
+      noContent(),
+    );
+    const client = createAdminApiClient({ fetch, cookies: () => "XSRF-TOKEN=t" });
+
+    await client.request({
+      method: "POST",
+      path: "auth/two-factor-challenge",
+      body: { toJSON },
+      replay: "automatic",
+    });
+
+    expect(toJSON).toHaveBeenCalledTimes(1);
+    expect(calls[0]!.init.body).toBe('{"code":"123456"}');
+    expect(calls[2]!.init.body).toBe('{"code":"123456"}');
+  });
+
+  it("a body that cannot be serialised is refused before anything is sent", async () => {
+    const { fetch, calls } = fakeFetch(noContent());
+    const client = createAdminApiClient({ fetch, cookies: () => "XSRF-TOKEN=t" });
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    await expect(
+      client.request({ method: "POST", path: "auth/login", body: circular, replay: "automatic" }),
+    ).rejects.toThrow(TypeError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a refused `automatic` request does not read or serialise the body", async () => {
+    const toJSON = vi.fn(() => ({}));
+    const { fetch, calls } = fakeFetch();
+    const client = createAdminApiClient({ fetch, cookies: () => "XSRF-TOKEN=t" });
+
+    await expect(
+      client.request({
+        method: "PUT",
+        path: "users/7/role",
+        body: { toJSON },
+        replay: "automatic",
+      }),
+    ).rejects.toThrow(TypeError);
+    expect(toJSON).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
+
   it("stops after one replay: a second 419 is returned, not looped", async () => {
     const { fetch, calls } = fakeFetch(
       json(419, { message: "CSRF token mismatch." }),
