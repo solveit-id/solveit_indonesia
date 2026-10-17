@@ -47,7 +47,7 @@ Path di bawah relatif terhadap `/api/v1/admin/`.
 
 atau `{ "recovery_code": "xxxxxxxxxx-xxxxxxxxxx" }`.
 
-- `204`: masuk; ID sesi diganti. Kode TOTP yang sudah pernah dipakai ditolak; kode pemulihan habis setelah dipakai.
+- `204`: masuk; ID sesi diganti. Kode TOTP yang sudah pernah dipakai ditolak, di sesi mana pun, selama kode itu masih berlaku (jendela satu langkah 30 detik ke depan dan ke belakang); kode pemulihan habis setelah dipakai. **Perbaikan B3.2b:** cache replay Fortify menyimpan langkah *sekarang*, bukan langkah yang cocok, sehingga kode dari langkah berikutnya (diterima untuk selisih jam) dapat dipakai sekali lagi di sesi lain; `App\Services\ReplaySafeTwoFactorAuthenticationProvider` menyimpan langkah yang cocok selama 90 detik (berlaku juga untuk konfirmasi pendaftaran).
 - `422` dengan `errors.code` atau `errors.recovery_code`: kode salah, atau `The sign-in attempt has expired. Sign in again.` (lebih dari 5 menit, tanpa langkah kata sandi, atau akun berubah status di antaranya).
 
 ## Pra-aktivasi
