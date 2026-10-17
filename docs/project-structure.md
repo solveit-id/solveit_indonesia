@@ -262,7 +262,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 │   ├── Exceptions/             [P] Exception dengan render()/context() sendiri
 │   ├── Listeners/              [P] Listener atau subscriber yang didaftarkan eksplisit
 │   ├── Rules/                  [P] Aturan validasi kustom
-│   └── Services/               [P] Layanan yang dipakai banyak operasi (AdminSessionStore)
+│   └── Services/               [P] Layanan yang dipakai banyak operasi (AdminSessionStore, ReplaySafeTwoFactorAuthenticationProvider)
 ├── bootstrap/app.php           [W] Routing (api:), middleware, penanganan exception
 ├── config/                     [W] Ditambah config proyek (cors.php, trustedproxy.php, <domain>.php) dan boost.php [B]
 ├── database/                   [W] migrations, factories, seeders; *.sqlite tidak di-commit
