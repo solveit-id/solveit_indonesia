@@ -101,6 +101,9 @@ describe("resume check", () => {
     const api = mockAdminApi({ "GET me": [me(account), unauthenticated()] });
     const router = renderApp("/akun");
     await screen.findByRole("heading", { level: 1, name: "Akun" });
+    // The heading can be in the DOM before React has run the layout's effects, which attach
+    // the visibilitychange listener; flush them before the tab "hides".
+    await act(async () => undefined);
 
     const start = Date.now();
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -118,6 +121,7 @@ describe("resume check", () => {
     const api = mockAdminApi({ "GET me": me(account) });
     renderApp("/akun");
     await screen.findByRole("heading", { level: 1, name: "Akun" });
+    await act(async () => undefined);
     const calls = api.callsTo("GET me").length;
 
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
