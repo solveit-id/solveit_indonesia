@@ -1,0 +1,125 @@
+name: Admin integration
+
+# Real-browser tests of the admin console against Laravel and MySQL (B3.2b): sign-in with
+# password and TOTP, activation and credential reset through access links, own-account
+# security, session expiry, and the admin API boundary. Nothing on the critical paths is
+# mocked. Everything is disposable and synthetic: a MySQL 8.4 service that exists only for this
+# job, a test user granted on solveit_indonesia_testing only, accounts on example.test created
+# through the application's own commands and API. No secrets, no production data, no deploy.
+#
+# Runs when the console or the backend changes, because either side can break the other.
+# Admin CI (mocked browser suite) and Backend CI (PHPUnit) stay as they are.
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - "admin/**"
+      - "backend/**"
+      - "frontend/src/styles/tokens.css"
+      - "frontend/src/assets/fonts/**"
+      - "frontend/src/components/brand/logo-paths.ts"
+      - "frontend/public/favicon.svg"
+      - ".nvmrc"
+      - ".github/workflows/admin-integration.yml"
+  push:
+    branches: [admin, backend]
+    paths:
+      - "admin/**"
+      - "backend/**"
+      - ".github/workflows/admin-integration.yml"
+
+concurrency:
+  group: admin-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  real-laravel:
+    name: real browser, Laravel, MySQL 8.4
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: mbstring, intl, bcmath, pdo_mysql
+          coverage: none
+          tools: composer:v2
+      - name: PHP policy (8.5 series, at least 8.5.7)
+        run: |
+          php -r 'exit(PHP_VERSION_ID >= 80507 && PHP_VERSION_ID < 80600 ? 0 : 1);'
+          echo "Tested PHP: $(php -r 'echo PHP_VERSION;')" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Disposable testing database and a user limited to it
+        env:
+          MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          sql() { docker exec -i "$MYSQL_CONTAINER" mysql -uroot -N "$@"; }
+          version=$(sql -e "SELECT VERSION()")
+          case "$version" in 8.4.*) ;; *) echo "Expected MySQL 8.4 LTS, got $version" >&2; exit 1 ;; esac
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$password"
+          echo "DB_USERNAME=e2e_test" >> "$GITHUB_ENV"
+          echo "DB_PASSWORD=$password" >> "$GITHUB_ENV"
+          # "\_" escapes MySQL's wildcard so the grant names exactly this database; the harness
+          # (backend/tests/E2E/bootstrap.php) refuses a user with any other privilege.
+          sql <<SQL
+          SET PERSIST log_bin_trust_function_creators = ON;
+          CREATE DATABASE solveit_indonesia_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE USER 'e2e_test'@'%' IDENTIFIED BY '$password';
+          GRANT ALL PRIVILEGES ON \`solveit\_indonesia\_testing\`.* TO 'e2e_test'@'%';
+          SQL
+          echo "Tested MySQL: $version" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Locate the Composer cache
+        id: composer-cache
+        working-directory: backend
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php8.5-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php8.5-
+      - name: Backend dependencies and a throwaway application key
+        working-directory: backend
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+      - name: Safety gate (APP_ENV=testing, testing database selected, grants limited)
+        working-directory: backend
+        run: php tests/E2E/harness.php gate | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Console dependencies and production build
+        working-directory: admin
+        run: |
+          npm ci
+          npm run build
+          npm run check:build
+      - run: npx playwright install --with-deps chromium
+        working-directory: admin
+      - name: Real-browser tests (flows on desktop; layout and axe on desktop, tablet, phone)
+        working-directory: admin
+        run: npm run test:integration
+      # No report or trace upload: the pages under test show synthetic access links, setup keys,
+      # and recovery codes, and none of them belongs in an artifact.

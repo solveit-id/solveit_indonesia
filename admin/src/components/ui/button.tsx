@@ -40,7 +40,7 @@ export function Button({
       type={type}
       disabled={disabled}
       aria-busy={busy || undefined}
-      aria-disabled={busy || undefined}
+      aria-disabled={busy || props["aria-disabled"] || undefined}
       onClick={busy ? undefined : onClick}
       className={cn("btn", variantClass[variant], className)}
     >

@@ -649,3 +649,42 @@ describe("uncertain outcomes are never retried", () => {
     expect((await pending).kind).toBe("aborted");
   });
 });
+
+describe("response observer (idle tracking)", () => {
+  it("is told the status of every response that arrived, and nothing else", async () => {
+    const seen: unknown[][] = [];
+    const { fetch } = fakeFetch(
+      json(200, { data: [] }),
+      json(401, { message: "Unauthenticated." }),
+    );
+    const client = createAdminApiClient({
+      fetch,
+      cookies: () => "",
+      onResponse: (...args) => seen.push(args),
+    });
+
+    await client.request({ method: "GET", path: "me/sessions" });
+    await rejection(client.request({ method: "GET", path: "me" }));
+
+    expect(seen).toEqual([[200], [401]]);
+  });
+
+  it("hears nothing when no response arrived, and an observer that throws changes nothing", async () => {
+    const seen: number[] = [];
+    const { fetch } = fakeFetch(new TypeError("Failed to fetch"), json(200, { data: [] }));
+    const client = createAdminApiClient({
+      fetch,
+      cookies: () => "",
+      onResponse: (status) => {
+        seen.push(status);
+        throw new Error("observer failure");
+      },
+    });
+
+    expect((await rejection(client.request({ method: "GET", path: "me" }))).kind).toBe("network");
+    await expect(client.request({ method: "GET", path: "me/sessions" })).resolves.toMatchObject({
+      status: 200,
+    });
+    expect(seen).toEqual([200]);
+  });
+});

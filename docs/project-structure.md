@@ -214,9 +214,11 @@ admin/
 ├── scripts/                check-build.mjs (CSP, origin, halaman referensi, anggaran ukuran)
 ├── security-policy.ts      CSP dan header keamanan, satu definisi untuk dev, preview, build
 ├── src/
-│   ├── app/                Router, layout akar, error boundary, metadata route, data fase
+│   ├── app/                Router, layout akar dan privat, error boundary, peringatan idle, metadata route, data fase
+│   ├── auth/               Sesi di memori, loader penjaga (GET me), jalur kembali yang aman (B3.2b)
 │   ├── components/brand/   Logo dari path asli website (tanpa salinan)
-│   ├── components/layout/  Shell: rail, bar ponsel, navigasi, preferensi
+│   ├── components/account/ Komponen akun sendiri (kode pemulihan sekali tampil, daftar fakta)
+│   ├── components/layout/  Shell: rail, bar ponsel, bingkai tanpa akun, navigasi, preferensi
 │   ├── components/ui/      Primitif lintas layar
 │   ├── i18n/               Pesan antarmuka per bahasa (Indonesia default, Inggris)
 │   ├── lib/                Utilitas tanpa UI (tema, preferensi, tautan akses)
@@ -224,9 +226,11 @@ admin/
 │   ├── routes/             Path
 │   ├── services/admin-api/ Klien API admin bertipe: satu-satunya tempat yang memanggil Laravel
 │   └── styles/admin.css    Lapisan admin di atas token merek bersama
-├── tests/e2e/              Playwright (pada build referensi)
+├── tests/e2e/              Playwright pada build referensi, API di-mock (support/mock-api.ts)
+├── tests/integration/      Playwright pada build produksi terhadap Laravel dan MySQL tes (support/: harness, TOTP, rahasia)
 └── package.json, package-lock.json, tsconfig.json, vite.config.ts, vitest.config.ts,
-    playwright.config.ts, eslint.config.js, .prettierrc.json, .prettierignore, .env.example, README.md
+    playwright.config.ts, playwright.integration.config.ts, eslint.config.js, .prettierrc.json,
+    .prettierignore, .env.example, README.md
 ```
 
 Aturan:
@@ -258,7 +262,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 │   ├── Exceptions/             [P] Exception dengan render()/context() sendiri
 │   ├── Listeners/              [P] Listener atau subscriber yang didaftarkan eksplisit
 │   ├── Rules/                  [P] Aturan validasi kustom
-│   └── Services/               [P] Layanan yang dipakai banyak operasi (AdminSessionStore)
+│   └── Services/               [P] Layanan yang dipakai banyak operasi (AdminSessionStore, ReplaySafeTwoFactorAuthenticationProvider)
 ├── bootstrap/app.php           [W] Routing (api:), middleware, penanganan exception
 ├── config/                     [W] Ditambah config proyek (cors.php, trustedproxy.php, <domain>.php) dan boost.php [B]
 ├── database/                   [W] migrations, factories, seeders; *.sqlite tidak di-commit
@@ -268,6 +272,7 @@ Tanda: **[W]** wajib (bawaan Laravel atau aturan ini), **[P]** ditambahkan proye
 ├── routes/                     [W] api.php (/api/v1/..., tanpa sesi), web.php, console.php; [P] admin.php (/api/v1/admin, grup middleware admin)
 ├── storage/                    [W] Hanya file .gitignore bawaannya yang di-commit
 ├── tests/Feature/, tests/Unit/ [W] Path tes mengikuti path kelas yang dites
+├── tests/E2E/                  [P] Harness tes browser nyata (proyek ini, B3.2b): gerbang database, router server PHP, akun sintetis; tidak dimuat PHPUnit dan tidak masuk image
 ├── vendor/                     [L] Hasil composer install
 ├── .env                        [L] Rahasia lokal, tidak pernah di-commit
 ├── .env.example                [W] Semua variabel terdokumentasi, tanpa nilai rahasia

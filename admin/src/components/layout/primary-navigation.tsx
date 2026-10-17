@@ -1,5 +1,7 @@
-import { Stack } from "@phosphor-icons/react/dist/csr/Stack";
+import { House } from "@phosphor-icons/react/dist/csr/House";
+import { ShieldCheck } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 import { Swatches } from "@phosphor-icons/react/dist/csr/Swatches";
+import { UserCircle } from "@phosphor-icons/react/dist/csr/UserCircle";
 import type { ComponentType } from "react";
 import { NavLink } from "react-router";
 import { useI18n } from "~/i18n/i18n";
@@ -14,17 +16,34 @@ interface NavItem {
 
 /**
  * Only screens that exist are listed (docs/architecture/admin-dashboard.md section 7): no
- * greyed-out "coming soon" modules. The current item carries the cobalt 33 degree capsule.
+ * greyed-out "coming soon" modules. The private screens appear only with a verified account.
+ * The current item carries the cobalt 33 degree capsule.
  */
-export function PrimaryNavigation({ onNavigate }: { onNavigate?: () => void }) {
+export function PrimaryNavigation({
+  signedIn,
+  onNavigate,
+}: {
+  signedIn: boolean;
+  onNavigate?: (() => void) | undefined;
+}) {
   const { t } = useI18n();
 
   const items: NavItem[] = [
-    { to: paths.foundation, label: t.nav.foundation, icon: Stack },
+    ...(signedIn
+      ? [
+          { to: paths.home, label: t.nav.home, icon: House },
+          { to: paths.account, label: t.nav.account, icon: UserCircle },
+          { to: paths.security, label: t.nav.security, icon: ShieldCheck },
+        ]
+      : []),
     ...(__ADMIN_COMPONENT_REFERENCE__
       ? [{ to: referencePath, label: t.nav.reference, icon: Swatches }]
       : []),
   ];
+
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <nav aria-label={t.shell.navigation}>

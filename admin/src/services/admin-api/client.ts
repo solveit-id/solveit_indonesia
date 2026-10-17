@@ -74,6 +74,12 @@ export interface AdminApiClientOptions {
   /** Reads `document.cookie`; injectable for tests. */
   cookies?: () => string;
   timeoutMs?: number;
+  /**
+   * Told the status of every response that arrived (never its body, headers, or the request).
+   * The console uses it to know when this tab last reached Laravel, for the idle-expiry warning
+   * (src/auth/session.ts). An observer that throws changes nothing about the request.
+   */
+  onResponse?: (status: number) => void;
 }
 
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -173,8 +179,10 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
       (signal): signal is AbortSignal => signal !== undefined,
     );
 
+    let response: Response;
+
     try {
-      return await fetchImpl(request.url, {
+      response = await fetchImpl(request.url, {
         method: request.method,
         headers,
         body: request.body,
@@ -195,6 +203,14 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Admin
         outcome: isWrite ? "uncertain" : "not-applicable",
       });
     }
+
+    try {
+      options.onResponse?.(response.status);
+    } catch {
+      // An observer never decides what happens to a request.
+    }
+
+    return response;
   }
 
   async function refreshCsrfCookie(signal?: AbortSignal): Promise<void> {
