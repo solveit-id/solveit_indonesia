@@ -63,6 +63,7 @@ Temuan dan perbaikan selama QA:
 | Fixture aktivasi lewat API meninggalkan sesi API yang masuk, sehingga penghitungan sesi lain salah | Fixture keluar dari sesi API itu |
 | Chromium memasang lagi `Sec-Fetch-Site` yang dihapus tes, dan Laravel menerima `same-origin` tanpa token | Dicatat di `docs/api/admin-auth.md`; `419` nyata dites di batas API, di browser hanya jawaban pertama yang disimulasikan |
 | **Keamanan (backend, B3.1a):** kode TOTP dari langkah 30 detik berikutnya dapat dipakai dua kali, di sesi lain. Fortify meminta google2fa "kode yang lebih baru dari yang terakhir dipakai" dengan `null` bila kode belum pernah dipakai; google2fa lalu menjawab `true`, bukan langkah yang cocok, dan Fortify menyimpan langkah sekarang. Ditemukan oleh tes browser nyata di **Admin integration** CI pertama PR #39 (harness memakai kode langkah berikutnya), lalu direproduksi lokal 5 dari 5 dan di PHPUnit (`204` pada replay). Tes replay PHPUnit lama memakai kode langkah sekarang, yang memang terlindungi. Dampak: rendah (penyerang tetap butuh kata sandi dan tantangan baru dalam sekitar satu menit), tetapi melanggar kontrak | Keputusan pemilik: perbaiki di PR ini. `App\Services\ReplaySafeTwoFactorAuthenticationProvider` (dibinding di `FortifyServiceProvider`) memberi stempel waktu 0 alih-alih `null`, sehingga langkah yang cocok yang disimpan, selama seluruh masa berlaku kode (90 detik, sebelumnya 60). Tes regresi `test_a_totp_code_from_the_next_step_cannot_be_replayed`; tes browser nyata kini memeriksa status `204` lalu `422` |
+| Tes unit "asks Laravel again after the tab was hidden" gagal sekali di container Docker CI (lokal 2 dari 12 run) | Tes, bukan aplikasi: heading sudah ada di DOM sebelum React menjalankan effect layout yang memasang listener `visibilitychange`, jadi event tes kadang terkirim sebelum listener ada. Effect di-flush dengan `act` sebelum event; lokal 0 dari 20 run gagal, CI hijau |
 | Tes 429 di CI gagal: klik setelah `429` mengirim request | Bukan galat aplikasi: tombol bertanda `aria-disabled` selama menunggu, dan `click()` Playwright menunggu sampai tombol aktif (sekitar 60 detik), lalu mengirim. Tes kini memeriksa tanda itu, menekan paksa, dan memastikan tidak ada request; lima kata sandi salah dikirim cepat lewat sesi browser yang sama agar `Retry-After` panjang |
 
 ### Tinjauan desain (impeccable)
@@ -71,7 +72,7 @@ Dunia visual yang ada diperluas, bukan diganti (Operate, kontrak `.impeccable/su
 
 ### Belum diverifikasi
 
-- CI pada PR #39: putaran pertama hijau kecuali **Admin integration** (dua temuan di atas); hasil setelah perbaikan di GitHub dan `.ai/project-status.md`.
+- CI pada PR #39: putaran pertama hijau kecuali **Admin integration** (dua temuan di atas). Pada head `a326ba7` kesebelas check hijau (Admin integration, Admin CI, Backend CI, Docker CI; Frontend CI tidak berjalan karena tidak ada file frontend yang berubah); run ID di `.ai/project-status.md`.
 - Firefox dan WebKit untuk admin: tidak dijalankan (suite admin hanya Chromium).
 - `419` nyata dari browser: tidak dapat dipicu dari Chromium (lihat temuan); jalur klien setelah `419` dites dengan jawaban pertama yang disimulasikan.
 - Peringatan sebelum `beforeunload` (reload saat kode pemulihan tampil) hanya dites di unit; dialog browser bawaan tidak dibuka di tes nyata.
