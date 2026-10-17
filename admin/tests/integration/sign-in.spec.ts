@@ -1,5 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import { bootstrapOwner, resetBackend, setServerClock } from "./support/backend";
+import { ADMIN_ORIGIN } from "./support/env.mjs";
 import {
   type Person,
   activateThroughApi,
@@ -198,25 +199,45 @@ test("too many attempts get Laravel's 429 and a countdown; nothing is sent meanw
   page,
 }) => {
   await page.goto("/masuk");
-  await page.getByLabel("Email").fill(owner.email);
-  const statuses = statusesOf(page, "auth/login");
+  await page.getByRole("heading", { level: 1 }).waitFor();
+  await page.request.get("/api/v1/admin/auth/csrf-cookie");
+  const xsrf = (await page.context().cookies()).find((cookie) => cookie.name === "XSRF-TOKEN")!;
 
+  // Five wrong passwords in quick succession from this browser (its own cookies, the admin
+  // Origin, the CSRF token), so Laravel's per-minute limit is reached early in its window and
+  // the wait it returns is long; the UI's attempts can be slow on a busy runner.
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    await page.getByLabel("Kata sandi", { exact: true }).fill(`wrong password ${attempt}`);
-    await page.getByRole("button", { name: "Lanjut" }).click();
-    await expect.poll(() => statuses.length).toBe(attempt + 1);
+    const response = await page.request.post("/api/v1/admin/auth/login", {
+      headers: { Origin: ADMIN_ORIGIN, "X-XSRF-TOKEN": decodeURIComponent(xsrf.value) },
+      data: { email: owner.email, password: `wrong password ${attempt}` },
+    });
+    expect(response.status()).toBe(422);
   }
 
+  const statuses = statusesOf(page, "auth/login");
+  let retryAfter = 0;
+  page.on("response", (response) => {
+    if (response.url().endsWith("/auth/login") && response.status() === 429) {
+      retryAfter = Number(response.headers()["retry-after"]);
+    }
+  });
+
+  await page.getByLabel("Email").fill(owner.email);
   await page.getByLabel("Kata sandi", { exact: true }).fill("wrong password 6");
   await page.getByRole("button", { name: "Lanjut" }).click();
   await expect(
     page.getByText(/Terlalu banyak percobaan\. Coba lagi dalam \d+ detik/),
   ).toBeVisible();
-  expect(statuses).toEqual([422, 422, 422, 422, 422, 429]);
+  expect(statuses).toEqual([429]);
+  expect(retryAfter).toBeGreaterThan(30);
 
-  await page.getByRole("button", { name: "Lanjut" }).click();
-  await page.waitForTimeout(500);
-  expect(statuses).toHaveLength(6);
+  // Inside Laravel's wait the button is marked unavailable, and even a forced press (a normal
+  // click would wait for it to become enabled) sends nothing.
+  const submit = page.getByRole("button", { name: "Lanjut" });
+  await expect(submit).toHaveAttribute("aria-disabled", "true");
+  await submit.click({ force: true });
+  await page.waitForTimeout(1000);
+  expect(statuses).toEqual([429]);
 });
 
 test("an idle session warns first, then ends on the server and leads to sign-in", async ({

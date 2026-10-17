@@ -236,9 +236,15 @@ test("a TOTP code used for sign-in is refused when replayed", async ({ browser }
   for (const expected of ["Beranda konsol", "wrong"] as const) {
     const device = await browser.newContext();
     const page = await device.newPage();
+    const challenge: number[] = [];
+    page.on("response", (response) => {
+      if (response.url().endsWith("/auth/two-factor-challenge")) challenge.push(response.status());
+    });
     await passwordStep(page, owner);
     await page.getByLabel("Kode 6 digit").fill(code);
     await page.getByRole("button", { name: "Masuk" }).click();
+    // Laravel's answer first (statuses only): 204 for the first use, 422 for the replay.
+    await expect.poll(() => challenge).toEqual([expected === "wrong" ? 422 : 204]);
     await expect(
       expected === "wrong"
         ? page.getByText(/Kode tidak cocok\. Tunggu kode berikutnya/)
