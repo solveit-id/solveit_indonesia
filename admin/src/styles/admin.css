@@ -281,6 +281,101 @@
   }
 }
 
+/* Codes and keys: monospace digits with room between them, still the capsule. */
+@utility field-code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 1.0625rem;
+  letter-spacing: 0.12em;
+}
+
+/*
+ * Checkbox: a 22px rounded square in the field's line on raised porcelain; checked fills
+ * cobalt with a drawn check (a mask, so it takes the accent ink in both themes).
+ */
+@utility check-input {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  flex: none;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.375rem;
+  background-color: var(--paper-raised);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-state) var(--ease-out-expo),
+    border-color var(--dur-state) var(--ease-out-expo),
+    box-shadow var(--dur-state) var(--ease-out-expo);
+
+  &::after {
+    content: "";
+    width: 0.875rem;
+    height: 0.875rem;
+    background-color: var(--accent-ink);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 12.5l5 5 10-11' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    transform: scale(0);
+    transition: transform var(--dur-instant) var(--ease-out-expo);
+  }
+
+  &:hover {
+    border-color: var(--ink-muted);
+  }
+
+  &:checked {
+    border-color: var(--accent);
+    background-color: var(--accent);
+  }
+
+  &:checked::after {
+    transform: scale(1);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--selection);
+  }
+}
+
+/*
+ * Native modal dialog: a raised porcelain panel (28px radius) over a navy-tinted backdrop.
+ * The overlay shadow is the system's one shadow for floating layers (docs/DESIGN.md).
+ */
+@utility dialog-panel {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel, 1.75rem);
+  background-color: var(--paper-raised);
+  color: var(--ink);
+  padding: 0;
+  box-shadow: 0 24px 48px -28px rgb(var(--shadow-tint, 8 42 86) / 0.6);
+
+  &[open] {
+    animation: dialog-rise var(--dur-state, 0.2s) var(--ease-out-expo) both;
+  }
+
+  &::backdrop {
+    background-color: rgb(8 42 86 / 0.42);
+  }
+}
+
+@keyframes dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Busy: a short capsule travels along a track on the logo's 33 degree axis (transform only). */
 @utility busy-track {
   position: relative;

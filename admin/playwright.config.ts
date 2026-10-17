@@ -6,9 +6,10 @@ import { defineConfig, devices } from "@playwright/test";
  * the production CSP and security headers (security-policy.ts).
  *
  * No Laravel runs here: the preview proxy points at a closed local port, so the connection
- * check meets a real "Laravel not answering" path; other API answers are mocked per test and
- * labelled as such. Real-browser sign-in and administration flows against Laravel arrive with
- * B3.2b and B3.2d. One worker: the owner machine has limited memory (AGENTS.md).
+ * check meets a real "Laravel not answering" path; other API answers are mocked per test
+ * (tests/e2e/support/mock-api.ts) and labelled as such. The real flows against Laravel and
+ * MySQL are playwright.integration.config.ts (tests/integration). One worker: the owner
+ * machine has limited memory (AGENTS.md).
  */
 export default defineConfig({
   testDir: "tests/e2e",

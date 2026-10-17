@@ -1,7 +1,19 @@
 /** Route paths of the console. Only screens that really exist get a path. */
 export const paths = {
-  foundation: "/",
+  home: "/",
+  signIn: "/masuk",
+  /** Fixed by the backend (config/admin.php `access_links.path`): links are built with it. */
+  access: "/access",
+  account: "/akun",
+  security: "/akun/keamanan",
 } as const;
+
+/** Screens behind sign-in; the only places a sign-in may send the person back to. */
+export const privatePaths: ReadonlySet<string> = new Set([
+  paths.home,
+  paths.account,
+  paths.security,
+]);
 
 /** Development and QA builds only; unused, and therefore dropped, in production builds. */
 export const referencePath = "/referensi-komponen";

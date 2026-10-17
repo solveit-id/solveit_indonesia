@@ -26,3 +26,29 @@ export function takeAccessLinkToken(win: AccessLinkWindow = window): string | nu
 
   return token !== null && TOKEN_SHAPE.test(token) ? token : null;
 }
+
+/**
+ * The token read at start-up, before the router exists. main.tsx calls `holdAccessLinkToken()`
+ * first thing, so the fragment is gone before React Router copies the address into its own
+ * state; the access screen then takes the token into its component memory with
+ * `peekHeldAccessLinkToken()` and calls `releaseHeldAccessLinkToken()`, after which only that
+ * component holds it. A reload finds no fragment and no token: links are not reusable.
+ */
+let held: string | null = null;
+
+export function holdAccessLinkToken(win: AccessLinkWindow = window, accessPath = "/access"): void {
+  if (!/(^#|&)token=/.test(win.location.hash)) {
+    return;
+  }
+
+  const token = takeAccessLinkToken(win);
+
+  // A token fragment on any other page is removed too, but never used.
+  held = win.location.pathname === accessPath ? token : null;
+}
+
+export const peekHeldAccessLinkToken = (): string | null => held;
+
+export function releaseHeldAccessLinkToken(): void {
+  held = null;
+}

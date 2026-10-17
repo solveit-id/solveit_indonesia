@@ -47,7 +47,7 @@ describe("interface copy", () => {
     },
   );
 
-  it("never claims sign-in or administration exists", () => {
+  it("makes no claim the console cannot back (no welcome, no administration ready)", () => {
     const all = strings(id)
       .map(([, text]) => text)
       .join("\n");

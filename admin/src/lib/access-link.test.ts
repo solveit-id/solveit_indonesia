@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { type AccessLinkWindow, takeAccessLinkToken } from "./access-link";
+import {
+  type AccessLinkWindow,
+  holdAccessLinkToken,
+  peekHeldAccessLinkToken,
+  releaseHeldAccessLinkToken,
+  takeAccessLinkToken,
+} from "./access-link";
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_abcde";
 
@@ -62,5 +68,35 @@ describe("takeAccessLinkToken", () => {
     expect(JSON.stringify({ ...localStorage })).not.toContain(TOKEN);
     expect(JSON.stringify({ ...sessionStorage })).not.toContain(TOKEN);
     expect(document.cookie).not.toContain(TOKEN);
+  });
+});
+
+describe("holding the token from start-up", () => {
+  it("takes the token out of the address before the router starts, on /access only", () => {
+    const { win, location } = windowAt(`https://admin.example/access#token=${TOKEN}`);
+
+    holdAccessLinkToken(win, "/access");
+
+    expect(location.hash).toBe("");
+    expect(peekHeldAccessLinkToken()).toBe(TOKEN);
+    releaseHeldAccessLinkToken();
+    expect(peekHeldAccessLinkToken()).toBeNull();
+  });
+
+  it("removes a token fragment elsewhere too, but never holds it", () => {
+    const { win, location } = windowAt(`https://admin.example/akun#token=${TOKEN}`);
+
+    holdAccessLinkToken(win, "/access");
+
+    expect(location.hash).toBe("");
+    expect(peekHeldAccessLinkToken()).toBeNull();
+  });
+
+  it("leaves other fragments alone", () => {
+    const { win, replaceState } = windowAt("https://admin.example/akun#main");
+
+    holdAccessLinkToken(win, "/access");
+
+    expect(replaceState).not.toHaveBeenCalled();
   });
 });

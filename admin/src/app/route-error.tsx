@@ -30,7 +30,7 @@ export function RouteError() {
         >
           {t.error.reload}
         </Button>
-        <Link to={paths.foundation} className="btn btn-secondary">
+        <Link to={paths.home} className="btn btn-secondary">
           <ArrowLeft aria-hidden size={18} weight="bold" />
           {t.error.back}
         </Link>
