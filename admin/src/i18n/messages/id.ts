@@ -14,7 +14,7 @@ export const id = {
   shell: {
     skipToContent: "Langsung ke konten",
     consoleName: "Konsol admin",
-    environmentLead: "Konsol B3.2b",
+    environmentLead: "Konsol B3.2c",
     environmentDetail: "belum di-deploy",
     navigation: "Navigasi utama",
     openMenu: "Menu",
@@ -32,6 +32,10 @@ export const id = {
     home: "Beranda",
     account: "Akun",
     security: "Keamanan",
+    users: "Pengguna",
+    invitations: "Undangan",
+    audit: "Audit log",
+    invite: "Undang admin",
     reference: "Referensi komponen",
   },
   roles: {
@@ -54,6 +58,7 @@ export const id = {
   common: {
     showPassword: "Tampilkan kata sandi",
     cancel: "Batal",
+    close: "Tutup",
     retry: "Coba lagi",
     copied: "Disalin.",
     copyFailed: "Browser menolak menyalin otomatis. Pilih teksnya lalu salin manual.",
@@ -241,6 +246,13 @@ export const id = {
     authenticatorOn: "autentikator aktif",
     authenticatorOff: "autentikator belum terkonfirmasi",
     securityLink: "Keamanan",
+    administrationTitle: "Administrasi",
+    usersLink: "Pengguna",
+    usersDetail: "Akun, peran, penangguhan, dan reset kredensial",
+    invitationsLink: "Undangan",
+    invitationsDetail: "Tautan aktivasi untuk akun baru",
+    auditLink: "Audit log",
+    auditDetail: "Kejadian keamanan dan administrasi",
     lowCodes: (count: number) =>
       count === 0
         ? "Kode pemulihan Anda sudah habis. Buat kode baru di Keamanan sebelum Anda membutuhkannya."
@@ -255,7 +267,7 @@ export const id = {
     role: "Peran",
     roleDetail: {
       owner:
-        "Mengelola pengguna dan membaca audit log lewat API. Layar administrasinya menyusul di tahap B3.2c.",
+        "Mengelola pengguna, undangan, peran, penangguhan, dan reset kredensial, serta membaca audit log.",
       admin: "Mengelola keamanan akun sendiri.",
       none: "Akun tanpa peran tidak dapat memakai konsol.",
     },
@@ -406,7 +418,7 @@ export const id = {
   },
   notFound: {
     title: "Halaman tidak ditemukan",
-    body: "Alamat ini tidak ada di konsol admin. Administrasi pengguna belum dibangun, jadi tautan ke sana belum berfungsi.",
+    body: "Alamat ini tidak ada di konsol admin. Periksa ejaannya, atau kembali ke beranda konsol.",
     back: "Ke beranda konsol",
   },
   error: {

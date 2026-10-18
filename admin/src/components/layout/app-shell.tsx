@@ -137,7 +137,10 @@ function RailContent({
 
       <EnvironmentCapsule />
 
-      <PrimaryNavigation signedIn={session !== null} onNavigate={onNavigate} />
+      <PrimaryNavigation
+        permissions={session ? session.account.permissions : null}
+        onNavigate={onNavigate}
+      />
 
       <div className={cn("grid gap-5", compact ? "pt-2" : "mt-auto pt-6")}>
         {session ? <AccountFoot session={session} /> : null}
