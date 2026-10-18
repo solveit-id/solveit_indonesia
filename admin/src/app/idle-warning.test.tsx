@@ -96,9 +96,27 @@ describe("idle warning (WCAG 2.2.1)", () => {
   });
 });
 
+describe("a passed 12-hour deadline", () => {
+  it("is checked with Laravel once; if Laravel still answers, no loop of requests follows", async () => {
+    mockAdminApi({});
+    // 14:00 has passed at 14:30, yet the server keeps the session (its clock decides).
+    const { onExpired } = renderWarning("2026-10-17T14:30:00Z");
+
+    await advance(100);
+    expect(onExpired).toHaveBeenCalledTimes(1);
+
+    // Laravel answered 200: the store is refreshed, as the private layout's check does.
+    act(() => markVerified({ account, serverClockOffsetMs: 0 }));
+    await advance(10 * MINUTE);
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alertdialog", { name: /12 jam/ })).toBeNull();
+  });
+});
+
 describe("resume check", () => {
   it("asks Laravel again after the tab was hidden for a while, and follows a 401", async () => {
-    const api = mockAdminApi({ "GET me": [me(account), unauthenticated()] });
+    const api = mockAdminApi({ "GET me": [me(), unauthenticated()] });
     const router = renderApp("/akun");
     await screen.findByRole("heading", { level: 1, name: "Akun" });
     // The heading can be in the DOM before React has run the layout's effects, which attach
@@ -118,7 +136,7 @@ describe("resume check", () => {
   });
 
   it("a short switch away does not ask again", async () => {
-    const api = mockAdminApi({ "GET me": me(account) });
+    const api = mockAdminApi({ "GET me": me() });
     renderApp("/akun");
     await screen.findByRole("heading", { level: 1, name: "Akun" });
     await act(async () => undefined);
