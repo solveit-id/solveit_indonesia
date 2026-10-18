@@ -2,12 +2,23 @@ import { describe, expect, it } from "vitest";
 import { readSignInNotice, safeReturnTo, signInPath } from "./return-to";
 
 describe("safeReturnTo", () => {
-  it.each(["/", "/akun", "/akun/keamanan"])("accepts the private screen %s", (path) => {
+  it.each([
+    "/",
+    "/akun",
+    "/akun/keamanan",
+    "/pengguna",
+    "/pengguna/7",
+    "/pengguna/1234567890",
+    "/undangan",
+    "/undangan/baru",
+    "/audit",
+  ])("accepts the private screen %s", (path) => {
     expect(safeReturnTo(path)).toBe(path);
   });
 
   it("drops query and fragment", () => {
     expect(safeReturnTo("/akun?x=1#y")).toBe("/akun");
+    expect(safeReturnTo("/audit?subjek=2")).toBe("/audit");
   });
 
   it.each([
@@ -29,6 +40,15 @@ describe("safeReturnTo", () => {
     "/akun\u0000",
     "/akun\n//evil.example",
     "/referensi-komponen",
+    "/pengguna/0",
+    "/pengguna/07",
+    "/pengguna/-1",
+    "/pengguna/7/",
+    "/pengguna/7a",
+    "/pengguna/12345678901",
+    "/pengguna/7/../../access",
+    "/pengguna/%37",
+    "/undangan/9",
   ])("refuses %j and falls back to home", (value) => {
     expect(safeReturnTo(value)).toBe("/");
   });

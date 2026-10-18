@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import { routes } from "~/app/router";
 import { I18nProvider } from "~/i18n/i18n";
 import type { AdminAccount } from "~/services/admin-api";
+import type { AdminUserDetail } from "~/services/admin-api/owner";
 
 /**
  * A stand-in for Laravel in component tests: `fetch` answers by method and path, in order,
@@ -50,6 +51,48 @@ export function sampleAccount(overrides: Partial<AdminAccount> = {}): AdminAccou
 }
 
 export const me = (account: AdminAccount = sampleAccount()) => json(200, { data: account });
+
+/** Every permission Laravel grants the owner role (docs/api/admin-users.md, Izin dan peran). */
+export const ownerPermissions: AdminAccount["permissions"] = [
+  "account.manage-own",
+  "users.view",
+  "users.invite",
+  "users.change-role",
+  "users.suspend",
+  "users.reset-credentials",
+  "audit.view-all",
+];
+
+export const ownerAccount = (overrides: Partial<AdminAccount> = {}) =>
+  sampleAccount({ permissions: ownerPermissions, ...overrides });
+
+/** A synthetic admin account as `GET users/{id}` returns it. */
+export function sampleUser(overrides: Partial<AdminUserDetail> = {}): AdminUserDetail {
+  return {
+    id: 2,
+    name: "Contoh Admin",
+    email: "admin@example.test",
+    role: "admin",
+    status: "active",
+    is_current_user: false,
+    two_factor_confirmed: true,
+    activated_at: "2026-10-16T05:31:00+00:00",
+    suspended_at: null,
+    last_login_at: "2026-10-17T06:02:00+00:00",
+    created_at: "2026-10-16T05:20:00+00:00",
+    active_sessions: 1,
+    open_access_link: null,
+    ...overrides,
+  };
+}
+
+/** A cursor page as Laravel returns it. */
+export const page = <T,>(data: T[], nextCursor: string | null = null) =>
+  json(200, {
+    data,
+    links: { first: null, last: null, prev: null, next: nextCursor ? "x" : null },
+    meta: { path: "x", per_page: 25, next_cursor: nextCursor, prev_cursor: null },
+  });
 
 /**
  * Install the stub. `routes` maps "METHOD path" (relative to /api/v1/admin) to answers used in

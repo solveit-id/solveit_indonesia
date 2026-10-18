@@ -180,6 +180,41 @@ export async function signInThroughUi(page: Page, who: Person, landing = "Berand
   await expect(page.getByRole("heading", { level: 1, name: landing })).toBeVisible();
 }
 
+/**
+ * An owner invitation through the real API (fast setup): password confirmation, then
+ * `POST invitations`. Returns the one-time link, held in test memory only.
+ */
+export async function inviteThroughApi(
+  owner: Pick<Person, "password"> & { api: AdminApi },
+  email: string,
+  role: "owner" | "admin" = "admin",
+): Promise<string> {
+  expect(
+    (await owner.api.write("POST", "auth/confirm-password", { password: owner.password })).status(),
+  ).toBe(201);
+  const issued = await owner.api.write("POST", "invitations", { email, role });
+  expect(issued.status()).toBe(201);
+
+  return ((await issued.json()) as { data: { access_link: { url: string } } }).data.access_link.url;
+}
+
+/**
+ * Collects Content-Security-Policy violations in the page (GSAP writes styles through the
+ * CSSOM, which the production CSP allows; this proves it). Read with `cspViolations(page)`.
+ */
+export async function watchCsp(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { __cspViolations: string[] }).__cspViolations = seen;
+    document.addEventListener("securitypolicyviolation", (event) =>
+      seen.push(`${event.violatedDirective} ${event.blockedURI}`),
+    );
+  });
+}
+
+export const cspViolations = (page: Page): Promise<string[]> =>
+  page.evaluate(() => (window as unknown as { __cspViolations?: string[] }).__cspViolations ?? []);
+
 /** The phone and tablet layouts hide the rail behind the menu. */
 export async function openNavigation(page: Page) {
   if (page.viewportSize()!.width < 1024) {
