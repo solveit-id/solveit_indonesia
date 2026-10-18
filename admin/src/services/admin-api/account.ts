@@ -1,4 +1,4 @@
-import type { AdminApiClient, AdminResponse } from "./client";
+import type { AdminApiClient } from "./client";
 import {
   type AdminAccessLinkInspection,
   type AdminAccessLinkRedemption,
@@ -14,6 +14,7 @@ import {
   type AdminTwoFactorAnswer,
   EXPIRED_SIGN_IN_MESSAGE,
 } from "./contracts";
+import { unwrap } from "./envelope";
 import { AdminApiError } from "./errors";
 
 /**
@@ -32,21 +33,6 @@ export interface VerifiedAccount {
   account: AdminAccount;
   /** Milliseconds to add to `Date.now()` to get the server's time (0 when unknown). */
   serverClockOffsetMs: number;
-}
-
-/** The `data` member of a success body, or an `invalid-response` error when it is missing. */
-function unwrap<T>(response: AdminResponse<AdminEnvelope<T>>, isWrite: boolean): T {
-  const body: unknown = response.data;
-
-  if (typeof body !== "object" || body === null || !("data" in body)) {
-    throw new AdminApiError({
-      kind: "invalid-response",
-      status: response.status,
-      outcome: isWrite ? "uncertain" : "not-applicable",
-    });
-  }
-
-  return (body as AdminEnvelope<T>).data;
 }
 
 /** Difference between the server's `Date` header and this device's clock, bounded to a day. */

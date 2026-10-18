@@ -1,8 +1,8 @@
 # Konsol admin Solveit (`admin/`)
 
-Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a dirilis ke `main` (PR #38, `15b131a`), belum di-deploy. B3.2b (masuk, aktivasi, keamanan akun sendiri) dibangun dan dites di branch `admin`, menunggu tinjauan pemilik.** Belum ada layar administrasi pengguna atau audit untuk owner (B3.2c) dan belum ada rilis admin privat (B3.2d); tidak ada akun produksi. Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`.
+Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38) dan B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`) dirilis ke `main`, belum di-deploy. B3.2c (ruang kerja administrasi owner: pengguna, detail akun dengan perubahan peran, penangguhan, aktivasi ulang, dan reset kredensial, undangan, audit log) dibangun dan dites di branch `admin`, menunggu tinjauan pemilik.** Belum ada rilis admin privat (B3.2d); tidak ada akun produksi. Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
 
-React 19, TypeScript strict, Vite 8, React Router 7 dalam **mode data** (bukan framework mode: tanpa skrip inline, CSP ketat), Tailwind CSS 4, ikon Phosphor. Tanpa Axios, state manager global, pustaka komponen, atau pustaka grafik.
+React 19, TypeScript strict, Vite 8, React Router 7 dalam **mode data** (bukan framework mode: tanpa skrip inline, CSP ketat), Tailwind CSS 4, ikon Phosphor, GSAP (inti saja, chunk lazy sejak B3.2c). Tanpa Axios, state manager global, pustaka komponen, pustaka grafik, atau pustaka smooth scroll (Lenis dievaluasi dan tidak dipakai, lihat Motion).
 
 ## Mulai
 
@@ -42,15 +42,16 @@ admin/
 │   ├── app/             router (mode data, lazy), layout akar dan privat, error boundary, peringatan idle, metadata route, data fase
 │   ├── auth/            sesi di memori, loader penjaga (GET me), jalur kembali yang aman, salinan galat
 │   ├── components/
-│   │   ├── brand/       logo dari path asli website (tanpa salinan)
+│   │   ├── brand/       logo dari path asli website (tanpa salinan), tanda yang merakit diri (momen fokus B3.2c)
+│   │   ├── admin/       ruang kerja owner (B3.2c): dialog tindakan sensitif, tautan sekali tampil, daftar cursor, kejadian audit, nama akun
 │   │   ├── account/     kode pemulihan sekali tampil, daftar fakta akun
 │   │   ├── layout/      shell dengan akun, bingkai autentikasi tanpa navigasi, navigasi, preferensi
 │   │   └── ui/          primitif: tombol, isian, status, panel, keadaan memuat/kosong/gagal
-│   ├── i18n/            Indonesia (default) dan Inggris; struktur sama dicek TypeScript dan tes
-│   ├── lib/             tema, preferensi, tautan akses (fragmen), aturan kata sandi, waktu, cn
+│   ├── i18n/            Indonesia (default) dan Inggris; struktur sama dicek TypeScript dan tes; owner/ untuk teks ruang kerja owner
+│   ├── lib/             tema, preferensi, tautan akses (fragmen), aturan kata sandi, waktu, hari lokal, media query, motion (GSAP lazy), cn
 │   ├── pages/           satu modul per layar
 │   ├── routes/          path
-│   ├── services/admin-api/  klien API bertipe: satu-satunya tempat yang memanggil Laravel
+│   ├── services/admin-api/  klien API bertipe: satu-satunya tempat yang memanggil Laravel; owner.ts untuk endpoint owner
 │   └── styles/admin.css lapisan admin di atas token merek bersama
 ├── tests/e2e/           Playwright pada build referensi, API di-mock
 └── tests/integration/   Playwright pada build produksi terhadap Laravel dan MySQL nyata (playwright.integration.config.ts)
@@ -84,6 +85,32 @@ Admin membaca empat file website **di tempat, read-only, tanpa salinan** (`vite.
 - **Idle dan batas absolut.** Peringatan lima menit sebelum perkiraan idle 30 menit (dari respons terakhir yang mencapai sesi); **Tetap masuk** mengirim satu `GET me`. Pada perkiraan kedaluwarsa satu `GET me` memeriksa, dan `401` membawa ke halaman masuk. Pemberitahuan sepuluh menit sebelum batas 12 jam tanpa perpanjangan. Tidak ada polling; server tetap penentu.
 - **Tidak ada pengiriman ulang otomatis** selain yang dilakukan klien setelah `419` untuk lima langkah di allowlist. Hasil yang tidak pasti (jaringan, timeout, `5xx`, respons tak terbaca) dilaporkan dan diselesaikan dengan baca (`GET me` atau `access-links/inspect`), tidak dengan mengirim ulang tulisan. `429` menampilkan hitung mundur dari `Retry-After` (paling lama satu jam) dan tidak mengirim apa pun selama itu.
 - **Rahasia.** Token tautan akses diambil dari fragmen di `main.tsx` sebelum router dibuat, dihapus dari alamat dan riwayat, lalu hanya ada di memori layar `/access` sampai dipakai atau ditolak. Kunci TOTP, kode pemulihan, kata sandi, dan kode hanya di state komponen; tidak disimpan, di-log, atau diambil ulang. Kode pemulihan ditampilkan sekali dengan tombol salin dan konfirmasi wajib; meninggalkan halaman sebelum itu dicegah (navigasi dalam aplikasi) atau diperingatkan (reload, tutup tab).
+
+## Ruang kerja owner (B3.2c)
+
+| Jalur            | Isi                                                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `/pengguna`      | Daftar akun (`GET users`): filter peran dan status di alamat (`?peran=admin&status=suspended`), muat lebih banyak dengan cursor Laravel |
+| `/pengguna/:id`  | Detail akun: ringkasan, tautan terbuka (metadata saja), aktivitas audit terbaru, tindakan (peran, penangguhan, aktivasi ulang, reset)   |
+| `/undangan`      | Daftar undangan (`GET invitations`) dengan filter status dan pencabutan undangan yang masih terbuka                                     |
+| `/undangan/baru` | Undang admin: email dan peran, tinjau, tautan sekali tampil                                                                             |
+| `/audit`         | Audit log baca saja (`GET audit-events`): filter yang diizinkan Laravel, dikelompokkan per hari lokal, muat kejadian lebih lama         |
+
+- **Laravel otoritas RBAC.** Navigasi owner dan tombol tindakan tampil hanya bila `GET me` melaporkan izinnya; setiap request tetap diotorisasi Laravel. Akun tanpa izin yang membuka layar owner melihat keadaan "Khusus owner" tanpa request; `403` dari API memberi keadaan yang sama dan akun dibaca ulang.
+- **Setiap penulisan lewat `SensitiveActionDialog`** (`src/components/admin/`): satu dialog yang isinya maju. Keputusan dijelaskan dengan kata; `423` membuka langkah kata sandi (`POST auth/confirm-password`), lalu keputusan kedua yang disengaja, dan hanya tekanan itu yang mengirim lagi. `419`: belum diproses, tekan lagi. `429`: hitung mundur, tidak ada yang dikirim. `409`: kalimat per `code`, hanya tombol Tutup, data dibaca ulang. `404`: data dibaca ulang. Hasil tidak pasti (5xx, jaringan, timeout, sukses tak terbaca): dialog tertutup dan tombol **Periksa** membaca keadaan sekarang (detail akun, atau undangan yang menunggu untuk alamat itu); penulisan tidak pernah dikirim ulang sendiri.
+- **Tautan sekali tampil** (`OneTimeLinkReveal`): URL undangan atau reset dari respons `201` hanya ada di state komponen, tidak pernah di penyimpanan browser, alamat, state router, judul, atribut, atau log. Salin hanya saat ditekan; meninggalkan halaman sebelum konfirmasi dicegah (`LeaveGuard`, sama dengan kode pemulihan B3.2b); Selesai membuangnya. Selama tautan tampil tidak ada tindakan lain yang dapat menggantinya.
+- **Daftar** (`useCursorList`): filter di alamat (nilai yang tidak dikenal diabaikan, tidak pernah dikirim), baris lama tetap terlihat redup saat filter baru dimuat, muat lebih banyak memindahkan fokus ke baris baru pertama. Ganti filter saja tidak menjalankan `GET me` lagi (`revalidatePrivateArea` di `router.tsx`); request daftar sendiri menemui `401` seketika. Tabel mulai 768 px, kartu di bawahnya (satu DOM sesuai lebar, `useMediaQuery`).
+- **Tanggal audit**: satu hari dikirim sebagai awal dan akhirnya di zona waktu perangkat dengan offset tertulis (`src/lib/local-day.ts`), karena Laravel membaca tanggal polos sebagai tengah malam UTC.
+- **Nama akun** di undangan dan audit berasal dari satu halaman `GET users` (100 akun) di memori layar; selebihnya "Akun #7", tidak pernah tebakan.
+- **Ukuran.** Teks owner (`src/i18n/owner/`) dan klien owner (`src/services/admin-api/owner.ts`) hanya diimpor kode owner, jadi tidak masuk JavaScript awal.
+
+## Motion (GSAP) dan Lenis
+
+- GSAP inti (tanpa plugin) di `src/lib/gsap.ts`, dimuat lazy lewat `src/lib/motion.ts` saat browser idle setelah start-up (`preloadMotion` di `main.tsx`). Tidak ada yang menunggu GSAP: konten dirender terlihat, dan animasi masuk hanya berjalan bila GSAP sudah termuat saat konten muncul.
+- `useMotion` menjalankan setup di `gsap.context()` sebelum paint dan me-revert semua tween serta gaya inline saat unmount atau dependensi berubah; tidak berjalan sama sekali dengan `prefers-reduced-motion: reduce`.
+- Pemakaian: konten layar naik saat layar berganti (bukan layar pertama), kapsul aktif navigasi berpindah dari item sebelumnya (FLIP), baris baru daftar naik (paling banyak 12, kurang dari 300 ms), langkah dialog bergeser masuk, fakta yang berubah setelah tindakan bergeser masuk, dan momen fokus: tanda Solveit merakit diri dari empat kapsulnya pada sumbu 33 derajat saat tautan sekali tampil muncul (keputusan pemilik 2026-10-18).
+- CSP produksi tetap ketat: GSAP menulis gaya lewat CSSOM (diizinkan `style-src 'self'`) dan atribut `transform` SVG; tes browser memeriksa nol pelanggaran CSP.
+- **Lenis tidak dipakai.** Konsol adalah permukaan Operate dengan scroll native: rail dan menu ponsel punya scroll sendiri, dialog native, tabel, `scroll-margin`, pemulihan scroll React Router, dan fokus keyboard semuanya bergantung pada scroll native, dan `docs/DESIGN.md` melarang pustaka smooth scroll. Tidak ada area yang terbukti lebih baik dengan Lenis (sentuhan di ponsel tetap native di Lenis), jadi tidak ada byte atau listener tambahan.
 
 ## Tes browser nyata (Laravel dan MySQL)
 

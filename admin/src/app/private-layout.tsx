@@ -20,6 +20,7 @@ import { Button } from "~/components/ui/button";
 import { Notice } from "~/components/ui/notice";
 import { LoadingState } from "~/components/ui/state-view";
 import { useI18n } from "~/i18n/i18n";
+import { useMotion } from "~/lib/motion";
 import { retryAt, useSecondsUntil } from "~/lib/time";
 import { paths } from "~/routes/paths";
 import { type AdminAccount, accountApi, isAdminApiError } from "~/services/admin-api";
@@ -40,6 +41,8 @@ const WAKE_TICK_MS = 15_000;
  * - After the tab was hidden, the device slept, or the page came back from the back-forward
  *   cache, the content is hidden and `GET me` runs again before anything shows or can be used.
  * - The idle warning (WCAG 2.2.1) lives here.
+ * - When the screen changes, its content rises in (GSAP, ~300 ms, never on the first screen,
+ *   never under reduced motion, never awaited): continuity between screens, not decoration.
  */
 export function PrivateLayout() {
   const { t } = useI18n();
@@ -54,6 +57,21 @@ export function PrivateLayout() {
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const pathnameRef = useRef(pathname);
   const revalidateRef = useRef(revalidator.revalidate);
+  const content = useRef<HTMLDivElement>(null);
+  const shownPath = useRef(pathname);
+
+  useMotion(
+    ({ gsap }) => {
+      if (shownPath.current !== pathname && content.current !== null) {
+        gsap.from(content.current, { y: 10, opacity: 0, duration: 0.32 });
+      }
+    },
+    { dependencies: [pathname] },
+  );
+
+  useEffect(() => {
+    shownPath.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     // While a navigation is pending, the person was heading there: return to that screen.
@@ -172,7 +190,7 @@ export function PrivateLayout() {
   return (
     <AppShell session={{ account, signOut: () => void signOut(), signingOut, signOutError }}>
       {checking ? <LoadingState label={t.sessionCheck.checking} rows={4} /> : null}
-      <div hidden={checking}>
+      <div ref={content} hidden={checking}>
         <Outlet />
       </div>
       <IdleWarning

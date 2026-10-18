@@ -1,6 +1,6 @@
 # Admin API: administrasi pengguna dan audit (B3.1b)
 
-Kontrak endpoint owner di `/api/v1/admin` yang dibangun pada B3.1b: daftar dan detail akun admin, undangan, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner, dan pembacaan audit log. Status: **dibangun dan dites, belum di-deploy**. Backend saja: belum ada aplikasi admin yang memanggilnya (B3.2), belum ada akun produksi, dan retensi audit masih menunggu keputusan pemilik.
+Kontrak endpoint owner di `/api/v1/admin` yang dibangun pada B3.1b: daftar dan detail akun admin, undangan, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner, dan pembacaan audit log. Status: **dibangun dan dites, belum di-deploy**. Konsol admin memanggilnya sejak B3.2c (ruang kerja owner di branch `admin`, menunggu tinjauan pemilik; `admin/README.md`, Ruang kerja owner); belum ada akun produksi, dan retensi audit masih menunggu keputusan pemilik.
 
 Konvensi B3.1a tetap berlaku tanpa perubahan (satu origin `ADMIN_URL`, sesi cookie database, CSRF, `Cache-Control: no-store, private`, `401` tanpa sesi): `admin-auth.md`. Arsitektur dan keputusan: `docs/architecture/admin-dashboard.md` bagian 4 dan 6. Implementasi: `backend/routes/admin.php`, `app/Http/Controllers/Api/V1/Admin/{UserController,InvitationController,AuditEventController}.php`, `app/Actions/Admin/{InviteAdminAccount,RevokeAdminInvitation,ChangeAdminRole,SuspendAdminAccount,ResetAdminCredentials,ActiveOwners}.php`. Tes: `backend/tests/Feature/Admin/` (`AdminUserAdministrationTest`, `AdminInvitationTest`, `AdminCredentialRecoveryTest`, `AdminAuditReaderTest`, `AdminAdministrationConcurrencyTest`).
 
@@ -229,4 +229,4 @@ Filter (masing-masing memakai kolom berindeks; tidak ada pencarian bebas di meta
 
 ## Yang tidak ada
 
-Registrasi publik, pengiriman email atau SMS, peran lain (`editor`, `analyst`), menghapus akun, mengubah alamat email atau nama akun orang lain, melihat atau mengakhiri sesi orang lain satu per satu, mematikan MFA, endpoint audit publik, ekspor CSV, penghapusan atau pemangkasan audit. Aplikasi admin (B3.2) belum ada; endpoint ini hanya dapat dipanggil dari origin `ADMIN_URL` dan tidak disajikan di listener publik gateway.
+Registrasi publik, pengiriman email atau SMS, peran lain (`editor`, `analyst`), menghapus akun, mengubah alamat email atau nama akun orang lain, melihat atau mengakhiri sesi orang lain satu per satu, mematikan MFA, endpoint audit publik, ekspor CSV, penghapusan atau pemangkasan audit. Konsol admin (B3.2c) memanggil endpoint ini hanya dari origin `ADMIN_URL`; endpoint tidak disajikan di listener publik gateway.

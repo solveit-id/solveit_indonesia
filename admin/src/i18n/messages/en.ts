@@ -9,7 +9,7 @@ export const en: Messages = {
   shell: {
     skipToContent: "Skip to content",
     consoleName: "Admin console",
-    environmentLead: "B3.2b console",
+    environmentLead: "B3.2c console",
     environmentDetail: "not deployed",
     navigation: "Main navigation",
     openMenu: "Menu",
@@ -27,6 +27,10 @@ export const en: Messages = {
     home: "Home",
     account: "Account",
     security: "Security",
+    users: "Users",
+    invitations: "Invitations",
+    audit: "Audit log",
+    invite: "Invite an admin",
     reference: "Component reference",
   },
   roles: {
@@ -49,6 +53,7 @@ export const en: Messages = {
   common: {
     showPassword: "Show password",
     cancel: "Cancel",
+    close: "Close",
     retry: "Try again",
     copied: "Copied.",
     copyFailed: "The browser refused to copy automatically. Select the text and copy it by hand.",
@@ -234,6 +239,13 @@ export const en: Messages = {
     authenticatorOn: "authenticator active",
     authenticatorOff: "authenticator not confirmed",
     securityLink: "Security",
+    administrationTitle: "Administration",
+    usersLink: "Users",
+    usersDetail: "Accounts, roles, suspension, and credential resets",
+    invitationsLink: "Invitations",
+    invitationsDetail: "Activation links for new accounts",
+    auditLink: "Audit log",
+    auditDetail: "Security and administration events",
     lowCodes: (count: number) =>
       count === 0
         ? "You have no recovery codes left. Create new ones on Security before you need them."
@@ -248,7 +260,7 @@ export const en: Messages = {
     role: "Role",
     roleDetail: {
       owner:
-        "Manages users and reads the audit log through the API. Its administration screens follow in phase B3.2c.",
+        "Manages users, invitations, roles, suspension, and credential resets, and reads the audit log.",
       admin: "Manages the security of their own account.",
       none: "An account without a role cannot use the console.",
     },
@@ -399,7 +411,7 @@ export const en: Messages = {
   },
   notFound: {
     title: "Page not found",
-    body: "This address does not exist in the admin console. User administration is not built yet, so links to it do not work yet.",
+    body: "This address does not exist in the admin console. Check the spelling, or go back to the console home.",
     back: "Go to the console home",
   },
   error: {

@@ -1,8 +1,7 @@
 /**
  * Types of the released admin API (B3.1a and B3.1b). Source of truth: docs/api/admin-auth.md
- * and docs/api/admin-users.md; change those documents and these types together. Only shapes
- * the client needs now are listed: sign-in, access links, and own account (B3.2b); the owner
- * administration screens add theirs in B3.2c.
+ * and docs/api/admin-users.md; change those documents and these types together. Sign-in,
+ * access links, and own account (B3.2b); owner administration and the audit reader (B3.2c).
  */
 
 /** Base path of every admin endpoint, always relative to the admin origin (same origin). */
@@ -136,11 +135,4 @@ export interface AdminSessionSummary {
   ip_address: string | null;
   user_agent: string | null;
   last_active_at: string;
-}
-
-/** Cursor pagination of the owner lists (admin-users.md, Daftar dan pagination). */
-export interface CursorPage<T> {
-  data: T[];
-  links: { first: string | null; last: string | null; prev: string | null; next: string | null };
-  meta: { path: string; per_page: number; next_cursor: string | null; prev_cursor: string | null };
 }

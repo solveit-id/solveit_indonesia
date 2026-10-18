@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router";
 import { createAdminRouter } from "~/app/router";
 import { I18nProvider } from "~/i18n/i18n";
 import { holdAccessLinkToken } from "~/lib/access-link";
+import { preloadMotion } from "~/lib/motion";
 import { paths } from "~/routes/paths";
 
 // First of all, before the router copies the address into its state: an access-link token
@@ -24,3 +25,6 @@ createRoot(container).render(
     </I18nProvider>
   </StrictMode>,
 );
+
+// GSAP is a lazy chunk fetched once the browser is idle; nothing renders later because of it.
+preloadMotion();

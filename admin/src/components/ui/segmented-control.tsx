@@ -15,6 +15,8 @@ interface SegmentedControlProps<T extends string> {
   options: SegmentedOption<T>[];
   onChange: (value: T) => void;
   className?: string;
+  /** Show the legend above the capsule, like a field label (filter bars). */
+  legendVisible?: boolean;
 }
 
 /**
@@ -27,12 +29,15 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   className,
+  legendVisible = false,
 }: SegmentedControlProps<T>) {
   const name = useId();
 
   return (
     <fieldset className={cn("min-w-0", className)}>
-      <legend className="sr-only">{legend}</legend>
+      <legend className={legendVisible ? "mb-2 text-[0.9375rem] font-semibold" : "sr-only"}>
+        {legend}
+      </legend>
       <div className="flex rounded-full border border-line-strong p-1">
         {options.map((option) => {
           const checked = option.value === value;
@@ -42,7 +47,7 @@ export function SegmentedControl<T extends string>({
               key={option.value}
               lang={option.lang}
               className={cn(
-                "relative flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-[0.875rem] font-semibold transition-colors duration-[var(--dur-state)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)]",
+                "relative flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-[0.875rem] font-semibold whitespace-nowrap transition-colors duration-[var(--dur-state)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)]",
                 checked ? "bg-ink text-paper" : "text-ink-muted hover:text-ink",
               )}
             >

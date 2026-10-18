@@ -1,9 +1,8 @@
 import { ArrowRight } from "@phosphor-icons/react/dist/csr/ArrowRight";
-import { useEffect, useId, useRef, useState } from "react";
-import { useBlocker } from "react-router";
+import { useId, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { CopyButton } from "~/components/ui/copy-button";
-import { Dialog } from "~/components/ui/dialog";
+import { LeaveGuard } from "~/components/ui/leave-guard";
 import { Notice } from "~/components/ui/notice";
 import { useI18n } from "~/i18n/i18n";
 
@@ -12,8 +11,8 @@ import { useI18n } from "~/i18n/i18n";
  * codes regenerated) and live only in the memory of the component that received them. Nothing
  * stores, logs, or refetches them; a reload or a navigation loses them for good, and the
  * screen says so. Copying happens only on an explicit press. Until the person confirms they
- * saved the codes, leaving is interrupted: an in-app navigation asks first (useBlocker) and a
- * reload or closing the tab triggers the browser's own warning (beforeunload).
+ * saved the codes, leaving is interrupted (LeaveGuard: an in-app navigation asks first, a
+ * reload or closing the tab triggers the browser's own warning).
  */
 export function RecoveryCodesReveal({
   codes,
@@ -33,27 +32,6 @@ export function RecoveryCodesReveal({
   const checkboxRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const reminderId = useId();
-
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      !acknowledged && currentLocation.pathname !== nextLocation.pathname,
-  );
-
-  useEffect(() => {
-    if (acknowledged) {
-      return;
-    }
-
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      // Older browsers need a value to show their prompt; it is never displayed.
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", warn);
-
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [acknowledged]);
 
   const finish = () => {
     if (!acknowledged) {
@@ -131,21 +109,12 @@ export function RecoveryCodesReveal({
         </Button>
       </div>
 
-      <Dialog
-        open={blocker.state === "blocked"}
+      <LeaveGuard
+        active={!acknowledged}
         title={t.recoveryCodes.leaveTitle}
-        description={t.recoveryCodes.leaveBody}
-        onClose={() => blocker.reset?.()}
-        actions={
-          <>
-            <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              {t.recoveryCodes.leave}
-            </Button>
-            <Button variant="primary" onClick={() => blocker.reset?.()} data-autofocus>
-              {t.recoveryCodes.stay}
-            </Button>
-          </>
-        }
+        body={t.recoveryCodes.leaveBody}
+        stayLabel={t.recoveryCodes.stay}
+        leaveLabel={t.recoveryCodes.leave}
       />
     </section>
   );

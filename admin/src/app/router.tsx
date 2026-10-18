@@ -13,8 +13,10 @@ import type { RouteHandle } from "./route-handle";
  * screens that really exist are routed; everything else is the honest 404.
  *
  * Two areas. Public (`/masuk`, `/access`, the 404) in the auth frame, without an account.
- * Private (`/`, `/akun`, `/akun/keamanan`) behind `requireAccount`, which runs `GET me` on every
- * navigation into or inside it before anything renders (src/auth/guards.ts).
+ * Private (`/`, `/akun`, `/akun/keamanan`, and the owner screens `/pengguna`, `/pengguna/:id`,
+ * `/undangan`, `/undangan/baru`, `/audit`) behind `requireAccount`, which runs `GET me` on every
+ * navigation into or inside it before anything renders (src/auth/guards.ts). Laravel authorizes
+ * each owner endpoint itself; the screens only explain a 403.
  */
 export const routes: RouteObject[] = [
   {
@@ -53,9 +55,7 @@ export const routes: RouteObject[] = [
       {
         id: PRIVATE_ROUTE_ID,
         loader: requireAccount,
-        // Every navigation re-verifies the session with Laravel: Back after signing out, an
-        // idle or revoked session, and a reset account never show a stale view.
-        shouldRevalidate: () => true,
+        shouldRevalidate: revalidatePrivateArea,
         Component: PrivateLayout,
         ErrorBoundary: PrivateRouteError,
         HydrateFallback: ShellFallback,
@@ -78,6 +78,33 @@ export const routes: RouteObject[] = [
                 path: "akun/keamanan",
                 handle: { title: (t) => t.security.title } satisfies RouteHandle,
                 lazy: async () => ({ Component: (await import("~/pages/security")).Security }),
+              },
+              {
+                path: "pengguna",
+                handle: { title: (t) => t.nav.users } satisfies RouteHandle,
+                lazy: async () => ({ Component: (await import("~/pages/users")).Users }),
+              },
+              {
+                path: "pengguna/:id",
+                handle: { title: (t) => t.nav.users } satisfies RouteHandle,
+                lazy: async () => ({ Component: (await import("~/pages/user-detail")).UserDetail }),
+              },
+              {
+                path: "undangan",
+                handle: { title: (t) => t.nav.invitations } satisfies RouteHandle,
+                lazy: async () => ({
+                  Component: (await import("~/pages/invitations")).Invitations,
+                }),
+              },
+              {
+                path: "undangan/baru",
+                handle: { title: (t) => t.nav.invite } satisfies RouteHandle,
+                lazy: async () => ({ Component: (await import("~/pages/invite")).Invite }),
+              },
+              {
+                path: "audit",
+                handle: { title: (t) => t.nav.audit } satisfies RouteHandle,
+                lazy: async () => ({ Component: (await import("~/pages/audit")).Audit }),
               },
             ],
           },
@@ -110,3 +137,20 @@ export const routes: RouteObject[] = [
 ];
 
 export const createAdminRouter = () => createBrowserRouter(routes);
+
+/**
+ * When the private loader runs `GET me` again: on every navigation into or within the private
+ * area (Back after signing out, an idle or revoked session, and a reset account never show a
+ * stale view) and on every explicit recheck (`revalidate()`, same URL). The one exception is a
+ * change of the query alone on the same screen: a list filter. It stays on the verified
+ * screen, and the list's own request meets any 401 at once (src/auth/session.ts).
+ */
+export function revalidatePrivateArea({
+  currentUrl,
+  nextUrl,
+}: {
+  currentUrl: URL;
+  nextUrl: URL;
+}): boolean {
+  return currentUrl.pathname !== nextUrl.pathname || currentUrl.search === nextUrl.search;
+}

@@ -34,6 +34,8 @@ const harmlessUrls = [
   /^https:\/\/github\.com\/ungap\/url-search-params\.?$/,
   // Tailwind's licence comment at the top of the CSS.
   /^https:\/\/tailwindcss\.com$/,
+  // Text of GSAP's "target not found" warning (switched off in src/lib/gsap.ts); never fetched.
+  /^https:\/\/gsap\.com$/,
 ];
 
 const decodeEntities = (value) =>
