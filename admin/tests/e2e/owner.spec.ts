@@ -12,6 +12,9 @@ const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 async function axe(page: Page) {
   await page.evaluate(() => document.fonts.ready);
+  // Let entrance motion settle (the longest, a row stagger, ends under 500 ms): axe measures
+  // contrast with the current opacity, and a fade in progress is not the screen people read.
+  await page.waitForTimeout(700);
   const results = await new AxeBuilder({ page }).withTags(tags).analyze();
 
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`);
@@ -91,7 +94,6 @@ test("the one-time link reveal: focal mark, focus, no CSP violation, nothing lef
   const heading = page.getByRole("heading", { name: "Tautan undangan untuk baru@example.test" });
   await expect(heading).toBeFocused();
   await expect(page.getByText(mockInviteUrl)).toBeVisible();
-  expect(await axe(page)).toEqual([]);
 
   // After the ~600 ms assembly every capsule is back on its original path.
   await page.waitForTimeout(1200);
@@ -102,6 +104,8 @@ test("the one-time link reveal: focal mark, focus, no CSP violation, nothing lef
   for (const transform of transforms) {
     expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(transform);
   }
+  // Checked once settled: mid-fade, axe would measure a transient contrast.
+  expect(await axe(page)).toEqual([]);
   expect(await violations(page)).toEqual([]);
   await noSidewaysScroll(page);
 });

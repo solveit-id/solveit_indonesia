@@ -18,6 +18,9 @@ const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 async function check(page: Page, label: string) {
   await page.evaluate(() => document.fonts.ready);
+  // Let entrance motion settle (the longest, a row stagger, ends under 500 ms): axe measures
+  // contrast with the current opacity, and a fade in progress is not the screen people read.
+  await page.waitForTimeout(700);
   const results = await new AxeBuilder({ page }).withTags(tags).analyze();
   expect(
     results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`),
