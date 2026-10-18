@@ -59,6 +59,13 @@ Konteks dimuat dengan `impeccable context` (PRODUCT.md, DESIGN.md, brief permuka
 - GSAP inti 3.15 (versi website), tanpa plugin, chunk lazy yang diambil saat browser idle dan tidak pernah ditunggu; `useMotion` di `gsap.context()` dengan revert penuh; reduced motion mematikannya. Standar: `docs/design/design-system.md`, Motion konsol.
 - Lenis dievaluasi dan **tidak dipakai**: konsol memakai scroll native di rail dan menu ponsel yang menggulir sendiri, dialog native, tabel, `scroll-margin`, pemulihan scroll React Router, fokus keyboard, dan sentuhan ponsel (yang Lenis biarkan native); tidak ada area yang terbukti lebih baik, dan `docs/DESIGN.md` melarang pustaka smooth scroll.
 
+### CI pada PR #42
+
+| Head | Hasil |
+|---|---|
+| `b3127d7` | Docker CI hijau (39136262952, 39136268205). Admin CI (39136263023, 39136268257) dan Admin integration (39136262994, 39136268194) gagal pada pemeriksaan axe saja: kontras diukur saat animasi masuk GSAP masih memudar (panel tautan sekali tampil; baris ketiga undangan yang terakhir dalam stagger). Di mesin lokal yang lebih lambat GSAP belum termuat atau animasi sudah selesai, jadi tidak terlihat. Semua alur lain lulus di CI, termasuk ketujuh tes owner terhadap Laravel nyata (43 lulus) |
+| `4c038b1` | Spesifikasi owner dan responsif menunggu motion selesai (lebih dari 500 ms) sebelum axe; layar yang sudah tenang tidak berubah. **Keenam check hijau:** Admin CI 39136841084 dan 39136844339, Admin integration 39136841093 dan 39136844358, Docker CI 39136841090 dan 39136844326 |
+
 ### Belum diverifikasi
 
 - WebKit dan Firefox untuk layar owner (Chromium saja lokal; Cross-browser QA workflow milik website).
