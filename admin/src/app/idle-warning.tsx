@@ -43,6 +43,10 @@ export function IdleWarning({
   const [extending, setExtending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onExpiredRef = useRef(onExpired);
+  // The 12-hour deadline already checked with Laravel. If Laravel still answered 200, its
+  // clock decides: the console stops acting on its own estimate of that deadline, instead of
+  // asking again and again (which would be a request loop).
+  const checkedAbsolute = useRef<number | null>(null);
 
   useEffect(() => {
     onExpiredRef.current = onExpired;
@@ -67,24 +71,26 @@ export function IdleWarning({
 
     const evaluate = () => {
       const now = Date.now();
+      const absolutePassed = absoluteDeadline !== null && now >= absoluteDeadline + EXPIRY_GRACE_MS;
+      // A passed deadline Laravel already confirmed as still alive no longer counts.
+      const absolute =
+        absolutePassed && checkedAbsolute.current === absoluteDeadline ? null : absoluteDeadline;
 
-      if (
-        now >= idleDeadline + EXPIRY_GRACE_MS ||
-        (absoluteDeadline !== null && now >= absoluteDeadline + EXPIRY_GRACE_MS)
-      ) {
+      if (now >= idleDeadline + EXPIRY_GRACE_MS || (absolutePassed && absolute !== null)) {
+        if (absolutePassed) {
+          checkedAbsolute.current = absoluteDeadline;
+        }
+
         setWarning("none");
-        onExpiredRef.current();
+        // Outside the effect's own run, so the check never starts inside React's commit.
+        timer = window.setTimeout(() => onExpiredRef.current(), 0);
 
         return;
       }
 
       if (now >= idleWarnAt) {
         setWarning("idle");
-      } else if (
-        absoluteDeadline !== null &&
-        now >= absoluteDeadline - ABSOLUTE_WARNING_MS &&
-        !absoluteDismissed
-      ) {
+      } else if (absolute !== null && now >= absolute - ABSOLUTE_WARNING_MS && !absoluteDismissed) {
         setWarning("absolute");
       } else {
         setWarning("none");
@@ -93,9 +99,7 @@ export function IdleWarning({
       const upcoming = [
         idleWarnAt,
         idleDeadline + EXPIRY_GRACE_MS,
-        ...(absoluteDeadline === null
-          ? []
-          : [absoluteDeadline - ABSOLUTE_WARNING_MS, absoluteDeadline + EXPIRY_GRACE_MS]),
+        ...(absolute === null ? [] : [absolute - ABSOLUTE_WARNING_MS, absolute + EXPIRY_GRACE_MS]),
       ].filter((moment) => moment > now);
       const next = Math.min(...upcoming);
 

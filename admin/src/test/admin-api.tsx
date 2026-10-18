@@ -39,8 +39,10 @@ export function sampleAccount(overrides: Partial<AdminAccount> = {}): AdminAccou
     permissions: ["account.manage-own"],
     two_factor: { confirmed_at: "2026-10-16T05:31:00+00:00", recovery_codes_remaining: 8 },
     session: {
-      signed_in_at: "2026-10-17T01:00:00+00:00",
-      absolute_expires_at: "2026-10-17T13:00:00+00:00",
+      // Far in the future: a fixed date would expire as the calendar moves on (it did once,
+      // turning the idle warning's expiry check into an endless loop in the tests).
+      signed_in_at: "2099-10-17T01:00:00+00:00",
+      absolute_expires_at: "2099-10-17T13:00:00+00:00",
       idle_timeout_minutes: 30,
     },
     ...overrides,
