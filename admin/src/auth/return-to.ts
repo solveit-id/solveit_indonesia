@@ -1,11 +1,12 @@
-import { paths, privatePaths } from "~/routes/paths";
+import { paths, privatePaths, userIdFromPath } from "~/routes/paths";
 
 /**
  * Where sign-in sends the person afterwards. The value arrives in the address bar
  * (`/masuk?kembali=...`), so anyone can write it: it is accepted only when it names one of the
- * console's own private screens, exactly. Anything else (another origin, `//host`, a scheme,
- * backslashes, control characters, encoded tricks, the access page, unknown paths) falls back
- * to the home screen. Query and fragment are dropped.
+ * console's own private screens, exactly, or one account's detail (`/pengguna/<id>`, digits
+ * only). Anything else (another origin, `//host`, a scheme, backslashes, control characters,
+ * encoded tricks, the access page, unknown paths) falls back to the home screen. Query and
+ * fragment are dropped.
  */
 // Only a base for parsing; nothing is requested. An absolute or protocol-relative value parses
 // to another origin and is refused.
@@ -39,7 +40,9 @@ export function safeReturnTo(value: string | null | undefined): string {
     return paths.home;
   }
 
-  return privatePaths.has(url.pathname) ? url.pathname : paths.home;
+  return privatePaths.has(url.pathname) || userIdFromPath(url.pathname) !== null
+    ? url.pathname
+    : paths.home;
 }
 
 /** Why the person sees the sign-in screen; written into the address bar as a fixed word. */

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { referenceCopy } from "~/pages/component-reference-copy";
 import { en } from "./messages/en";
 import { id } from "./messages/id";
+import { ownerEn } from "./owner/en";
+import { ownerId } from "./owner/id";
 
 /** Every string value in a catalogue, with its key path (functions are called with samples). */
 function strings(value: unknown, path = ""): [string, string][] {
@@ -27,13 +29,21 @@ function strings(value: unknown, path = ""): [string, string][] {
 /** Built from its code point, so this file itself contains no em dash. */
 const EM_DASH = String.fromCharCode(0x2014);
 
-const catalogues = { id, en, referenceId: referenceCopy.id, referenceEn: referenceCopy.en };
+const catalogues = {
+  id,
+  en,
+  ownerId,
+  ownerEn,
+  referenceId: referenceCopy.id,
+  referenceEn: referenceCopy.en,
+};
 
 describe("interface copy", () => {
   it("has the same keys in both languages", () => {
     const keys = (value: unknown) => strings(value).map(([path]) => path);
 
     expect(keys(en)).toEqual(keys(id));
+    expect(keys(ownerEn)).toEqual(keys(ownerId));
     expect(keys(referenceCopy.en)).toEqual(keys(referenceCopy.id));
   });
 
@@ -47,11 +57,11 @@ describe("interface copy", () => {
     },
   );
 
-  it("makes no claim the console cannot back (no welcome, no administration ready)", () => {
-    const all = strings(id)
-      .map(([, text]) => text)
-      .join("\n");
+  it("makes no claim the console cannot back (no welcome, no email sent)", () => {
+    const all = [...strings(id), ...strings(ownerId)].map(([, text]) => text).join("\n");
 
     expect(all).not.toMatch(/berhasil masuk|selamat datang kembali|dasbor siap/i);
+    // Invitations and resets are handed over by the owner; the console never claims to send one.
+    expect(all).not.toMatch(/email (telah|sudah) dikirim|undangan (telah|sudah) dikirim/i);
   });
 });

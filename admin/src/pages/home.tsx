@@ -1,6 +1,9 @@
 import { ArrowRight } from "@phosphor-icons/react/dist/csr/ArrowRight";
+import { ClockCounterClockwise } from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
+import { EnvelopeSimple } from "@phosphor-icons/react/dist/csr/EnvelopeSimple";
 import { ShieldCheck } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 import { UserCircle } from "@phosphor-icons/react/dist/csr/UserCircle";
+import { UsersThree } from "@phosphor-icons/react/dist/csr/UsersThree";
 import type { ComponentType } from "react";
 import { Link } from "react-router";
 import { type Phase, phases } from "~/app/phases";
@@ -19,14 +22,17 @@ const LOW_RECOVERY_CODES = 3;
 
 /**
  * The signed-in home (owner decision 2026-10-17): who is signed in, this session's limits,
- * the way to the account's security, and the honest phase track. No metrics or modules that
- * do not exist. Rendered only after the private loader verified the account.
+ * the way to the account's security, and the honest phase track. Owners also get the way into
+ * administration (B3.2c), by permission from `GET me`. No metrics or modules that do not exist.
+ * Rendered only after the private loader verified the account.
  */
 export function Home() {
   const { t } = useI18n();
   const account = useVerifiedAccount();
   const role = account.role === null ? t.roles.none : t.roles[account.role];
   const remaining = account.two_factor.recovery_codes_remaining;
+  const canViewUsers = account.permissions.includes("users.view");
+  const canReadAudit = account.permissions.includes("audit.view-all");
 
   return (
     <article>
@@ -74,6 +80,35 @@ export function Home() {
               detail={`${t.account.recoveryCodes}: ${t.account.recoveryRemaining(remaining)}`}
             />
           </nav>
+          {canViewUsers || canReadAudit ? (
+            <nav aria-label={t.home.administrationTitle} className="grid gap-3">
+              <h2 className="text-item font-semibold font-wide">{t.home.administrationTitle}</h2>
+              {canViewUsers ? (
+                <>
+                  <Shortcut
+                    to={paths.users}
+                    icon={UsersThree}
+                    title={t.home.usersLink}
+                    detail={t.home.usersDetail}
+                  />
+                  <Shortcut
+                    to={paths.invitations}
+                    icon={EnvelopeSimple}
+                    title={t.home.invitationsLink}
+                    detail={t.home.invitationsDetail}
+                  />
+                </>
+              ) : null}
+              {canReadAudit ? (
+                <Shortcut
+                  to={paths.audit}
+                  icon={ClockCounterClockwise}
+                  title={t.home.auditLink}
+                  detail={t.home.auditDetail}
+                />
+              ) : null}
+            </nav>
+          ) : null}
         </div>
       </div>
     </article>

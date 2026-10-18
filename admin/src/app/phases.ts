@@ -20,7 +20,7 @@ export const phases: Phase[] = [
   { code: "b31a", label: "B3.1a", status: "released" },
   { code: "b31b", label: "B3.1b", status: "released" },
   { code: "b32a", label: "B3.2a", status: "released" },
-  { code: "b32b", label: "B3.2b", status: "current" },
-  { code: "b32c", label: "B3.2c", status: "planned" },
+  { code: "b32b", label: "B3.2b", status: "released" },
+  { code: "b32c", label: "B3.2c", status: "current" },
   { code: "b32d", label: "B3.2d", status: "planned" },
 ];

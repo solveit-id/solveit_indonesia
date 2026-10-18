@@ -1,6 +1,8 @@
 /**
  * The admin console's only way to reach Laravel. Screens import from here; nothing else calls
  * `fetch` for the admin API. Contract documents: docs/api/admin-auth.md, docs/api/admin-users.md.
+ * Owner administration (B3.2c) has its own barrel, ./owner.ts, imported only by owner screens,
+ * so none of it reaches the initial JavaScript.
  */
 import { createAccountApi } from "./account";
 import { createAdminApiClient } from "./client";

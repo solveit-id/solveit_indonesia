@@ -340,6 +340,52 @@
   }
 }
 
+/* Radio: the same 22px well as a capsule (circle); checked draws a cobalt dot, not a tick. */
+@utility radio-input {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  flex: none;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  background-color: var(--paper-raised);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-state) var(--ease-out-expo),
+    box-shadow var(--dur-state) var(--ease-out-expo);
+
+  &::after {
+    content: "";
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 9999px;
+    background-color: var(--accent);
+    transform: scale(0);
+    transition: transform var(--dur-instant) var(--ease-out-expo);
+  }
+
+  &:hover {
+    border-color: var(--ink-muted);
+  }
+
+  &:checked {
+    border-color: var(--accent);
+  }
+
+  &:checked::after {
+    transform: scale(1);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--selection);
+  }
+}
+
 /*
  * Native modal dialog: a raised porcelain panel (28px radius) over a navy-tinted backdrop.
  * The overlay shadow is the system's one shadow for floating layers (docs/DESIGN.md).
@@ -455,6 +501,179 @@
 @utility phase-glyph-planned {
   border-style: dashed;
   border-color: var(--ink-muted);
+}
+
+/*
+ * B3.2c extends the same capsule to account, link, and audit states, still always beside
+ * words: stopped (suspended, refused) in danger on its soft tint, ended (expired, revoked) as a
+ * hollow strong hairline. The bare glyph (accent-text outline) marks routine audit events.
+ */
+@utility phase-glyph-stopped {
+  border-color: var(--danger);
+  background-color: var(--danger-soft);
+}
+
+@utility phase-glyph-ended {
+  border-color: var(--line-strong);
+}
+
+/* ---------------------------------------------------------------- data views (B3.2c) */
+
+/*
+ * Native select inside the field capsule, with the caret in a sunken well at its end (the
+ * website's select, docs/DESIGN.md, Inputs). The well turns cobalt while the select has focus.
+ */
+@utility field-select {
+  appearance: none;
+  padding-right: 3.25rem;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+@utility select-caret {
+  position: absolute;
+  top: 50%;
+  right: 0.3rem;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 9999px;
+  background-color: var(--paper-sunken);
+  color: var(--ink);
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition:
+    background-color var(--dur-state) var(--ease-out-expo),
+    color var(--dur-state) var(--ease-out-expo);
+}
+
+/*
+ * Dense tables: hairline rows, muted sentence-case headers (no tracked uppercase), tabular
+ * numerals, and a row that lights on hover. The name link stretches over its row, so the
+ * whole row is one target while the link stays the one accessible name.
+ */
+@utility data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+
+  & th {
+    padding: 0 1rem 0.75rem;
+    border-bottom: 1px solid var(--line-strong);
+    color: var(--ink-muted);
+    font-size: var(--text-meta);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  & td {
+    padding: 0.95rem 1rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  & thead td {
+    padding: 0 1rem 0.75rem;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  & th:first-child,
+  & td:first-child {
+    padding-left: 0.25rem;
+  }
+
+  & tbody tr {
+    position: relative;
+    transition: background-color var(--dur-state) var(--ease-out-expo);
+  }
+
+  & tbody tr:hover {
+    background-color: var(--paper-raised);
+  }
+}
+
+@utility row-link {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:focus-visible::after {
+    border-radius: 0.75rem;
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+}
+
+/* While a filtered list refreshes, the previous rows stay readable but quieter (no jump). */
+@utility list-stale {
+  opacity: 0.55;
+  transition: opacity var(--dur-state) var(--ease-out-expo);
+}
+
+/* The audit timeline's spine, as on the home phase track. */
+@utility timeline-spine {
+  position: absolute;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  left: 0.85rem;
+  width: 1px;
+  background-color: var(--line-strong);
+}
+
+/* Inline disclosure for technical detail: a summary that reads as a quiet control. */
+@utility quiet-disclosure {
+  & > summary {
+    display: inline-flex;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    color: var(--ink-muted);
+    font-size: var(--text-meta);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition: color var(--dur-state) var(--ease-out-expo);
+  }
+
+  & > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  & > summary:hover {
+    color: var(--ink);
+  }
+
+  & > summary svg {
+    transition: transform var(--dur-state) var(--ease-out-expo);
+  }
+
+  &[open] > summary svg {
+    transform: rotate(90deg);
+  }
+}
+
+/* One-time secrets (links, keys): monospace because they are data, never cut mid-token. */
+@utility secret-value {
+  display: block;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-field, 1.25rem);
+  background-color: var(--paper);
+  padding: 0.9rem 1.1rem;
+  color: var(--ink);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 /* ---------------------------------------------------------------- motion */
