@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation, useMatches } from "react-router";
-import { AppShell } from "~/components/layout/app-shell";
+import { AuthFrame } from "~/components/layout/auth-frame";
 import { useI18n } from "~/i18n/i18n";
 import { isRouteHandle } from "./route-handle";
 
 /**
- * Frame of every screen: the shell, the document title from the deepest route's `handle`,
- * and focus on the content after a client navigation (so keyboard and screen-reader users
- * land on the new page, not on the link they used).
+ * Root of every screen: the document title from the deepest route's `handle`, and focus on the
+ * content after a client navigation (so keyboard and screen-reader users land on the new page,
+ * not on the link they used). The frame itself belongs to the layouts below: the auth frame
+ * without an account (PublicLayout), the console shell with one (private-layout.tsx).
  */
 export function RootLayout() {
   const { t } = useI18n();
@@ -34,9 +35,14 @@ export function RootLayout() {
     document.getElementById("main")?.focus({ preventScroll: false });
   }, [pathname]);
 
+  return <Outlet />;
+}
+
+/** Screens without an account: sign-in, access links, the 404. */
+export function PublicLayout() {
   return (
-    <AppShell>
+    <AuthFrame>
       <Outlet />
-    </AppShell>
+    </AuthFrame>
   );
 }

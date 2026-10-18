@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { mockSignedIn, mockSignedOut } from "./support/mock-api";
 
 test("the document carries the production policy and nothing loads from another origin", async ({
   page,
@@ -11,8 +12,9 @@ test("the document carries the production policy and nothing loads from another 
       violations.push(message.text());
     }
   });
+  await mockSignedOut(page);
 
-  const response = await page.goto("/");
+  const response = await page.goto("/masuk");
   await page.getByRole("heading", { level: 1 }).waitFor();
   await page.evaluate(() => document.fonts.ready);
 
@@ -31,75 +33,86 @@ test("the document carries the production policy and nothing loads from another 
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
 });
 
-test.describe("connection check", () => {
-  test("real path: Laravel not answering is reported with its fix (no backend in this run)", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: "Periksa koneksi" }).click();
-
-    await expect(
-      page.getByRole("status").filter({ hasText: "Laravel tidak menjawab" }),
-    ).toBeVisible();
+test("the TOTP QR renders as a data: image under the production CSP (mocked API)", async ({
+  page,
+}) => {
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
   });
-
-  test("mocked 204: same-origin request with credentials, no token in storage", async ({
-    page,
-  }) => {
-    let seen: { method: string; url: string; headers: Record<string, string> } | null = null;
-    await page.route("**/api/v1/admin/auth/csrf-cookie", async (route) => {
-      seen = {
-        method: route.request().method(),
-        url: route.request().url(),
-        headers: route.request().headers(),
-      };
-      await route.fulfill({
-        status: 204,
-        headers: { "Set-Cookie": "XSRF-TOKEN=mocked-token; Path=/; SameSite=Strict" },
-      });
-    });
-
-    await page.goto("/");
-    await page.getByRole("button", { name: "Periksa koneksi" }).click();
-
-    await expect(
-      page.getByRole("status").filter({ hasText: "API admin menjawab (204)" }),
-    ).toBeVisible();
-    expect(seen).not.toBeNull();
-    expect(seen!.method).toBe("GET");
-    expect(seen!.url).toBe("http://127.0.0.1:4175/api/v1/admin/auth/csrf-cookie");
-    expect(seen!.headers.authorization).toBeUndefined();
-
-    const storage = await page.evaluate(() =>
-      JSON.stringify({ ...localStorage, ...sessionStorage }),
-    );
-    expect(storage).not.toContain("mocked-token");
-  });
-
-  test("mocked 403: the boundary refusal names ADMIN_URL and this origin", async ({ page }) => {
-    await page.route("**/api/v1/admin/auth/csrf-cookie", (route) =>
-      route.fulfill({
-        status: 403,
-        contentType: "application/json",
-        body: JSON.stringify({
-          message: "Cross-origin requests to the admin API are not allowed.",
-        }),
+  await mockSignedOut(page);
+  await page.route("**/api/v1/admin/access-links/inspect", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          purpose: "activation",
+          email: "o***@example.test",
+          requires_name: true,
+          expires_at: "2099-10-17T06:00:00+00:00",
+        },
       }),
-    );
-
-    await page.goto("/");
-    await page.getByRole("button", { name: "Periksa koneksi" }).click();
-
-    await expect(
-      page.getByRole("status").filter({
-        hasText: "ADMIN_URL di backend harus sama dengan origin ini: http://127.0.0.1:4175",
+    }),
+  );
+  await page.route("**/api/v1/admin/access-links/redeem", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          two_factor: {
+            qr_code_svg:
+              '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 10 10"><rect width="10" height="10" fill="#fff"/><rect width="4" height="4" fill="#2d3748"/><script>window.__qrScriptRan = true</script></svg>',
+            setup_key: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+          },
+          confirm_before: "2099-10-17T05:45:00+00:00",
+        },
       }),
-    ).toBeVisible();
-  });
+    }),
+  );
+
+  await page.goto(`/access#token=${"A".repeat(43)}`);
+  await expect(page).toHaveURL(/\/access$/);
+  await page.getByLabel("Nama").fill("Contoh Owner");
+  await page.getByLabel("Kata sandi baru", { exact: true }).fill("contoh kata sandi panjang");
+  await page.getByLabel("Ulangi kata sandi baru").fill("contoh kata sandi panjang");
+  await page.getByRole("button", { name: "Simpan dan lanjut" }).click();
+
+  const qr = page.getByRole("img", { name: /Kode QR untuk mendaftarkan/ });
+  await expect(qr).toBeVisible();
+  expect(await qr.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(
+    true,
+  );
+  // Script inside an SVG shown through <img> never runs.
+  expect(await page.evaluate(() => "__qrScriptRan" in window)).toBe(false);
+  expect(violations).toEqual([]);
+});
+
+test("the developer connection check exists only on the reference page", async ({ page }) => {
+  await page.goto("/referensi-komponen");
+  await page.getByRole("button", { name: "Periksa koneksi" }).click();
+
+  // No backend in this run: the real "Laravel not answering" path.
+  await expect(
+    page.getByRole("status").filter({ hasText: "Laravel tidak menjawab" }),
+  ).toBeVisible();
+});
+
+test("a signed-in screen stores no account data in the browser (mocked API)", async ({ page }) => {
+  await mockSignedIn(page);
+  await page.goto("/akun");
+  await page.getByText("owner@example.test").waitFor();
+
+  const stored = await page.evaluate(() =>
+    JSON.stringify({ ...localStorage, ...sessionStorage, cookie: document.cookie }),
+  );
+  expect(stored).not.toContain("owner@example.test");
+  expect(stored).not.toContain("Contoh Owner");
 });
 
 test("the admin cannot be framed", async ({ page }) => {
-  await page.setContent(`<iframe src="http://127.0.0.1:4175/" title="probe"></iframe>`);
+  await page.setContent(`<iframe src="http://127.0.0.1:4175/masuk" title="probe"></iframe>`);
   const frame = page
     .frames()
     .find((candidate) => candidate.url().startsWith("http://127.0.0.1:4175"));

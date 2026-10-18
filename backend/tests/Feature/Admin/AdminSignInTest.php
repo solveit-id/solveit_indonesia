@@ -8,6 +8,7 @@ use App\Models\AdminAuditEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\Support\InteractsWithAdminApi;
 use Tests\TestCase;
 
@@ -127,6 +128,31 @@ class AdminSignInTest extends TestCase
         $this->adminRequest('GET', 'auth/csrf-cookie');
         $this->adminRequest('POST', 'auth/login', ['email' => $user->email, 'password' => self::ADMIN_PASSWORD]);
         $code = $this->freshTotpCode($user);
+        $this->adminRequest('POST', 'auth/two-factor-challenge', ['code' => $code])->assertNoContent();
+
+        $this->usingAdminClient('attacker');
+        $this->adminRequest('GET', 'auth/csrf-cookie');
+        $this->adminRequest('POST', 'auth/login', ['email' => $user->email, 'password' => self::ADMIN_PASSWORD]);
+
+        $this->adminRequest('POST', 'auth/two-factor-challenge', ['code' => $code])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('code');
+        $this->adminRequest('GET', 'me')->assertUnauthorized();
+    }
+
+    /**
+     * Fortify accepts the next 30-second step (window 1, clock drift). Its replay cache must
+     * remember that step, not the current one, or the same code works once more elsewhere.
+     * Found by the real-browser tests (B3.2b).
+     */
+    public function test_a_totp_code_from_the_next_step_cannot_be_replayed(): void
+    {
+        $user = $this->createActiveAdmin();
+        $google2fa = new Google2FA;
+        $code = $google2fa->oathTotp($this->totpSecret($user), $google2fa->getTimestamp() + 1);
+
+        $this->adminRequest('GET', 'auth/csrf-cookie');
+        $this->adminRequest('POST', 'auth/login', ['email' => $user->email, 'password' => self::ADMIN_PASSWORD]);
         $this->adminRequest('POST', 'auth/two-factor-challenge', ['code' => $code])->assertNoContent();
 
         $this->usingAdminClient('attacker');

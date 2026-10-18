@@ -116,19 +116,28 @@ Hover yang menggerakkan sesuatu (ikon tema, gulungan label bahasa, panah kembali
 | Badge teknologi | Logo resmi (Simple Icons, CC0) dalam sumur porselen, berwarna tinta di kedua tema, dan nama yang selalu tertulis. Bukan tautan atau tombol. Nama generik (REST API) memakai glyph netral. Pada studi kasus demo judulnya "Teknologi yang diusulkan" disertai catatan bahwa ini usulan, bukan stack proyek klien | Hanya lima path yang dibundel (`technology-icons.ts`), tanpa pustaka ikon |
 | Cerita klien | Tanpa testimoni yang diizinkan: janji tertulis dengan slot kapsul putus-putus. Dengan testimoni: kutipan besar di samping tanda kutip dua kapsul, tombol, panah kiri/kanan, geser; tanpa autoplay | Tidak pernah menerbitkan Review atau AggregateRating |
 
-## Konsol admin (`admin/`, B3.2a)
+## Konsol admin (`admin/`, B3.2a dan B3.2b)
 
 Permukaan Operate di dunia visual yang sama: token merek dibaca dari `frontend/src/styles/tokens.css` (satu sumber dengan website), lapisan admin di `admin/src/styles/admin.css`. Arah kerja "Precision Console" (brief B3.2a); kontrak arah di `.impeccable/surfaces/admin-src-app.md`.
 
 | Unsur | Aturan |
 |---|---|
-| Shell | Rail navy 17,5 rem mulai 1024 px (lockup asli, kapsul lingkungan putus-putus "Fondasi B3.2a, belum untuk produksi", navigasi, tema dan bahasa di kaki); di bawahnya bar navy 64 px dengan tombol kapsul "Menu" (nama tetap, `aria-expanded`, Escape menutup dan mengembalikan fokus). Di dalam rail token tinta berganti ke tinta malam dan `--paper` menjadi navy, sehingga komponen yang sama terbaca di sana. Gelap: rail memakai tanah malam cekung `#030a18` dengan garis rambut |
+| Shell | Rail navy 17,5 rem mulai 1024 px (lockup asli, kapsul lingkungan putus-putus "Konsol B3.2b, belum di-deploy", navigasi setelah masuk, kaki akun dengan Keluar, tema dan bahasa di kaki); di bawahnya bar navy 64 px dengan tombol kapsul "Menu" (nama tetap, `aria-expanded`, Escape menutup dan mengembalikan fokus). Di dalam rail token tinta berganti ke tinta malam dan `--paper` menjadi navy, sehingga komponen yang sama terbaca di sana. Gelap: rail memakai tanah malam cekung `#030a18` dengan garis rambut |
 | Tipe | Archivo yang sama, skala rem tetap: judul halaman 1,875 rem, seksi 1,25 rem, item 1,0625 rem, meta 0,875 rem; judul 720 di lebar 112 persen, teks lebar normal |
-| Kontrol | Satu kosakata: tombol kapsul 44 px (utama cobalt dengan angkatan cobalt, satu-satunya bayangan; sekunder bergaris; tenang; bahaya dengan tint `--danger-soft`), isian kapsul dengan label, petunjuk, dan galat yang terhubung (`aria-describedby`), kontrol segmen berbasis radio native |
+| Kontrol | Satu kosakata: tombol kapsul 44 px (utama cobalt dengan angkatan cobalt, satu-satunya bayangan di dalam alur halaman; dialog memakai bayangan overlay untuk lapisan mengambang; sekunder bergaris; tenang; bahaya dengan tint `--danger-soft`), isian kapsul dengan label, petunjuk, dan galat yang terhubung (`aria-describedby`), kontrol segmen berbasis radio native |
 | Status | Kapsul logo pada sumbu 33 derajat: penuh (dirilis), separuh (sedang dibangun), berongga putus-putus (direncanakan). Selalu disertai kata; di jalur fase hanya satu glyph per baris (pada tulang punggung) |
 | Keadaan | Memuat: skeleton berukuran tetap. Kosong: menjelaskan apa yang akan muncul. Gagal: pesan, langkah berikutnya, tanpa detail teknis. Sibuk: label berganti dan kapsul kecil bergerak di sumbu 33 derajat (transform saja); tidak terlihat nonaktif |
 | Motion | 150 sampai 280 ms untuk state; runner rute tipis cobalt hanya setelah 150 ms; tidak ada urutan pemuatan. `prefers-reduced-motion` menghentikan animasi dekoratif |
 | Kebenaran isi | Hanya layar yang ada yang masuk navigasi; tanpa angka, KPI, atau data contoh yang tampak nyata; halaman referensi komponen hanya di build pengembangan dan QA dan berlabel contoh |
+| Bingkai tanpa akun (B3.2b) | Masuk, tautan akses, 404, dan galat sesi memakai rail navy yang sama tanpa navigasi dan tanpa akun, dengan catatan singkat bahwa konsol hanya untuk akun yang diundang; di bawah 1024 px bar navy dengan mark dan preferensi di kaki halaman |
+| Langkah alur | `StepTrack`: kapsul logo 33 derajat penuh (selesai), separuh (sekarang), putus-putus (berikutnya) dihubungkan garis rambut; keadaan juga ditulis untuk pembaca layar, langkah sekarang `aria-current="step"`. Di bawah 640 px hanya "Langkah 3 dari 4" di samping glyph sekarang, sehingga jalur tetap satu baris. Tidak tampil untuk tautan yang gagal: alur yang mati bukan langkah yang berjalan |
+| Kotak centang | `check-input`: kotak 22 px radius 6 px bergaris rambut kuat di porselen terangkat; tercentang cobalt dengan tanda centang yang digambar (mask); fokus seperti isian |
+| Perangkat | Kartu sesi dinamai dari user agent yang dicatat Laravel ("Chrome 156, Windows", `src/lib/user-agent.ts`), string aslinya tetap di bawahnya; tanpa tebakan bila tidak dikenali |
+| Pesan | `Notice` inline: info dan berhasil (porselen terangkat, garis rambut), perhatian (porselen cekung, garis rambut kuat; garis putus-putus tetap khusus untuk "belum"), bahaya (`--danger-soft`, `role="alert"`); ikon dekoratif, kata membawa makna |
+| Dialog | `<dialog>` native lewat `showModal()`: panel porselen terangkat radius 28 px dengan bayangan overlay, latar navy 42 persen; fokus awal pada pilihan aman (`data-autofocus`), Escape memilih pilihan aman, klik di luar tidak melakukan apa pun; peringatan idle sebagai `alertdialog` |
+| Isian rahasia | Kata sandi dengan tombol tampil/sembunyi di dalam kapsul (`aria-pressed`, nama tetap); kode dan kunci memakai monospace (`field-code`), kunci TOTP per empat karakter yang tidak pernah terpotong; QR dari API sebagai `<img>` berlatar putih di kedua tema |
+| Kode pemulihan | Daftar bernomor monospace di panel, satu tombol salin, kalimat tempat menyimpan, kotak centang wajib sebelum lanjut; navigasi keluar dicegah sampai dikonfirmasi |
+| Fakta akun | Daftar istilah dan nilai berbaris garis rambut; berdampingan hanya bila wadahnya cukup lebar (container query), menumpuk di panel sempit |
 
 ## Aturan konten
 

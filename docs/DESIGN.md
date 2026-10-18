@@ -312,6 +312,10 @@ A segmented Desktop / Tablet / Mobile switch (ink thumb), a width range (320 to 
 ### Process rail (signature)
 A vertical hairline with a cobalt fill that grows as the reader scrolls; capsule markers (2.75rem circles) light cobalt as each step is passed. Without JavaScript or under reduced motion every marker is lit.
 
+## Admin console
+
+The admin console (`admin/`) is an Operate surface in this same world, not a new identity: the shared tokens, Archivo on its width axis, capsule controls, 28px panels, one cobalt voice, and the 33 degree capsule as its signature (phase and step glyphs: filled done, half current, hollow and dashed planned). Its shell is a logo-navy rail beside the porcelain work area; screens without a verified account keep the rail but show no navigation or account. Its dialogs are the one place in the console with the overlay shadow. The full rules, components, and states are in `docs/design/design-system.md`, section Konsol admin; the direction contract is `.impeccable/surfaces/admin-src-app.md`.
+
 ## Do's and Don'ts
 
 ### Do:

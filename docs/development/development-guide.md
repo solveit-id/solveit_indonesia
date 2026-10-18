@@ -70,9 +70,13 @@ Hasil build adalah situs statis di `frontend/build/client`. Hosting harus:
 
 Netlify, Cloudflare Pages, Vercel (output statis), atau Nginx memenuhi ini dengan konfigurasi standar. Image Docker produksi frontend (`infra/docker/frontend/Dockerfile`, nginx dengan `infra/docker/nginx/frontend.conf`) sudah menerapkan ketiganya dan diuji; deployment Docker lengkap bersama API ada di `docker-production.md` (disiapkan, belum di-deploy).
 
-## Konsol admin (`admin/`, B3.2a)
+## Konsol admin (`admin/`, B3.2a dan B3.2b)
 
 Aplikasi terpisah dengan build dan CI sendiri; panduan lengkap di `admin/README.md`. Ringkas: `cd admin && npm install && npm run dev`, lalu buka **`http://127.0.0.1:5174`** (bukan `localhost`: `ADMIN_URL` backend default-nya persis origin itu). Server dev mem-proxy hanya `/api/v1/admin` ke Laravel (`php artisan serve` di 127.0.0.1:8000, atau `SOLVEIT_ADMIN_API_TARGET`), dengan header `Host` dan `Origin` browser apa adanya; tidak ada CORS. Website (5173) dan admin (5174) dapat berjalan bersamaan. Pemeriksaan: `npm run check`, lalu `npm run build:reference` dan Playwright per project dengan `--workers=1`. Admin membaca token merek, font, path logo, dan favicon dari `frontend/` di tempat (`docs/project-structure.md` 7.1), jadi perubahan pada file itu juga dicek oleh Admin CI.
+
+Masuk ke konsol lokal butuh akun sintetis di database pengembangan: `php artisan admin:bootstrap-owner <alamat>@example.test` di `backend/` mencetak tautan aktivasi sekali pakai (30 menit) yang dibuka di `http://127.0.0.1:5174/access#token=...`. Jangan membuat akun dengan alamat orang sungguhan, dan perintah itu ditolak bila sudah ada owner aktif; `admin:reset-credentials <alamat>` membuat tautan reset.
+
+Tes browser nyata terhadap Laravel dan MySQL (B3.2b): `npm run build`, lalu `npm run test:integration -- --project=desktop` (lalu `tablet`, `mobile`). Tes ini memakai database tes `solveit_indonesia_testing` (bukan database pengembangan) lewat harness `backend/tests/E2E/` dengan pengaman yang sama seperti PHPUnit, menyalakan Laravel di `127.0.0.1:8100` dan build produksi admin di `127.0.0.1:4176`, dan tidak boleh berjalan bersamaan dengan `php artisan test`. Rinciannya di `admin/README.md`, bagian Tes browser nyata.
 
 ## Backend (Laravel)
 

@@ -3,7 +3,8 @@
 // change). Fails with a list of findings. What it proves:
 // - the HTML carries the production CSP and noindex, with no inline script and no external host;
 // - no JavaScript or CSS refers to another origin (only same-origin assets, see the allowlist);
-// - the component reference (dev and QA only) is absent: no chunk, route, or copy;
+// - the component reference (dev and QA only) is absent: no chunk, route, or copy, and no
+//   developer setup hint (the connection check moved there in B3.2b);
 // - no source maps ship;
 // - the initial JavaScript stays inside the budget of docs/architecture/admin-dashboard.md 8.
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -26,8 +27,11 @@ const harmlessUrls = [
   /^http:\/\/www\.w3\.org\//,
   /^https:\/\/react\.dev\/errors\//,
   /^https:\/\/reactrouter\.com\//,
-  // React Router's base for parsing relative paths (`new URL(path, "http://localhost")`).
+  // React Router's base for parsing relative paths (`new URL(path, "http://localhost")`), also
+  // used by src/auth/return-to.ts.
   /^http:\/\/localhost$/,
+  // A polyfill suggestion inside React Router's useSearchParams error message.
+  /^https:\/\/github\.com\/ungap\/url-search-params\.?$/,
   // Tailwind's licence comment at the top of the CSS.
   /^https:\/\/tailwindcss\.com$/,
 ];
@@ -82,6 +86,11 @@ for (const path of all) {
 
   if (/referensi-komponen|Komponen dasar konsol/.test(text)) {
     fail(`${name}: component reference route or copy in production`);
+  }
+
+  // Developer setup hints (the connection check) belong to the reference page only.
+  if (/php artisan serve|SOLVEIT_ADMIN_API_TARGET|ADMIN_URL di backend/.test(text)) {
+    fail(`${name}: developer setup hints in production`);
   }
 }
 

@@ -4,6 +4,14 @@ import { afterEach } from "vitest";
 // Files that opt into `@vitest-environment node` (the API client) have no DOM to reset.
 const hasDom = typeof document !== "undefined";
 
+if (hasDom) {
+  // findBy and waitFor wait up to 5 s instead of 1 s: a cold run in the Docker dev container
+  // (bind-mounted sources, first transform) can take longer to render a lazy route. Only the
+  // waiting changes, never what a test asserts.
+  const { configure } = await import("@testing-library/react");
+  configure({ asyncUtilTimeout: 5000 });
+}
+
 afterEach(async () => {
   if (!hasDom) {
     return;

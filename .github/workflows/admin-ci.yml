@@ -3,8 +3,8 @@ name: Admin CI
 # The admin console (admin/, B3.2a). Also runs when a website file the admin reads in place
 # changes (admin/vite.config.ts sharedDesignSources): the brand tokens, the Archivo subset, the
 # logo paths, and the favicon. No secrets, no account, no backend: API answers in the browser
-# tests are a closed port (real "Laravel not answering" path) or mocked per test. Real-browser
-# sign-in against Laravel joins in B3.2b and B3.2d.
+# tests are a closed port (real "Laravel not answering" path) or mocked per test. The real
+# browser tests against Laravel and MySQL run in their own workflow, admin-integration.yml.
 on:
   pull_request:
     branches: [staging, main]
