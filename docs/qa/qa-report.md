@@ -2,6 +2,71 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B3.2c ruang kerja administrasi owner di konsol admin (2026-10-18)
+
+Cakupan: layar `/pengguna`, `/pengguna/:id`, `/undangan`, `/undangan/baru`, `/audit` di atas API B3.1b, klien API owner bertipe, dialog tindakan sensitif, tautan sekali tampil, motion GSAP, dan pembaruan dokumen B3.2b yang basi setelah rilis PR #41. Backend tidak berubah. Tidak ada deployment, akun nyata, perubahan database atau volume pengembangan, B3.2d, atau B4. Baseline: `origin/main`, `origin/admin`, `origin/backend`, `origin/frontend` = `02f3859` (rilis B3.2b), `origin/staging` `d3fb8f7` (tree sama); working tree bersih. Laravel Boost MCP dan Playwright MCP tidak tersambung di sesi ini (timeout); kontrak dibaca dari `docs/api/admin-users.md` dan kode controller, request, resource, dan enum di `backend/app/`.
+
+Keputusan pemilik pada tugas ini (2026-10-18): momen fokus motion adalah tanda yang merakit diri saat tautan sekali tampil muncul; daftar panjang memakai "muat lebih banyak". Waiver `concept-seed` Impeccable tetap **tertunda**.
+
+### Pemeriksaan otomatis (lokal, Windows 11, Node 22.23.1, PHP 8.5.7, MySQL 8.4.11)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Prettier, ESLint (dengan `no-console` dan aturan React Hooks 7), `tsc` | Bersih |
+| Vitest | **370 tes** di 25 file (256 sebelumnya): klien owner (setiap penulisan owner tidak pernah dikirim ulang setelah 419, 423 dan 5xx tidak pernah diulang, sukses tak terbaca tidak pasti, body persis seperti kontrak, filter yang diizinkan saja, cursor apa adanya, ID bukan bilangan bulat positif ditolak sebelum dikirim), detail akun (14: langkah kata sandi 423 lalu keputusan kedua, 419, 409 per kode, 429, hasil tidak pasti diselesaikan dengan baca, reset dengan persetujuan wajib, tautan sekali tampil tidak di penyimpanan atau alamat dan hilang setelah Selesai), pengguna (10), undangan dan undang (8), audit (7), hari lokal, jalur kembali (detail akun diterima hanya `/pengguna/<digit>`; 9 nilai berbahaya baru ditolak), aturan revalidasi, motion (tidak berjalan sebelum GSAP termuat, me-revert gaya inline saat unmount, tidak berjalan dengan reduced motion), paritas katalog teks termasuk katalog owner |
+| Uji mutasi | Dialog dibuat mengirim ulang sendiri setelah konfirmasi kata sandi: tes 423 gagal; dipulihkan, lulus |
+| `check:build` | CSP, tanpa skrip inline, tanpa origin lain, tanpa halaman referensi. JS awal **135,2 KB gzip** (131,0 sebelumnya, anggaran 150), CSS **8,8 KB** (7,5 sebelumnya, anggaran 20). GSAP chunk lazy 27,3 KB gzip, tidak ada di HTML. Satu URL ditambahkan ke daftar aman: teks peringatan "target tidak ditemukan" GSAP (`https://gsap.com`, tidak pernah diminta; peringatan itu dimatikan) |
+| `npm audit` | 0 kerentanan |
+| Detektor Impeccable (`detect --json` pada layar, komponen, dan CSS yang berubah) | Tanpa temuan |
+
+Ukuran JS awal diatribusikan dengan membangun B3.2b (`02f3859`) di worktree sementara: +4,2 KB gzip, sekitar 3 KB tiga ikon navigasi baru (modul Phosphor membawa enam bobot, konsol memakai dua) dan sekitar 1 KB pemuat motion, FLIP navigasi, dan entri route. Sebelum itu teks dan klien owner sempat masuk chunk awal (143,4 KB); keduanya dipindah ke modul yang hanya diimpor chunk owner (`src/i18n/owner/`, `src/services/admin-api/owner.ts`).
+
+### Browser dengan API di-mock (build referensi, CSP produksi sebagai header)
+
+`tests/e2e`, data sintetis yang diberi label di `support/mock-api.ts`: desktop **48** lulus dan 2 dilewati (khusus ponsel), tablet **49** dan 1 dilewati (khusus rail desktop), mobile **49** dan 1 dilewati (97 sebelumnya). Baru: axe WCAG 2.2 AA tanpa pelanggaran di terang dan gelap pada enam layar owner, tanpa scroll ke samping; tabel mulai 768 px dan kartu di bawahnya; tautan sekali tampil menerima fokus, tanpa pelanggaran axe atau CSP, dan keempat kapsul kembali ke jalurnya setelah perakitan; GSAP chunk lazy yang diambil setelah start-up; perpindahan layar tidak meninggalkan transform pada kapsul navigasi atau konten; dengan reduced motion tidak ada gaya inline transform atau opacity.
+
+### Nyata: browser ke Laravel ke MySQL (database tes, data sintetis)
+
+Harness B3.2b tanpa perubahan (gerbang `APP_ENV=testing, database solveit_indonesia_testing, MySQL 8.4.11, grants limited to solveit_indonesia_testing`), tanpa trace, screenshot, atau video. Hasil: desktop **40 lulus** (33 tes B3.2b tetap lulus setelah perubahan dialog, navigasi, revalidasi, dan kode pemulihan bersama, ditambah 7 baru; 7,5 menit), tablet **3**, mobile **3**.
+
+| Skenario | Bukti |
+|---|---|
+| Undangan dari konsol | Owner yang baru masuk menekan Buat undangan: Laravel menjawab `423` sungguhan, kata sandi dikonfirmasi, keputusan kedua mengirim sekali (tepat dua `POST invitations`). Tautan `…/access#token=<43>` tampil sekali dengan fokus pada judulnya, tidak ada di penyimpanan, cookie yang terbaca, alamat, atau riwayat; navigasi keluar sebelum konfirmasi meminta konfirmasi; setelah Selesai tautan tidak ada di halaman. Orang yang diundang aktif lewat tautan itu (API nyata); daftar Undangan berubah ke Diterima, Pengguna menampilkan akun Aktif dengan autentikator terkonfirmasi |
+| Peran, penangguhan, aktivasi ulang | Jadikan Owner (dengan 423) mengakhiri sesi akun itu (klien API-nya mendapat `401`); Jadikan Admin tanpa langkah kata sandi (konfirmasi masih berlaku); tangguhkan lalu fokus berpindah ke pemberitahuan hasil (tombolnya sudah berganti); aktifkan ulang; audit log yang disaring `account.suspended` menampilkan Anda sebagai pelaku dan akun itu sebagai sasaran |
+| Reset kredensial | Tanpa persetujuan tidak ada yang dikirim; dengan persetujuan dan 423: status Reset tertunda, tautan sekali tampil; orangnya menyelesaikan reset dengan kata sandi dan autentikator baru (API nyata), akun kembali Aktif |
+| 409 dan akun sendiri | Undangan kedua untuk alamat yang masih punya undangan hidup: kalimat `invitation_pending`, hanya Tutup. Detail akun sendiri: pemberitahuan dan tanpa panel Tindakan |
+| Hasil tidak pasti | Request penangguhan mencapai Laravel dan berlaku, hanya jawabannya diganti `502` (satu-satunya bagian yang dimanipulasi, tertulis di tes): dialog tertutup, Periksa keadaan akun membaca `GET users/{id}` dan menampilkan tombol Aktifkan ulang; tepat dua request (423 dan satu kiriman sengaja), tanpa kirim ulang |
+| RBAC oleh Laravel | Akun admin: `GET users` dan `GET audit-events` `403` dari Laravel; setelah masuk lewat konsol tidak ada grup Administrasi, dan `/pengguna`, `/undangan/baru`, `/audit` menampilkan Khusus owner |
+| CSP | Nol pelanggaran CSP di setiap tes owner (pendengar `securitypolicyviolation`), termasuk animasi GSAP di bawah CSP produksi |
+| Tata letak dan axe data nyata | Tablet dan ponsel (dan desktop): Pengguna, Undangan, Undang admin, Audit log, detail akun dengan aktivitas: tanpa pelanggaran axe, tanpa scroll ke samping |
+
+### Temuan yang diperbaiki selama QA
+
+| Temuan | Ditemukan oleh | Perbaikan |
+|---|---|---|
+| Fokus hilang ke `<body>` setelah reset: dialog native yang tertutup mengembalikan fokus ke pembukanya yang sudah hilang, setelah judul tautan mendapat fokus | Tes browser nyata (jsdom tidak meniru perilaku ini) | `useFocusWhen` memindahkan fokus satu frame kemudian; juga ke pemberitahuan hasil setelah tindakan dan pencabutan |
+| Akun undangan tanpa nama (Laravel menyimpan `''`) membuat tautan baris tanpa nama aksesibel | axe pada data nyata, tablet dan ponsel | Nama diganti alamatnya di semua tempat, dengan catatan "Nama belum ditetapkan" |
+| Fokus setelah `422` undangan kembali ke tombol, bukan ke isian | Tes komponen | Fokus dipindah lewat effect induk setelah dialog tertutup |
+| Teks dan klien owner di JS awal (143,4 KB) | `check:build` | Katalog dan barrel owner terpisah (135,2 KB) |
+| Undangan di tablet terlalu sempit (alamat terpotong di tengah kata, tanggal tiga baris); label segmen terbungkus; celah kosong di detail; kolom filter audit tidak sejajar; panel Tindakan di ponsel setelah seluruh linimasa | Tinjauan desain (tangkapan layar tiga lebar, dua tema) | Kartu di bawah 1024 px, `overflow-wrap: anywhere`, label segmen tanpa bungkus, blok pemberitahuan hanya bila ada isinya, `items-start`, urutan ringkasan, tindakan, tautan, aktivitas |
+
+### Tinjauan desain (impeccable)
+
+Konteks dimuat dengan `impeccable context` (PRODUCT.md, DESIGN.md, brief permukaan admin), referensi Operate, animate, dan craft floor dibaca sebelum edit. Dunia yang sama diperluas, bukan identitas baru: tabel padat bergaris rambut tanpa kartu yang sama ukuran, kapsul status 33 derajat dengan dua nada baru, satu aksen, tanpa eyebrow, tanpa angka KPI. Satu putaran tangkapan layar (desktop 1440, tablet 820, Pixel 7, terang dan gelap, dialog, tautan sekali tampil di tengah dan akhir perakitan), satu putaran perbaikan (tabel di atas), satu putaran konfirmasi, lalu berhenti. Verdict: memenuhi kontrak arah untuk Operate; penilaian finish reviewer tetap menunggu waiver `concept-seed` dari pemilik (tidak dicatat sebagai waived).
+
+### GSAP dan Lenis
+
+- GSAP inti 3.15 (versi website), tanpa plugin, chunk lazy yang diambil saat browser idle dan tidak pernah ditunggu; `useMotion` di `gsap.context()` dengan revert penuh; reduced motion mematikannya. Standar: `docs/design/design-system.md`, Motion konsol.
+- Lenis dievaluasi dan **tidak dipakai**: konsol memakai scroll native di rail dan menu ponsel yang menggulir sendiri, dialog native, tabel, `scroll-margin`, pemulihan scroll React Router, fokus keyboard, dan sentuhan ponsel (yang Lenis biarkan native); tidak ada area yang terbukti lebih baik, dan `docs/DESIGN.md` melarang pustaka smooth scroll.
+
+### Belum diverifikasi
+
+- WebKit dan Firefox untuk layar owner (Chromium saja lokal; Cross-browser QA workflow milik website).
+- Docker: tidak ada perubahan `infra/`; tes admin di container dijalankan Docker CI pada PR.
+- 429 `admin-administration` (20 penulisan per menit) di browser nyata: dites di komponen dan di backend (B3.1b), tidak di browser.
+- `last_active_owner` dari konsol: tidak dapat dipicu tanpa konkurensi (owner tidak dapat bertindak atas dirinya); kalimatnya dites di komponen, invariannya di backend.
+- Pembaca layar nyata (NVDA, VoiceOver): hanya axe dan asersi peran, nama, dan fokus.
+
 ## B3.2b tinjauan keamanan replay TOTP (2026-10-18)
 
 Cakupan: tinjauan sempit pada provider anti-replay TOTP sebelum rilis, setelah PR #39 digabung pemilik ke `staging` (`9e30d51`). Versi terpasang: Laravel 13.36.0, Fortify 1.41.0, google2fa 9.1.0. Bahan: sumber Fortify `TwoFactorAuthenticationProvider::verify()`, google2fa `verifyKeyNewer()`/`findValidOTP()`, Laravel `DatabaseStore::add()` (`get` lalu `INSERT IGNORE` pada kunci cache). Laravel Boost MCP tidak tersambung di sesi ini; perilaku dibaca langsung dari kode `vendor/` yang terpasang.
