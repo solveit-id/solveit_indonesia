@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Actions\Admin\AuthenticateAdmin;
 use App\Services\ReplaySafeTwoFactorAuthenticationProvider;
-use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
@@ -28,14 +27,16 @@ class FortifyServiceProvider extends ServiceProvider
         // reset, disabling two-factor authentication, passkeys) are never registered.
         Fortify::ignoreRoutes();
 
-        // TOTP check whose replay cache remembers the step a code matched (Fortify's caches
-        // the current step, so a next-step code could be used twice). Registered after
-        // Fortify's own provider, so this binding replaces its singleton.
+        // TOTP check with an atomic one-time claim per authenticator and time step, always on
+        // the shared database cache store (MySQL), whatever CACHE_STORE says: the claim must
+        // hold across PHP processes. Registered after Fortify's own provider, so this binding
+        // replaces its singleton.
         $this->app->singleton(
             TwoFactorAuthenticationProviderContract::class,
             fn ($app): ReplaySafeTwoFactorAuthenticationProvider => new ReplaySafeTwoFactorAuthenticationProvider(
                 $app->make(Google2FA::class),
-                $app->make(Repository::class),
+                $app->make('cache')->store('database'),
+                (string) $app['config']->get('app.key'),
             ),
         );
     }

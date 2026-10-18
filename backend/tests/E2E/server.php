@@ -15,6 +15,7 @@
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 
 require_once __DIR__.'/bootstrap.php';
 
@@ -42,6 +43,38 @@ define('LARAVEL_START', microtime(true));
 
 /** @var Application $app */
 $app = require SOLVEIT_E2E_BASE.'/bootstrap/app.php';
+
+// Test-only synchronisation barrier for tests/Feature/Admin/TotpReplayConcurrencyTest.php:
+// with SOLVEIT_E2E_TOTP_BARRIER=1 on the server and an X-Solveit-Test-Barrier header (a Unix
+// time) on the request, the application's own TOTP provider waits until that instant before
+// verifying, so two servers race inside the replay check itself. Never active otherwise.
+$barrier = $_SERVER['HTTP_X_SOLVEIT_TEST_BARRIER'] ?? null;
+
+if (getenv('SOLVEIT_E2E_TOTP_BARRIER') === '1' && is_string($barrier) && is_numeric($barrier)) {
+    $app->extend(TwoFactorAuthenticationProvider::class, fn (TwoFactorAuthenticationProvider $provider) => new class($provider, (float) $barrier) implements TwoFactorAuthenticationProvider
+    {
+        public function __construct(private readonly TwoFactorAuthenticationProvider $inner, private readonly float $releaseAt) {}
+
+        public function generateSecretKey()
+        {
+            return $this->inner->generateSecretKey();
+        }
+
+        public function qrCodeUrl($companyName, $companyEmail, $secret)
+        {
+            return $this->inner->qrCodeUrl($companyName, $companyEmail, $secret);
+        }
+
+        public function verify($secret, $code)
+        {
+            while (microtime(true) < $this->releaseAt) {
+                usleep(200);
+            }
+
+            return $this->inner->verify($secret, $code);
+        }
+    });
+}
 
 $app->handleRequest(Request::capture());
 
