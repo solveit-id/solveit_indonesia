@@ -124,6 +124,9 @@ describe("the inquiry list", () => {
     expect(
       await screen.findByText("Tanggal akhir tidak boleh sebelum tanggal awal."),
     ).toBeVisible();
+    // The error renders from the address at once; wait for the list's own answer before
+    // reading what was sent (CI once read it before any request existed).
+    expect(await screen.findByText("Tidak ada inquiry yang cocok")).toBeVisible();
     expect(lastUrl(api)).toBe("/api/v1/admin/inquiries?per_page=25");
   });
 

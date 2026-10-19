@@ -81,6 +81,8 @@ Pemilik memilih Opsi B setelah tinjauan penerimaan: di ponsel 390 px dengan pesa
 
 Tinjauan desain akhir dan waiver concept-seed tetap menunggu pemilik; Opsi B adalah keputusan tata letak, bukan persetujuan desain akhir.
 
+Admin CI event PR pada `ddcac0f` gagal sekali (run 39241964992) pada tes daftar B4b "holds back a reversed date range": tes membaca URL request sebelum request dibuat, karena pesan galat rentang tampil langsung dari alamat. Event push pada commit yang sama lulus. Tes kini menunggu jawaban daftar sebelum membaca URL; asersinya tidak diubah. Tidak terkait Opsi B.
+
 ### Tidak dijalankan atau tidak berlaku
 
 - **Backend:** tidak ada perubahan di `backend/`, jadi `php artisan test`, Pint, dan Composer tidak dijalankan ulang untuk B4b (baseline B4a: 529 tes). Laravel Boost MCP gagal tersambung saat sesi dimulai (`CONNECT_TIMEOUT`) dan tidak dipakai; tidak dibutuhkan karena tidak ada kode Laravel yang ditulis.
