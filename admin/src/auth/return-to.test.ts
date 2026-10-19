@@ -12,6 +12,9 @@ describe("safeReturnTo", () => {
     "/undangan",
     "/undangan/baru",
     "/audit",
+    "/inquiry",
+    "/inquiry/42",
+    "/inquiry/1234567890",
   ])("accepts the private screen %s", (path) => {
     expect(safeReturnTo(path)).toBe(path);
   });
@@ -49,6 +52,12 @@ describe("safeReturnTo", () => {
     "/pengguna/7/../../access",
     "/pengguna/%37",
     "/undangan/9",
+    "/inquiry/0",
+    "/inquiry/042",
+    "/inquiry/42/",
+    "/inquiry/42/notes",
+    "/inquiry/12345678901",
+    "/inquiry/INQ-7K3M-9QX2-HD4T",
   ])("refuses %j and falls back to home", (value) => {
     expect(safeReturnTo(value)).toBe("/");
   });

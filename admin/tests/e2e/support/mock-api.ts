@@ -178,6 +178,78 @@ const mockEvents = [
   },
 ];
 
+/** MOCKED inquiries (B4b): synthetic senders, example.test contacts, masked as Laravel masks. */
+const mockInquiries = [
+  {
+    id: 42,
+    reference: "INQ-7K3M-9QX2-HD4T",
+    status: "received",
+    name: "Pengirim Contoh dengan nama yang cukup panjang",
+    organization: "Toko Contoh Sejahtera",
+    contact: { type: "email", masked: "p•••@e•••.test" },
+    service: "sistem-informasi",
+    budget: "10-50jt",
+    timeline: "1-3-bulan",
+    received_at: "2026-10-19T03:12:45+00:00",
+    updated_at: "2026-10-19T03:12:45+00:00",
+  },
+  {
+    id: 41,
+    reference: "INQ-0000-ZZZZ-1234",
+    status: "contacted",
+    name: "Pengirim Kedua",
+    organization: null,
+    contact: { type: "phone", masked: "+•••••••358" },
+    service: "website",
+    budget: "belum-tahu",
+    timeline: "fleksibel",
+    received_at: "2026-10-18T09:00:00+00:00",
+    updated_at: "2026-10-19T02:00:00+00:00",
+  },
+];
+
+/** The full contact the mocked reveal returns: synthetic, example.test only. */
+export const mockRevealedContact = "pengirim.contoh@example.test";
+
+const mockInquiryDetail = (id: number) => {
+  const found = mockInquiries.find((entry) => entry.id === id);
+
+  return found === undefined
+    ? null
+    : {
+        ...found,
+        message: [
+          "Kami butuh sistem stok untuk tiga cabang toko, dengan laporan harian per cabang.",
+          "Mohon dihubungi lewat email pada jam kerja.",
+        ].join(String.fromCharCode(10)),
+        allowed_transitions:
+          found.status === "received"
+            ? ["in-review", "contacted", "closed"]
+            : ["in-review", "closed"],
+        notes_count: found.status === "received" ? 0 : 1,
+        status_changes_count: found.status === "received" ? 0 : 1,
+      };
+};
+
+const mockStatusChanges = [
+  {
+    id: 7,
+    from_status: "received",
+    to_status: "contacted",
+    changed_by: { user_id: 1, name: "Contoh Owner" },
+    changed_at: "2026-10-19T02:00:00+00:00",
+  },
+];
+
+const mockNotes = [
+  {
+    id: 12,
+    body: "Sudah ditelepon. Minta proposal singkat minggu depan.",
+    author: { user_id: 1, name: "Contoh Owner" },
+    created_at: "2026-10-19T02:05:00+00:00",
+  },
+];
+
 const cursorPage = (data: unknown[]) => ({
   data,
   links: { first: null, last: null, prev: null, next: null },
@@ -214,6 +286,10 @@ export async function mockOwner(page: Page) {
             "users.suspend",
             "users.reset-credentials",
             "audit.view-all",
+            "inquiries.view",
+            "inquiries.change-status",
+            "inquiries.add-note",
+            "inquiries.reveal-contact",
           ],
         },
       });
@@ -223,6 +299,38 @@ export async function mockOwner(page: Page) {
     if (path === "invitations" && method === "GET")
       return json(route, 200, cursorPage(mockInvitations));
     if (path === "audit-events") return json(route, 200, cursorPage(mockEvents));
+    if (path === "inquiries") return json(route, 200, cursorPage(mockInquiries));
+
+    const inquiry = /^inquiries\/(\d+)(?:\/(status-changes|notes|contact-reveal))?$/.exec(path);
+
+    if (inquiry) {
+      const detail = mockInquiryDetail(Number(inquiry[1]));
+
+      if (detail === null) {
+        return json(route, 404, { message: "Inquiry not found." });
+      }
+
+      if (inquiry[2] === "status-changes") {
+        return json(route, 200, cursorPage(detail.status === "received" ? [] : mockStatusChanges));
+      }
+
+      if (inquiry[2] === "notes") {
+        return json(route, 200, cursorPage(detail.status === "received" ? [] : mockNotes));
+      }
+
+      if (inquiry[2] === "contact-reveal" && method === "POST") {
+        return json(route, 200, {
+          data: {
+            id: detail.id,
+            reference: detail.reference,
+            contact: { type: "email", value: mockRevealedContact },
+            revealed_at: "2026-10-19T04:05:00.123456+00:00",
+          },
+        });
+      }
+
+      return json(route, 200, { data: detail });
+    }
 
     const user = /^users\/(\d+)$/.exec(path);
 

@@ -190,3 +190,88 @@ describe("audit log", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("inquiry events (B4a, labelled in B4b)", () => {
+  const inquiryEvents = () =>
+    page([
+      event({
+        id: 130,
+        action: "inquiry.contact-revealed",
+        actor: { type: "user", user_id: 2 },
+        subject: { type: "inquiry", id: 42 },
+        metadata: null,
+      }),
+      event({
+        id: 129,
+        action: "inquiry.status-changed",
+        actor: { type: "user", user_id: 2 },
+        subject: { type: "inquiry", id: 42 },
+        metadata: { from_status: "received", to_status: "in-review" },
+      }),
+      event({
+        id: 128,
+        action: "inquiry.note-added",
+        actor: { type: "user", user_id: 2 },
+        subject: { type: "inquiry", id: 42 },
+        metadata: { note_id: 12 },
+      }),
+    ]);
+
+  it("names the three inquiry actions, their status and note, and links the inquiry", async () => {
+    mockAdminApi({
+      "GET me": me(ownerAccount()),
+      "GET users": directory(),
+      "GET audit-events": inquiryEvents(),
+    });
+    renderApp("/audit");
+
+    expect(await screen.findByRole("heading", { name: "Kontak inquiry dibuka" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Status inquiry diubah" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Catatan inquiry ditambahkan" })).toBeVisible();
+    expect(screen.queryByText(/Kejadian inquiry\./)).not.toBeInTheDocument();
+    expect(screen.getByText("Status: Baru ke Ditinjau")).toBeVisible();
+    expect(screen.getByText("Catatan #12")).toBeVisible();
+    for (const link of screen.getAllByRole("link", { name: "Inquiry #42" })) {
+      expect(link).toHaveAttribute("href", "/inquiry/42");
+    }
+  });
+
+  it("offers the inquiry actions as a filter group", async () => {
+    const api = mockAdminApi({
+      "GET me": me(ownerAccount()),
+      "GET users": directory(),
+      "GET audit-events": [inquiryEvents(), inquiryEvents()],
+    });
+    const user = userEvent.setup();
+    renderApp("/audit");
+    await screen.findByRole("heading", { name: "Kontak inquiry dibuka" });
+
+    const select = screen.getByLabelText("Tindakan");
+    expect(within(select).getByRole("group", { name: "Inquiry" })).toBeInTheDocument();
+    await user.selectOptions(select, "inquiry.contact-revealed");
+
+    await waitFor(() => expect(lastAuditUrl(api)).toContain("action=inquiry.contact-revealed"));
+  });
+
+  it("filters by an inquiry from its detail, never together with an account subject", async () => {
+    const api = mockAdminApi({
+      "GET me": me(ownerAccount()),
+      "GET users": directory(),
+      "GET audit-events": [inquiryEvents(), page([event()])],
+    });
+    const user = userEvent.setup();
+    const router = renderApp("/audit?inquiry=42&subjek=2");
+    await screen.findByRole("heading", { name: "Kontak inquiry dibuka" });
+
+    const sent = new URL(lastAuditUrl(api), "http://x").searchParams;
+    expect(sent.get("subject_inquiry_id")).toBe("42");
+    expect(sent.has("subject_user_id")).toBe(false);
+    expect(screen.getByText(/Hanya kejadian yang mengenai Inquiry #42/)).toBeVisible();
+    expect(screen.queryByLabelText("Akun terdampak")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Tampilkan semua sasaran" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?subjek=2"));
+    await waitFor(() => expect(lastAuditUrl(api)).toContain("subject_user_id=2"));
+    expect(lastAuditUrl(api)).not.toContain("subject_inquiry_id");
+  });
+});
