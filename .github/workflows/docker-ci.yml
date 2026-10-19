@@ -67,6 +67,10 @@ jobs:
                 and ((.services.admin.networks | keys) == ["admin-internal"])
                 and .networks["admin-internal"].internal == true
                 and .services["admin-gateway"].read_only == true and .services.admin.read_only == true'
+          # Negative: moving the TLS listener to a VPN or private address never moves plain HTTP,
+          # and moving plain HTTP for a proxy never moves TLS.
+          SOLVEIT_ADMIN_TLS_BIND=10.8.0.5 docker compose -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile admin config --format json             | jq -e '[.services["admin-gateway"].ports[] | {target, host_ip}] | sort_by(.target) == [{"target": 8080, "host_ip": "127.0.0.1"}, {"target": 8443, "host_ip": "10.8.0.5"}]'
+          SOLVEIT_ADMIN_HTTP_BIND=10.8.0.6 docker compose -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile admin config --format json             | jq -e '[.services["admin-gateway"].ports[] | {target, host_ip}] | sort_by(.target) == [{"target": 8080, "host_ip": "10.8.0.6"}, {"target": 8443, "host_ip": "127.0.0.1"}]'
           # The production build keeps the inquiry API channel off.
           docker compose -f infra/docker/compose.prod.yaml config --format json \
             | jq -e '.services.frontend.build.args.VITE_INQUIRY_API_ENABLED == "false"'
@@ -169,10 +173,6 @@ jobs:
           compose --profile ops run --rm migrate
           compose up -d --wait
           compose ps
-      - name: Smoke test (public website and API)
-        run: bash infra/docker/scripts/verify-production.sh | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Smoke test (private admin listener, failure, rollback)
-        run: bash infra/docker/scripts/verify-admin.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -183,6 +183,12 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      - name: Safety guards refuse unsafe settings and stacks before acting (negative tests)
+        run: bash infra/docker/scripts/test-safety-guards.sh | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Smoke test (public website and API)
+        run: bash infra/docker/scripts/verify-production.sh | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Smoke test (private admin listener, failure, rollback)
+        run: bash infra/docker/scripts/verify-admin.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Real browser on the production admin image (activation, TOTP, __Host- cookie, sign-in)
         working-directory: admin
         run: npx playwright test --config playwright.production.config.ts
