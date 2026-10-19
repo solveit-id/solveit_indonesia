@@ -35,6 +35,12 @@ concurrency:
 permissions:
   contents: read
 
+# Explicit bash runs every step with -eo pipefail (the implicit default is bash -e), so a failing
+# command piped into tee fails the step instead of passing silently.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   real-laravel:
     name: real browser, Laravel, MySQL 8.4

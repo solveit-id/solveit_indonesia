@@ -3,7 +3,10 @@ name: Docker CI
 # Validates the Docker environments in infra/docker/ on a clean runner with disposable data:
 # Compose files and scripts, the full-Docker development onboarding from a fresh clone (including
 # the backend test suite inside the container), and the production images with a synthetic smoke
-# test. It never deploys, never pushes images, and never reaches a real database.
+# test: the public website and API, the private admin listener over TLS (B3.2d: routing, headers,
+# CSP, Host and Origin, __Host- cookies, MFA sign-in in a real browser, isolation from the public
+# gateway, failure and rollback), and a backup and restore drill. It never deploys, never pushes
+# images, never uses a real domain or certificate, and never reaches a real database.
 on:
   pull_request:
     branches: [staging, main]
@@ -21,6 +24,12 @@ concurrency:
 permissions:
   contents: read
 
+# Explicit bash runs every step with -eo pipefail (the implicit default is bash -e), so a failing
+# command piped into tee fails the step instead of passing silently.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   config:
     name: compose files and scripts
@@ -29,22 +38,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Shell scripts (shellcheck)
-        run: shellcheck infra/docker/scripts/*.sh infra/docker/*/entrypoint-*.sh infra/docker/mysql/initdb-production/*.sh backend/docker/mysql/initdb/*.sh
+        run: shellcheck infra/docker/scripts/*.sh infra/docker/*/entrypoint-*.sh infra/docker/nginx/*.envsh infra/docker/mysql/initdb-production/*.sh backend/docker/mysql/initdb/*.sh
       - name: Compose files resolve (placeholder secrets, never used)
         env:
           SOLVEIT_SECRETS_DIR: ${{ runner.temp }}/secrets
           SOLVEIT_ENV_FILE: ./production.env.example
         run: |
           mkdir -p "$SOLVEIT_SECRETS_DIR" backend/docker/mysql/secrets
-          for name in app_key db_app_password db_migrator_password mysql_root_password; do : > "$SOLVEIT_SECRETS_DIR/$name"; done
+          for name in app_key db_app_password db_migrator_password mysql_root_password admin_tls_certificate admin_tls_private_key; do : > "$SOLVEIT_SECRETS_DIR/$name"; done
           for name in mysql_root_password solveit_dev_password solveit_test_password; do : > "backend/docker/mysql/secrets/$name"; done
           docker compose -f infra/docker/compose.dev.yaml config --quiet
           docker compose -f infra/docker/compose.prod.yaml --profile bundled-db --profile ops config --quiet
+          docker compose -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile bundled-db --profile admin config --quiet
           # The development project must reuse the MySQL service of backend/docker/mysql unchanged.
           test "$(docker compose -f infra/docker/compose.dev.yaml config --hash mysql)" = "$(docker compose -f backend/docker/mysql/compose.yaml config --hash mysql)"
-          # Only the gateway publishes a port, and by default only on loopback.
+          # Only the gateway publishes a port, and by default only on loopback. The admin console
+          # and its listener exist only with --profile admin.
           docker compose -f infra/docker/compose.prod.yaml --profile bundled-db config --format json \
-            | jq -e '[.services | to_entries[] | select(.value.ports != null) | .key] == ["gateway"] and (.services.gateway.ports[0].host_ip == "127.0.0.1")'
+            | jq -e '[.services | to_entries[] | select(.value.ports != null) | .key] == ["gateway"] and (.services.gateway.ports[0].host_ip == "127.0.0.1") and ((.services | has("admin") or has("admin-gateway")) | not)'
+          # With the admin profile and its TLS override: admin-gateway publishes too, every port on
+          # loopback by default; the console, backend, frontend, and MySQL publish nothing, and the
+          # public gateway and the admin listener share no network.
+          docker compose -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile bundled-db --profile admin config --format json \
+            | jq -e '([.services | to_entries[] | select(.value.ports != null) | .key] | sort) == ["admin-gateway", "gateway"]
+                and ([.services[].ports[]? | .host_ip] | all(. == "127.0.0.1"))
+                and ((.services.gateway.networks | keys) == ["edge", "internal"])
+                and ((.services["admin-gateway"].networks | keys) == ["admin-edge", "admin-internal"])
+                and ((.services.admin.networks | keys) == ["admin-internal"])
+                and .networks["admin-internal"].internal == true
+                and .services["admin-gateway"].read_only == true and .services.admin.read_only == true'
           # The production build keeps the inquiry API channel off.
           docker compose -f infra/docker/compose.prod.yaml config --format json \
             | jq -e '.services.frontend.build.args.VITE_INQUIRY_API_ENABLED == "false"'
@@ -105,36 +127,71 @@ jobs:
         run: docker compose -f infra/docker/compose.dev.yaml logs --tail=100
 
   production:
-    name: production images and smoke test
+    name: production images, admin listener, and smoke tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       SOLVEIT_PROD_PROJECT: solveit-ci-prod
-      SOLVEIT_ENV_FILE: ./production.env.example
+      SOLVEIT_IMAGE_TAG: ci-${{ github.sha }}
+      # Must equal ADMIN_URL in the smoke env file below: a reserved test name that only curl
+      # and Chromium resolve, to loopback.
+      SOLVEIT_ADMIN_URL: https://admin.solveit.test:8443
     steps:
       - uses: actions/checkout@v4
-      - name: Disposable secrets (random per run, never printed)
+      - name: Disposable secrets, throwaway TLS certificate, smoke env file (never printed, never kept)
         run: |
           SOLVEIT_SECRETS_DIR="$RUNNER_TEMP/prod-secrets"
           echo "SOLVEIT_SECRETS_DIR=$SOLVEIT_SECRETS_DIR" >> "$GITHUB_ENV"
           mkdir -p "$SOLVEIT_SECRETS_DIR"
           printf 'base64:%s' "$(openssl rand -base64 32)" > "$SOLVEIT_SECRETS_DIR/app_key"
           for name in db_app_password db_migrator_password mysql_root_password; do openssl rand -hex 24 > "$SOLVEIT_SECRETS_DIR/$name"; done
+          # Self-signed for the test name only, valid two days, generated per run: no certificate
+          # for a real domain is requested or stored anywhere.
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 2 \
+            -subj "/CN=admin.solveit.test" -addext "subjectAltName=DNS:admin.solveit.test" \
+            -keyout "$SOLVEIT_SECRETS_DIR/admin_tls_private_key" -out "$SOLVEIT_SECRETS_DIR/admin_tls_certificate" 2> /dev/null
           # Same layout as the production guide: the folder (0700) protects the files on the host;
-          # the files are readable inside the containers by www-data (uid 33) and mysql (uid 999).
+          # the files are readable inside the containers by www-data (uid 33), mysql (uid 999), and
+          # nginx (uid 101).
           chmod 0444 "$SOLVEIT_SECRETS_DIR"/*
           chmod 0700 "$SOLVEIT_SECRETS_DIR"
-      - name: Build production images
-        run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml build
-      - name: Start the bundled database, migrate explicitly, start the stack
+          # The committed template with the test admin origin instead of the placeholder.
+          sed "s#^ADMIN_URL=.*#ADMIN_URL=$SOLVEIT_ADMIN_URL#" infra/docker/production.env.example > "$RUNNER_TEMP/smoke.env"
+          echo "SOLVEIT_ENV_FILE=$RUNNER_TEMP/smoke.env" >> "$GITHUB_ENV"
+      - name: Build production images (website, backend, admin console)
+        run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml --profile admin build
+      - name: Image sizes
+        run: docker image ls --filter "reference=solveit-indonesia/*:$SOLVEIT_IMAGE_TAG" --format '{{.Repository}}:{{.Tag}} {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Start the bundled database, migrate explicitly, start the stack with the admin listener
         run: |
-          compose() { docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml --profile bundled-db "$@"; }
+          compose() { docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile bundled-db --profile admin "$@"; }
           compose up -d --wait mysql
           compose --profile ops run --rm migrate
           compose up -d --wait
           compose ps
-      - name: Smoke test
+      - name: Smoke test (public website and API)
         run: bash infra/docker/scripts/verify-production.sh | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Smoke test (private admin listener, failure, rollback)
+        run: bash infra/docker/scripts/verify-admin.sh | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Browser for the production admin test
+        working-directory: admin
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Real browser on the production admin image (activation, TOTP, __Host- cookie, sign-in)
+        working-directory: admin
+        run: npx playwright test --config playwright.production.config.ts
+      - name: Backup and restore drill (this throwaway project only)
+        env:
+          SOLVEIT_DRILL_PROJECT: solveit-ci-prod
+        run: bash infra/docker/scripts/drill-backup-restore.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Logs on failure
         if: failure()
-        run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml --profile bundled-db logs --tail=100
+        run: docker compose -p "$SOLVEIT_PROD_PROJECT" -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile bundled-db --profile admin logs --tail=100
+      # No report, trace, or log artifact: the admin test handles a synthetic access link, setup
+      # key, and recovery codes, and none of them belongs in an artifact.
