@@ -27,7 +27,7 @@ Keputusan yang dipakai: nilai status `received`, `in-review`, `contacted`, `clos
 | `npm run check` di `admin/` (Prettier, ESLint, typecheck, Vitest, build, `check-build.mjs`) | Lulus. **28 file, 435 tes** (25 dan 370 di baseline B3.2c/B3.2d) |
 | Anggaran build | JavaScript awal **136,5 KB gzip** (135,2 sebelumnya; anggaran 150), CSS 8,9 KB; teks dan kode inquiry hanya di chunk lazy (diperiksa: tidak ada teks inquiry di chunk awal) |
 | Suite browser ber-mock (`npm run build:reference`, `--workers=1`) | desktop **58 lulus**, 2 dilewati; tablet **59 lulus**, 1 dilewati; mobile **59 lulus**, 1 dilewati (B3.2c: 48, 49, 49) |
-| Suite browser nyata, Laravel dan MySQL testing (`npm run build`, `test:integration`) | desktop: run penuh pertama **44 lulus, 1 gagal** (asersi B3.2b masih memakai teks peran admin lama; diperbarui), lalu `access.spec.ts` **7 lulus**, jadi ke-45 tes desktop lulus di lokal, tetapi tidak dalam satu run bersih: run penuh kedua berhenti setelah 31 lulus karena Chromium crash (`Target crashed`, worker keluar `0xC0000142`) saat memori mesin menipis, lalu dihentikan Claude Code; tes yang crash adalah tes B3.2b yang lulus di run pertama. Run penuh yang bersih: workflow Admin integration di CI; tablet **4 lulus**; mobile **4 lulus** |
+| Suite browser nyata, Laravel dan MySQL testing (`npm run build`, `test:integration`) | desktop: run penuh pertama **44 lulus, 1 gagal** (asersi B3.2b masih memakai teks peran admin lama; diperbarui), lalu `access.spec.ts` **7 lulus**, jadi ke-45 tes desktop lulus di lokal, tetapi tidak dalam satu run bersih: run penuh kedua berhenti setelah 31 lulus karena Chromium crash (`Target crashed`, worker keluar `0xC0000142`) saat memori mesin menipis, lalu dihentikan Claude Code; tes yang crash adalah tes B3.2b yang lulus di run pertama. Run penuh yang bersih: Admin integration 39222015679 pada PR #48, **53 lulus dalam satu run** (desktop 45, tablet 4, mobile 4); tablet **4 lulus**; mobile **4 lulus** |
 
 | Area | Yang dibuktikan |
 |---|---|
@@ -42,6 +42,8 @@ Keputusan yang dipakai: nilai status `received`, `in-review`, `contacted`, `clos
 | Audit log | Tiga label, grup filter Inquiry, "Status: Baru ke Ditinjau", "Catatan #12", sasaran bertaut ke `/inquiry/42`, `?inquiry=42` dikirim sebagai `subject_inquiry_id` tanpa `subject_user_id`, kembali ke semua sasaran. Nyata: label tampil untuk kejadian asli |
 | Aksesibilitas dan tata letak | axe WCAG 2.2 AA tanpa pelanggaran di `/inquiry`, dua detail, dialog status, dialog kontak, dan kontak terbuka, tema terang dan gelap, desktop, tablet, ponsel (mock) dan data nyata (tablet, ponsel, desktop); tanpa scroll samping; tabel mulai 768 px, kartu di bawahnya; keyboard dari daftar ke detail ke dialog, Escape memilih Batal dan fokus kembali ke pembuka; nol pelanggaran CSP |
 | Regresi | Seluruh suite Vitest, mock, dan nyata B3.2b sampai B3.2d tetap lulus; satu asersi B3.2b mengikuti teks peran admin yang baru |
+
+CI pada PR #48 (head `1acb047`), semuanya hijau: Admin CI 39222015637 (suite ber-mock 176 lulus, JavaScript awal 136,5 KB), Admin integration 39222015679 (53 lulus), Docker CI 39222015530 (compose, onboarding clone baru, image produksi, listener admin, smoke test); run push 39221977471, 39221977386, 39221977432.
 
 Tangkapan layar 1440, 820, dan 390 px (daftar, detail, dialog kontak, kontak terbuka, gelap) diperiksa manual; satu temuan diperbaiki: tombol Cari meregang selebar sisa baris filter mulai 640 px.
 
