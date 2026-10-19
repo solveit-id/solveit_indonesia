@@ -39,6 +39,22 @@ Cakupan: image produksi konsol admin, listener admin privat `admin-gateway` (pro
 - Pemeriksaan "variabel template belum dirender" ikut membaca komentar: sekarang hanya baris konfigurasi.
 - Permintaan dari konteks Node Playwright tidak memakai pemetaan host Chromium dan mencetak cookie saat gagal: diganti `fetch` di dalam halaman, dan atribut cookie dibandingkan tanpa nilainya.
 
+### Pengerasan keselamatan operasional (tinjauan PR #44, 2026-10-19)
+
+| Temuan | Risiko | Perbaikan |
+|---|---|---|
+| `verify-admin.sh` dan `verify-production.sh` memakai default proyek `solveit-indonesia-prod` (nama proyek produksi) | Dijalankan tanpa variabel di server, skrip akan me-restart dan me-retag container, membuat ulang listener, dan menulis inquiry serta audit di produksi | Tanpa default; `check-synthetic-stack.sh` (baca saja) wajib menerima stack lebih dulu |
+| Harness Playwright produksi memakai default proyek yang sama dan origin default, lalu menjalankan `admin:bootstrap-owner` | Owner pertama dapat dibuat di lingkungan nyata | Konfigurasi gagal dimuat tanpa proyek dan origin `.test`; global setup dan langkah bootstrap menjalankan penjaga; origin harus sama dengan `ADMIN_URL` backend |
+| Override TLS memakai `SOLVEIT_ADMIN_BIND` untuk port TLS dan HTTP | Memindahkan TLS ke antarmuka VPN ikut membuka HTTP polos di VPN | `SOLVEIT_ADMIN_TLS_BIND` dan `SOLVEIT_ADMIN_HTTP_BIND` terpisah (default loopback); opsi reverse proxy tetap memakai port HTTP di loopback |
+| `SOLVEIT_ADMIN_PORT` sudah berarti port server dev konsol (5174) di `compose.dev.yaml` | Satu `infra/docker/.env` untuk keduanya akan memindahkan port yang salah | Variabel produksi diganti `SOLVEIT_ADMIN_HTTP_PORT` |
+| Latihan pemulihan tidak memeriksa file env, folder secret, origin, atau port | Penjaganya lebih lemah dari skrip lain | Memakai penjaga yang sama, ditambah opt-in kedua `SOLVEIT_DRILL_PROJECT` |
+
+Bukti lokal pada proyek sintetis baru (`solveit-b32d-smoke`, dihapus beserta volumenya setelahnya; `solveit-mysql` dan volumenya tidak tersentuh):
+
+- `test-safety-guards.sh`: **46 PASS**. Kontrol positif (7 pemeriksaan penjaga), lalu 32 penolakan pengaturan: masing-masing dari empat konsumen menolak tanpa proyek, dengan `solveit-indonesia-prod`, dengan nama tanpa penanda, dengan proyek yang tidak ada, tanpa file env, dan tanpa folder secret; penjaga menolak `solveit-indonesia`, file env `production.env`, template di dalam repository, dan folder secret repository; Playwright dan penjaga menolak origin bukan `.test`; Playwright dan `verify-admin.sh` menolak origin yang berbeda dari stack. Snapshot container, waktu start, image, dan jumlah baris **identik** sebelum dan sesudah semua penolakan (tidak ada owner, restart, atau retag). Lalu 9 penolakan stack: akun non-sintetis (penjaga dan latihan pemulihan, sebelum menghapus apa pun), `ADMIN_URL` publik (penjaga dan `verify-admin.sh`), `APP_URL` publik, `DB_HOST` eksternal (penjaga dan `verify-production.sh`), port di `127.0.0.2`; setiap perubahan dibatalkan dan penjaga menerima stack yang dipulihkan, jumlah akun tetap 0.
+- Konfigurasi Compose: dengan `SOLVEIT_ADMIN_TLS_BIND=10.8.0.5` port HTTP tetap `127.0.0.1` dan TLS `10.8.0.5`; dengan `SOLVEIT_ADMIN_HTTP_BIND=10.8.0.6` hanya HTTP yang pindah (juga di job konfigurasi Docker CI dengan `jq`).
+- Semua hasil B3.2d tetap lulus setelah pengerasan: `verify-production.sh`, `verify-admin.sh`, tes browser produksi (1 lulus), latihan pemulihan (pulih 73 detik). Admin Prettier, ESLint, `tsc` bersih; shellcheck bersih untuk semua skrip.
+
 Hasil Docker CI, Admin CI, dan Admin integration pada head PR dicatat di `.ai/project-status.md` dan di PR.
 
 ## B3.2c ruang kerja administrasi owner di konsol admin (2026-10-18)

@@ -492,7 +492,8 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 │       ├── nginx/<peran>.conf          Konfigurasi nginx atau reverse proxy (frontend.conf, gateway.conf, admin.conf);
 │       │                               template runtime <peran>.conf.template dan hook entrypoint *.envsh untuk image resmi
 │       ├── mysql/initdb-<lingkungan>/  Provisioning database yang dikelola file Compose di folder ini
-│       ├── scripts/<kata-kerja>-<objek>.sh   Skrip operasional (setup-dev.sh, verify-production.sh, verify-admin.sh, drill-backup-restore.sh)
+│       ├── scripts/<kata-kerja>-<objek>.sh   Skrip operasional (setup-dev.sh, verify-production.sh, verify-admin.sh, drill-backup-restore.sh,
+│       │                               check-synthetic-stack.sh, test-safety-guards.sh)
 │       └── secrets/                    [L] Rahasia produksi, diabaikan Git
 └── <aplikasi>/docker/<layanan>/        Infrastruktur milik satu aplikasi yang juga dipakai tanpa infra/
 ```
@@ -516,7 +517,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 1. Konfigurasi nginx atau reverse proxy: `infra/docker/nginx/<peran>.conf`. Konfigurasi untuk image buatan proyek di-bake (`COPY`); untuk image resmi tanpa build di-mount read-only.
 2. Konfigurasi pengembangan dan produksi berada di file terpisah, tidak satu file yang bercabang menurut variabel. Pengembangan: bind mount kode, server dev, dev dependency, port loopback. Produksi: kode di dalam image, tanpa bind mount kode, `APP_DEBUG=false`, konfigurasi runtime di `<aplikasi>/<runtime>/production.*`.
 3. Entrypoint: `entrypoint-<target>.sh` di sebelah Dockerfile, POSIX `sh` dengan `set -eu`, diakhiri `exec "$@"`. Entrypoint tidak pernah menjalankan migrasi, menghapus data, atau mencetak rahasia; ia boleh memasang dependensi ke volume yang kosong dan membuat folder kerja.
-4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`.
+4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`. Skrip uji yang mengubah stack (akun, data, restart, rollback, volume) tidak punya default proyek atau konfigurasi dan menjalankan penjaga baca-saja lebih dulu (**proyek ini:** `check-synthetic-stack.sh`), yang menolak apa pun selain stack sintetis sekali pakai; penolakannya dibuktikan dengan tes negatif.
 
 ### 11.4 Rahasia, environment, dan data
 

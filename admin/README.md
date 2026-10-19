@@ -122,10 +122,10 @@ Di depan image itu ada listener admin privat `admin-gateway` (Compose profil `ad
 `npm run` tidak punya perintah untuk ini; tes browser produksi dijalankan pada stack Docker produksi sintetis yang sudah berjalan (urutan lengkap di panduan produksi, Uji lokal mirip produksi):
 
 ```bash
-npx playwright test --config playwright.production.config.ts   # SOLVEIT_PROD_PROJECT, SOLVEIT_ADMIN_URL
+npx playwright test --config playwright.production.config.ts   # wajib: SOLVEIT_PROD_PROJECT, SOLVEIT_ADMIN_URL (.test), SOLVEIT_ENV_FILE, SOLVEIT_SECRETS_DIR
 ```
 
-Tes itu membuat owner pertama dengan `admin:bootstrap-owner`, jadi hanya berjalan sekali per database. Tanpa trace, screenshot, atau video; asersi cookie dan rahasia tidak pernah mencetak nilai.
+Tes itu membuat owner pertama dengan `admin:bootstrap-owner`, jadi hanya berjalan sekali per database. Tanpa default: konfigurasi gagal dimuat tanpa proyek dan origin `.test`, dan global setup serta langkah bootstrap menjalankan `infra/docker/scripts/check-synthetic-stack.sh`, yang menolak apa pun selain stack sintetis sekali pakai. Tanpa trace, screenshot, atau video; asersi cookie dan rahasia tidak pernah mencetak nilai.
 
 ## Tes browser nyata (Laravel dan MySQL)
 

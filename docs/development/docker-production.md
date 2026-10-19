@@ -70,7 +70,7 @@ Semua service: `restart: unless-stopped` (kecuali `migrate`), `no-new-privileges
 | `infra/docker/compose.prod.admin-tls.yaml` | Ya | Override opsional (B3.2d): listener admin menerminasi TLS sendiri di 8443 |
 | `infra/docker/secrets/` | **Tidak** | `app_key`, `db_app_password`, `db_migrator_password`, `mysql_root_password`; dengan override TLS admin juga `admin_tls_certificate` (rantai lengkap) dan `admin_tls_private_key` |
 
-Variabel Compose (shell atau `infra/docker/.env`, keduanya tidak di-commit): `SOLVEIT_HTTP_BIND` dan `SOLVEIT_HTTP_PORT` (alamat publikasi gateway), `SOLVEIT_IMAGE_TAG` (tag image, default `local`), `SOLVEIT_SITE_URL`, `SOLVEIT_API_BASE_URL`, `SOLVEIT_GOOGLE_SITE_VERIFICATION` (build frontend), `SOLVEIT_ENV_FILE`, `SOLVEIT_SECRETS_DIR`, `SOLVEIT_DB_MIGRATOR_USERNAME`. Listener admin (B3.2d): `SOLVEIT_ADMIN_BIND` (default `127.0.0.1`), `SOLVEIT_ADMIN_PORT` (HTTP, default `8090`), `SOLVEIT_ADMIN_TLS_PORT` (TLS lewat override, default `8443`), `SOLVEIT_ADMIN_REAL_IP_FROM` (satu IP atau CIDR proxy tepercaya di depan listener HTTP; kosong berarti tidak ada). Hostname admin tidak punya variabel sendiri: ia diambil dari `ADMIN_URL` di `production.env`.
+Variabel Compose (shell atau `infra/docker/.env`, keduanya tidak di-commit): `SOLVEIT_HTTP_BIND` dan `SOLVEIT_HTTP_PORT` (alamat publikasi gateway), `SOLVEIT_IMAGE_TAG` (tag image, default `local`), `SOLVEIT_SITE_URL`, `SOLVEIT_API_BASE_URL`, `SOLVEIT_GOOGLE_SITE_VERIFICATION` (build frontend), `SOLVEIT_ENV_FILE`, `SOLVEIT_SECRETS_DIR`, `SOLVEIT_DB_MIGRATOR_USERNAME`. Listener admin (B3.2d): `SOLVEIT_ADMIN_HTTP_BIND` dan `SOLVEIT_ADMIN_HTTP_PORT` (HTTP untuk proxy, default `127.0.0.1:8090`), `SOLVEIT_ADMIN_TLS_BIND` dan `SOLVEIT_ADMIN_TLS_PORT` (TLS lewat override, default `127.0.0.1:8443`); alamat keduanya terpisah, jadi memindahkan TLS ke antarmuka VPN tidak ikut memindahkan HTTP, `SOLVEIT_ADMIN_REAL_IP_FROM` (satu IP atau CIDR proxy tepercaya di depan listener HTTP; kosong berarti tidak ada). Hostname admin tidak punya variabel sendiri: ia diambil dari `ADMIN_URL` di `production.env`.
 
 **Rahasia.** Entrypoint backend membaca `APP_KEY_FILE` dan `DB_PASSWORD_FILE` (path Docker secret), mengisi variabelnya hanya untuk proses itu, lalu `php artisan optimize` menyimpan konfigurasi ke cache di tmpfs. Worker PHP-FPM tidak mewarisi environment (`clear_env = yes`). Tidak ada rahasia di image, di `production.env`, atau di argumen perintah.
 
@@ -129,8 +129,8 @@ Status: **disiapkan dan divalidasi (lokal dan Docker CI), belum di-deploy.** Tid
           | https://<host ADMIN_URL>
   TLS: di listener sendiri (compose.prod.admin-tls.yaml) atau di proxy di depannya
           |
-  host: ${SOLVEIT_ADMIN_BIND}:${SOLVEIT_ADMIN_TLS_PORT}  (default 127.0.0.1:8443, TLS)
-        ${SOLVEIT_ADMIN_BIND}:${SOLVEIT_ADMIN_PORT}      (default 127.0.0.1:8090, HTTP untuk proxy)
+  host: ${SOLVEIT_ADMIN_TLS_BIND}:${SOLVEIT_ADMIN_TLS_PORT}    (default 127.0.0.1:8443, TLS)
+        ${SOLVEIT_ADMIN_HTTP_BIND}:${SOLVEIT_ADMIN_HTTP_PORT}  (default 127.0.0.1:8090, HTTP untuk proxy)
           |
   admin-edge      +-----------------------------------+
                   | admin-gateway (nginx unprivileged)|  Host lain: 421, SNI lain: handshake ditolak
@@ -166,10 +166,10 @@ Status: **disiapkan dan divalidasi (lokal dan Docker CI), belum di-deploy.** Tid
 | Opsi | Cara | Catatan |
 |---|---|---|
 | A. Tunnel SSH (paling privat; tidak ada port admin terbuka) | Listener tetap loopback, TLS di listener (override) dengan sertifikat untuk hostname admin. Operator: `ssh -L 8443:127.0.0.1:8443 <server>` dan baris hosts `127.0.0.1 <host admin>` di laptopnya, lalu buka `https://<host admin>:8443` (port itu bagian dari `ADMIN_URL`) | Sertifikat dari CA internal tim atau ACME DNS-01 (tanpa port terbuka). Cocok untuk satu sampai beberapa admin |
-| B. VPN atau jaringan privat (WireGuard, Tailscale, jaringan privat penyedia) | `SOLVEIT_ADMIN_BIND=<alamat antarmuka VPN>`, TLS di listener (override), firewall host membatasi port itu ke antarmuka VPN | Alamat VPN tidak boleh dijangkau dari internet |
+| B. VPN atau jaringan privat (WireGuard, Tailscale, jaringan privat penyedia) | `SOLVEIT_ADMIN_TLS_BIND=<alamat antarmuka VPN>`, TLS di listener (override), firewall host membatasi port itu ke antarmuka VPN. Port HTTP tetap di `SOLVEIT_ADMIN_HTTP_BIND` (loopback) dan tidak ikut terbuka di VPN (diuji di Docker CI) | Alamat VPN tidak boleh dijangkau dari internet |
 | C. Proxy TLS terbatas di depan (reverse proxy host, load balancer, atau proxy identitas) | Listener HTTP di loopback; proxy meneruskan ke `127.0.0.1:8090` dengan header `Host` **apa adanya**, mengirim HSTS, dan membatasi akses (allowlist IP atau autentikasi identitas di depan login konsol); `SOLVEIT_ADMIN_REAL_IP_FROM=<alamat proxy>` | Proxy jangan menulis ulang `Host` atau `Origin`: Laravel menolak keduanya bila tidak sama dengan `ADMIN_URL` |
 
-Tidak boleh: `SOLVEIT_ADMIN_BIND=0.0.0.0` tanpa VPN atau allowlist di depan, listener HTTP di jaringan yang tidak tepercaya, atau hostname admin yang sama dengan website publik.
+Tidak boleh: `SOLVEIT_ADMIN_TLS_BIND` atau `SOLVEIT_ADMIN_HTTP_BIND` `0.0.0.0` tanpa VPN atau allowlist di depan, listener HTTP di jaringan yang tidak tepercaya, atau hostname admin yang sama dengan website publik.
 
 ### Menjalankan (setelah keputusan pemilik)
 
@@ -186,6 +186,11 @@ docker compose -f infra/docker/compose.prod.yaml exec backend php artisan admin:
 Tautan aktivasi menunjuk ke `ADMIN_URL/access`; owner membukanya lewat jalur paparan yang dipilih (bagian Akun admin pertama). Sertifikat dibaca nginx saat start: setelah memperbarui file secret, jalankan `docker compose ... restart admin-gateway`. Otomasi pembaruan (ACME) bergantung pada hosting dan DNS, jadi menunggu keputusan pemilik.
 
 ### Bukti (CI dan lokal, data sintetis)
+
+**Penjaga gagal tertutup.** Semua skrip dan tes yang mengubah stack (`verify-production.sh`, `verify-admin.sh`, `drill-backup-restore.sh`, tes Playwright produksi) menjalankan `infra/docker/scripts/check-synthetic-stack.sh` lebih dulu dan berhenti bila ia menolak, sebelum membuat akun, mengirim inquiry, menulis audit, me-restart, me-rollback, atau menghapus apa pun. Tidak ada default: `SOLVEIT_PROD_PROJECT` wajib disebut (huruf kecil, mengandung `smoke`, `drill`, atau `ci`, tidak pernah `solveit-indonesia` atau `solveit-indonesia-prod`), `SOLVEIT_ENV_FILE` dan `SOLVEIT_SECRETS_DIR` wajib disebut dan berada di luar repository (file env tidak boleh bernama `production.env`). Stack yang berjalan harus memperlihatkan: MySQL bawaan di volume proyek itu sendiri (tidak pernah `solveit-mysql-data`), `DB_HOST=mysql`, `ADMIN_URL` di host `.test`, `APP_URL` lokal atau `.test`, semua port di `127.0.0.1`, dan hanya akun serta kontak inquiry sintetis. Tes Playwright juga menolak tanpa `SOLVEIT_ADMIN_URL` `.test` yang sama dengan `ADMIN_URL` backend, dan memeriksa ulang tepat sebelum `admin:bootstrap-owner`. Penjaga sendiri hanya membaca (inspeksi Docker dan `SELECT`), tidak pernah menjalankan Compose.
+
+`infra/docker/scripts/test-safety-guards.sh` membuktikannya: setiap konsumen dijalankan dengan pengaturan yang tidak aman (tanpa proyek, proyek produksi atau pengembangan, nama tanpa penanda, proyek yang tidak ada, tanpa file env atau secret, file env `production.env` atau di dalam repository, folder secret repository, origin admin bukan `.test` atau berbeda dari stack) dan harus menolak dengan alasan itu, lalu snapshot container, waktu start, image, dan jumlah baris sebelum dan sesudah harus identik. Kemudian stack dibuat tidak aman satu per satu (akun non-sintetis, `ADMIN_URL` atau `APP_URL` publik, database eksternal, port di luar `127.0.0.1`) dan penjaga serta konsumen harus menolak; setiap perubahan dibatalkan.
+
 
 - `infra/docker/scripts/verify-admin.sh`: isi image (tanpa Node, sumber, source map, halaman referensi; non-root; read-only; tanpa file rahasia), port hanya loopback, jaringan terpisah, header dan CSP konsol, fallback SPA, cache aset, TLS (1.0/1.1 ditolak, SNI asing ditolak, HTTP/2), cookie `__Host-` dan `XSRF-TOKEN`, batas `Origin`, `Sec-Fetch-Site`, dan CSRF (`403`, `419`), path non-admin `404`, listener HTTP di belakang proxy (`Host` wajib, `X-Forwarded-For` palsu diabaikan, proxy tepercaya dihormati), isolasi gateway publik, konfigurasi yang gagal tertutup, backend atau konsol mati lalu pulih, dan rollback dengan tag image lalu kembali.
 - `admin/tests/production/` (Playwright, Chromium nyata, `playwright.production.config.ts`): owner pertama dari `admin:bootstrap-owner`, aktivasi dengan pendaftaran TOTP dan kode pemulihan, cookie `__Host-` dengan atribut lengkap, header yang diterima browser, layar owner (chunk lazy) di bawah CSP produksi, keluar, masuk lagi dengan kata sandi dan TOTP, nol pelanggaran CSP, dan tidak ada rahasia di penyimpanan browser.
@@ -238,10 +243,11 @@ gunzip -c solveit-<tanggal>.sql.gz | docker compose -f infra/docker/compose.prod
 
 Backup mencakup tabel `sessions`: memulihkan backup lama menghidupkan lagi sesi admin yang tersimpan di dalamnya (tetap dibatasi idle 30 menit dan batas 12 jam). Setelah pemulihan dari backup lama, akhiri semua sesi admin (`DELETE FROM sessions` sebagai pengguna migrasi; setiap admin masuk lagi) dan periksa audit log. `docker compose ... down` aman (volume tetap); `down -v` menghapus database produksi dan tidak boleh dipakai.
 
-**Latihan pemulihan (B3.2d).** `infra/docker/scripts/drill-backup-restore.sh` menjalankan prosedur di atas pada proyek sintetis yang terisolasi: menghentikan penulisan, mencatat jumlah baris dan `CHECKSUM TABLE` per tabel, membuat backup, **menghapus container MySQL dan volume proyek latihan itu**, membuat MySQL baru dari nol (pengguna dari `initdb`), memulihkan, lalu membuktikan baris, checksum, kedua trigger audit, grant `solveit_app`, sifat hanya-tambah audit log, `migrate:status` tanpa `Pending`, dan `/up`. Ia menolak berjalan kecuali nama proyek mengandung `drill`, `smoke`, atau `ci` (tidak pernah `solveit-indonesia` atau `solveit-indonesia-prod`), volumenya milik proyek itu (tidak pernah `solveit-mysql-data`), backend memakai MySQL bawaan, dan semua akun serta kontak inquiry sintetis (`example.test`, `example.com`). Backup latihan hanya ada di folder sementara yang dihapus saat selesai. Docker CI menjalankannya pada setiap run; waktu pulih latihan lokal (database sintetis kecil) sekitar 90 detik.
+**Latihan pemulihan (B3.2d).** `infra/docker/scripts/drill-backup-restore.sh` menjalankan prosedur di atas pada proyek sintetis yang terisolasi: menghentikan penulisan, mencatat jumlah baris dan `CHECKSUM TABLE` per tabel, membuat backup, **menghapus container MySQL dan volume proyek latihan itu**, membuat MySQL baru dari nol (pengguna dari `initdb`), memulihkan, lalu membuktikan baris, checksum, kedua trigger audit, grant `solveit_app`, sifat hanya-tambah audit log, `migrate:status` tanpa `Pending`, dan `/up`. Ia menolak berjalan kecuali `check-synthetic-stack.sh` menerima stack itu (bagian Admin privat, Bukti): nama proyek mengandung `drill`, `smoke`, atau `ci` (tidak pernah `solveit-indonesia` atau `solveit-indonesia-prod`), file env dan secret sementara di luar repository, volumenya milik proyek itu (tidak pernah `solveit-mysql-data`), backend memakai MySQL bawaan, origin uji, port loopback, dan semua akun serta kontak inquiry sintetis (`example.test`, `example.com`). Backup latihan hanya ada di folder sementara yang dihapus saat selesai. Docker CI menjalankannya pada setiap run; waktu pulih latihan lokal (database sintetis kecil) sekitar 90 detik.
 
 ```bash
-SOLVEIT_DRILL_PROJECT=solveit-drill-smoke bash infra/docker/scripts/drill-backup-restore.sh   # stack latihan sudah berjalan
+SOLVEIT_DRILL_PROJECT=solveit-drill-smoke SOLVEIT_PROD_PROJECT=solveit-drill-smoke SOLVEIT_ENV_FILE=<...> SOLVEIT_SECRETS_DIR=<...> \
+  bash infra/docker/scripts/drill-backup-restore.sh   # stack latihan sudah berjalan
 ```
 
 ## Queue dan scheduler
@@ -253,7 +259,8 @@ Tidak ada. Aplikasi saat ini tidak mengirim job dan tidak punya jadwal (`QUEUE_C
 Untuk QA saja, dengan data sintetis dan proyek terisolasi (tidak menyentuh `solveit-mysql` atau database pengembangan):
 
 ```bash
-export SOLVEIT_PROD_PROJECT=solveit-prod-smoke SOLVEIT_SECRETS_DIR=<folder sementara di luar repository> SOLVEIT_ENV_FILE=./production.env.example
+export SOLVEIT_PROD_PROJECT=solveit-prod-smoke SOLVEIT_SECRETS_DIR=<folder sementara di luar repository> SOLVEIT_ENV_FILE=<folder sementara>/smoke.env
+cp infra/docker/production.env.example "$SOLVEIT_ENV_FILE"   # penjaga menolak file env di dalam repository
 # buat keempat secret di $SOLVEIT_SECRETS_DIR seperti di atas
 docker compose -p $SOLVEIT_PROD_PROJECT -f infra/docker/compose.prod.yaml build
 docker compose -p $SOLVEIT_PROD_PROJECT -f infra/docker/compose.prod.yaml --profile bundled-db up -d --wait mysql
@@ -266,11 +273,13 @@ docker compose -p $SOLVEIT_PROD_PROJECT -f infra/docker/compose.prod.yaml --prof
 Dengan listener admin (B3.2d), seperti Docker CI: secret ditambah sertifikat self-signed sekali pakai untuk nama uji, dan file env uji dengan `ADMIN_URL` nama itu.
 
 ```bash
-export SOLVEIT_PROD_PROJECT=solveit-admin-smoke SOLVEIT_SECRETS_DIR=<folder sementara> SOLVEIT_ENV_FILE=<folder sementara>/smoke.env
+export SOLVEIT_PROD_PROJECT=solveit-admin-smoke SOLVEIT_SECRETS_DIR=<folder sementara di luar repository> SOLVEIT_ENV_FILE=<folder sementara>/smoke.env
+export SOLVEIT_ADMIN_URL=https://admin.solveit.test:8443
 sed 's#^ADMIN_URL=.*#ADMIN_URL=https://admin.solveit.test:8443#' infra/docker/production.env.example > "$SOLVEIT_ENV_FILE"
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 2 -subj "/CN=admin.solveit.test"   -addext "subjectAltName=DNS:admin.solveit.test"   -keyout "$SOLVEIT_SECRETS_DIR/admin_tls_private_key" -out "$SOLVEIT_SECRETS_DIR/admin_tls_certificate"
 compose() { docker compose -p $SOLVEIT_PROD_PROJECT -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml --profile bundled-db --profile admin "$@"; }
 compose build && compose up -d --wait mysql && compose --profile ops run --rm migrate && compose up -d --wait
+bash infra/docker/scripts/test-safety-guards.sh   # tes negatif penjaga, sebelum yang lain
 bash infra/docker/scripts/verify-production.sh && bash infra/docker/scripts/verify-admin.sh
 (cd admin && npx playwright test --config playwright.production.config.ts)   # sekali per database: membuat owner pertama
 SOLVEIT_DRILL_PROJECT=$SOLVEIT_PROD_PROJECT bash infra/docker/scripts/drill-backup-restore.sh
