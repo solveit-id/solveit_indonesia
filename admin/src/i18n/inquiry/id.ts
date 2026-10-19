@@ -168,6 +168,10 @@ export const inquiryId = {
     copy: "Salin kontak",
     hide: "Sembunyikan",
     hidden: "Kontak lengkap disembunyikan lagi. Membukanya lagi dicatat sebagai pembukaan baru.",
+    hiddenAway:
+      "Kontak lengkap disembunyikan karena tab ini ditinggalkan. Membukanya lagi dicatat sebagai pembukaan baru.",
+    notShownAway:
+      "Pembukaan kontak sudah dicatat di audit log, tetapi kontaknya tidak ditampilkan karena tab ini ditinggalkan sebelum jawabannya tiba. Buka lagi bila masih perlu; itu dicatat sebagai pembukaan baru.",
     uncertain:
       "Kontak belum dapat dibuka karena server tidak memberi jawaban yang pasti. Bila server sempat mencatat pembukaannya, catatan itu tetap ada di audit log. Buka lagi bila masih perlu.",
   },
@@ -206,10 +210,18 @@ export const inquiryId = {
       "Server tidak memberi jawaban yang pasti, jadi catatan ini mungkin sudah tersimpan. Periksa catatan sebelum mengirimnya lagi; teksnya tetap di kolom.",
     check: "Periksa catatan",
     checking: "Memeriksa",
-    checkFound:
-      "Catatan Anda sudah tersimpan. Kolomnya dikosongkan; tidak ada yang perlu dikirim lagi.",
-    checkNotFound:
-      "Catatan Anda belum ada di catatan terbaru. Tekan Tambah catatan bila Anda tetap ingin menyimpannya.",
+    checkFound: (id: number) =>
+      `Catatan Anda tersimpan sebagai catatan #${id}: catatan baru dari akun Anda dengan teks ini muncul setelah pengiriman tadi. Kolomnya dikosongkan; tidak ada yang perlu dikirim lagi.`,
+    checkAgain: "Periksa lagi",
+    notSeen:
+      "Catatan ini belum terlihat di catatan terbaru, tetapi hasilnya tetap belum pasti: server mungkin masih menyelesaikannya. Periksa lagi sebentar lagi. Bila Anda yakin catatan ini belum tersimpan, kirim lagi dengan sadar; catatan ganda tidak dapat dihapus.",
+    ambiguous:
+      "Ada catatan dari akun Anda dengan teks yang sama, tetapi konsol tidak dapat memastikan itu catatan tadi karena daftar catatan belum termuat saat Anda mengirim. Periksa daftar di bawah sebelum memutuskan; catatan ganda tidak dapat dihapus.",
+    sendAgain: "Kirim lagi",
+    discard: "Buang teks ini",
+    discarded:
+      "Teks catatan dibuang dari kolom. Bila catatan tadi ternyata tersimpan, ia tetap ada di daftar.",
+    heldHint: "Teks ini ditahan sampai hasil pengiriman tadi jelas.",
     loading: "Memuat catatan",
     loadFailed: "Catatan belum dapat dimuat.",
     empty: "Belum ada catatan",

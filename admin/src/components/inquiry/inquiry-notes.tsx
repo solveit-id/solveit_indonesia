@@ -36,15 +36,31 @@ interface Message {
 }
 
 /**
+ * A note whose outcome is not known. `after` is the newest note ID this screen knew before the
+ * attempt (null when the notes had not loaded): IDs grow with every insert, so only a note
+ * newer than it can be the attempt.
+ */
+interface PendingNote {
+  body: string;
+  after: number | null;
+  /** `unknown` before any check; `not-seen` or `ambiguous` after a check proved nothing. */
+  checked: "unknown" | "not-seen" | "ambiguous";
+}
+
+/**
  * Internal notes of one inquiry (`GET`/`POST inquiries/{id}/notes`): the form to add one and
  * the notes newest first. Notes are append-only; nothing here edits or deletes one.
  *
  * Adding is one deliberate press and is never resent by itself. Laravel has no idempotency key
- * for notes, so after an uncertain answer (5xx, network, timeout, unreadable success) the draft
- * stays in the field, sending is held, and "Check the notes" reads the newest notes to see
- * whether this account's note with this text is already there. 419 (not processed, press
- * again), 429 (a countdown, nothing sent), 403 (re-read the account), and 404 (the inquiry is
- * gone) are said in words. The draft lives in this component's memory only: never storage.
+ * for notes, so an uncertain answer (5xx, network, timeout, unreadable success) holds the
+ * attempt: the text stays, read only, and sending is held. "Check the notes" reads the newest
+ * notes; the attempt counts as saved only when a note by this account with exactly this text
+ * and an ID newer than the attempt's start is there. Anything else proves nothing (the server
+ * may still be finishing, or an older identical note exists), so the outcome stays unknown and
+ * the person decides: check again, send again on purpose (a duplicate cannot be deleted), or
+ * drop the text. 419 (not processed, press again), 429 (a countdown, nothing sent), 403
+ * (re-read the account), and 404 (the inquiry is gone) are said in words. The draft lives in
+ * this component's memory only: never storage.
  */
 export function InquiryNotes({
   inquiryId,
@@ -68,15 +84,15 @@ export function InquiryNotes({
   const [draft, setDraft] = useState("");
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [message, setMessage] = useState<Message | null>(null);
-  const [uncertain, setUncertain] = useState(false);
+  const [pending, setPending] = useState<PendingNote | null>(null);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [blockedUntil, setBlockedUntil] = useState<number | null>(null);
   const wait = useSecondsUntil(blockedUntil);
   const inFlight = useRef(false);
   const rows = useRef<HTMLOListElement>(null);
-  const uncertainNotice = useRef<HTMLDivElement>(null);
-  useFocusWhen(uncertainNotice, uncertain);
+  const pendingNotice = useRef<HTMLDivElement>(null);
+  useFocusWhen(pendingNotice, pending);
 
   const ready = state.status === "ready" ? state : null;
   useRowEntrance(rows, ready?.revision ?? null, ready?.appendedFrom ?? 0);
@@ -84,34 +100,8 @@ export function InquiryNotes({
 
   const left = NOTE_MAX_LENGTH - length(draft.trim());
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-
-    if (inFlight.current || wait > 0) {
-      return;
-    }
-
-    if (uncertain) {
-      // Held until the read says whether the first attempt was saved.
-      uncertainNotice.current?.focus();
-
-      return;
-    }
-
-    const body = draft.trim();
-
-    if (body === "") {
-      setFieldError(copy.missing);
-
-      return;
-    }
-
-    if (length(body) > NOTE_MAX_LENGTH) {
-      setFieldError(copy.tooLong);
-
-      return;
-    }
-
+  /** One attempt, sent once. `after` marks where its note would appear (see PendingNote). */
+  const send = async (body: string, after: number | null) => {
     inFlight.current = true;
     setBusy(true);
     setFieldError(undefined);
@@ -119,6 +109,7 @@ export function InquiryNotes({
 
     try {
       await inquiryApi.addNote(inquiryId, body);
+      setPending(null);
       setDraft("");
       setMessage({ tone: "success", text: copy.added });
       setVersion((value) => value + 1);
@@ -156,7 +147,7 @@ export function InquiryNotes({
       }
 
       if (isUncertain(error)) {
-        setUncertain(true);
+        setPending({ body, after, checked: "unknown" });
       } else {
         setMessage({ tone: "danger", text: generalErrorCopy(error, t) });
       }
@@ -166,26 +157,72 @@ export function InquiryNotes({
     }
   };
 
-  /** Resolve an uncertain add by reading the newest notes; never by sending it again. */
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+
+    if (inFlight.current || wait > 0) {
+      return;
+    }
+
+    if (pending !== null) {
+      // Held until the person decides what the unknown outcome means.
+      pendingNotice.current?.focus();
+
+      return;
+    }
+
+    const body = draft.trim();
+
+    if (body === "") {
+      setFieldError(copy.missing);
+
+      return;
+    }
+
+    if (length(body) > NOTE_MAX_LENGTH) {
+      setFieldError(copy.tooLong);
+
+      return;
+    }
+
+    // The newest note known now; null when the notes have not loaded (then nothing proves).
+    const after = ready ? Math.max(0, ...ready.items.map((note) => note.id)) : null;
+    void send(body, after);
+  };
+
+  /** Look for the held note among the newest ones; never send it again by itself. */
   const check = async () => {
+    if (pending === null) {
+      return;
+    }
+
     setChecking(true);
 
     try {
-      const body = draft.trim();
       const page = await inquiryApi.listNotes(inquiryId);
-      const saved = page.data.some(
-        (note) => note.author.user_id === currentId && note.body === body,
+      const same = page.data.filter(
+        (note) => note.author.user_id === currentId && note.body === pending.body,
       );
+      const saved =
+        pending.after === null ? undefined : same.find((note) => note.id > pending.after!);
 
-      setUncertain(false);
       setVersion((value) => value + 1);
 
       if (saved) {
+        setPending(null);
         setDraft("");
-        setMessage({ tone: "success", text: copy.checkFound });
-      } else {
-        setMessage({ tone: "info", text: copy.checkNotFound });
+        setMessage({ tone: "success", text: copy.checkFound(saved.id) });
+
+        return;
       }
+
+      setMessage(null);
+      setPending({
+        ...pending,
+        // A deliberate resend looks for its note after the newest note seen now.
+        after: Math.max(pending.after ?? 0, 0, ...page.data.map((note) => note.id)),
+        checked: same.length > 0 && pending.after === null ? "ambiguous" : "not-seen",
+      });
     } catch (error) {
       if (!(isAdminApiError(error) && error.kind === "unauthenticated")) {
         setMessage({ tone: "danger", text: generalErrorCopy(error, t) });
@@ -193,6 +230,12 @@ export function InquiryNotes({
     } finally {
       setChecking(false);
     }
+  };
+
+  const discard = () => {
+    setPending(null);
+    setDraft("");
+    setMessage({ tone: "info", text: copy.discarded });
   };
 
   return (
@@ -206,12 +249,13 @@ export function InquiryNotes({
       <p className="mt-2 max-w-[64ch] text-[0.9375rem] text-ink-muted">{copy.body}</p>
 
       {canAdd ? (
-        <form noValidate onSubmit={(event) => void submit(event)} className="mt-5 grid gap-4">
+        <form noValidate onSubmit={submit} className="mt-5 grid gap-4">
           <TextAreaField
             label={copy.field}
             rows={4}
             value={draft}
-            hint={copy.hint(Math.max(0, left))}
+            readOnly={pending !== null}
+            hint={pending !== null ? copy.heldHint : copy.hint(Math.max(0, left))}
             error={fieldError ?? (left < 0 ? copy.tooLong : undefined)}
             onChange={(event) => {
               setDraft(event.target.value);
@@ -224,29 +268,54 @@ export function InquiryNotes({
               variant="primary"
               busy={busy}
               busyLabel={copy.adding}
-              aria-disabled={wait > 0 || undefined}
+              aria-disabled={wait > 0 || pending !== null || undefined}
               icon={<NotePencil aria-hidden size={18} weight="bold" />}
             >
               {copy.add}
             </Button>
           </div>
           {wait > 0 ? <Notice tone="warning">{t.errors.rateLimited(wait)}</Notice> : null}
-          {uncertain ? (
+          {pending !== null ? (
             <Notice
-              ref={uncertainNotice}
+              ref={pendingNotice}
               tone="warning"
               action={
-                <Button
-                  busy={checking}
-                  busyLabel={copy.checking}
-                  icon={<ArrowsClockwise aria-hidden size={18} weight="bold" />}
-                  onClick={() => void check()}
-                >
-                  {copy.check}
-                </Button>
+                <>
+                  <Button
+                    busy={checking}
+                    busyLabel={copy.checking}
+                    icon={<ArrowsClockwise aria-hidden size={18} weight="bold" />}
+                    onClick={() => void check()}
+                  >
+                    {pending.checked === "unknown" ? copy.check : copy.checkAgain}
+                  </Button>
+                  {pending.checked === "unknown" ? null : (
+                    <>
+                      <Button
+                        busy={busy}
+                        busyLabel={copy.adding}
+                        aria-disabled={wait > 0 || checking || undefined}
+                        onClick={() => {
+                          if (!inFlight.current && wait === 0 && !checking) {
+                            void send(pending.body, pending.after);
+                          }
+                        }}
+                      >
+                        {copy.sendAgain}
+                      </Button>
+                      <Button variant="quiet" onClick={discard}>
+                        {copy.discard}
+                      </Button>
+                    </>
+                  )}
+                </>
               }
             >
-              {copy.uncertain}
+              {pending.checked === "unknown"
+                ? copy.uncertain
+                : pending.checked === "ambiguous"
+                  ? copy.ambiguous
+                  : copy.notSeen}
             </Notice>
           ) : null}
           {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}

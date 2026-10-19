@@ -1,6 +1,7 @@
 import { Eye } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlash } from "@phosphor-icons/react/dist/csr/EyeSlash";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { refreshAccount, useFocusWhen } from "~/components/admin/owner-ui";
 import {
   type SensitiveAction,
@@ -31,7 +32,13 @@ interface Message {
  *   dialog confirms the password and asks once more. Nothing is sent by itself, ever.
  * - The full value lives in this component's state only: never in storage, the address, the
  *   router state, a title, an attribute, a notice, or a log. Hide drops it; leaving the screen
- *   unmounts it. Opening it again is a new, recorded opening.
+ *   unmounts it; so does the tab being hidden (switching tabs, minimising, locking the phone)
+ *   or the page being put away (`pagehide`, which also covers the back-forward cache), and an
+ *   account that no longer holds `inquiries.reveal-contact`. Coming back never reveals it
+ *   again by itself: opening it again is a new, deliberate, recorded opening.
+ * - Every reveal request carries a ticket. Hiding, leaving, or a newer request invalidates it,
+ *   so an answer that arrives late (after Hide, while the tab is hidden, or after unmount) is
+ *   never put on screen.
  * - Notices about it never carry the value; an uncertain answer says that the opening may have
  *   been recorded and offers nothing automatic.
  */
@@ -53,11 +60,62 @@ export function ContactFact({
   const [message, setMessage] = useState<Message | null>(null);
   const shown = useRef<HTMLDivElement>(null);
   const notice = useRef<HTMLDivElement>(null);
+  // Ticket of the reveal that may still show its answer; anything else is stale.
+  const ticket = useRef(0);
+  const revealedRef = useRef(revealed);
+
+  useEffect(() => {
+    revealedRef.current = revealed;
+  }, [revealed]);
   // Where keyboard and screen-reader users continue once the dialog has closed.
   useFocusWhen(shown, revealed);
   useFocusWhen(notice, message);
 
-  const action: SensitiveAction<AdminRevealedContact> = {
+  // Hidden tab or a page put away: drop the value at once (flushSync, so neither the task
+  // switcher's snapshot nor the back-forward cache keeps it in the DOM) and void any reveal in
+  // flight. Listeners are removed on unmount, which also voids the ticket.
+  useEffect(() => {
+    const putAway = () => {
+      ticket.current += 1;
+
+      if (revealedRef.current !== null) {
+        flushSync(() => {
+          setRevealed(null);
+          setMessage({ tone: "info", text: copy.hiddenAway });
+        });
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        putAway();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", putAway);
+
+    return () => {
+      ticket.current += 1;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", putAway);
+    };
+  }, [copy.hiddenAway]);
+
+  // The account lost the permission (re-read after a 403 elsewhere): nothing stays on screen
+  // (state adjusted during render, React's documented way), and an answer still in flight is
+  // dropped when it lands (`canRevealRef`, read then, not when the press happened).
+  const canRevealRef = useRef(canReveal);
+
+  useEffect(() => {
+    canRevealRef.current = canReveal;
+  }, [canReveal]);
+
+  if (!canReveal && (revealed !== null || open)) {
+    setRevealed(null);
+    setOpen(false);
+  }
+
+  const action: SensitiveAction<{ result: AdminRevealedContact; ticket: number }> = {
     title: copy.revealTitle,
     description: copy.revealBody,
     confirmLabel: copy.reveal,
@@ -76,6 +134,7 @@ export function ContactFact({
       </label>
     ),
     run: async () => {
+      const issued = ++ticket.current;
       const result = await inquiryApi.revealContact(inquiry.id, { acknowledgePersonalData: true });
 
       // A contact for another inquiry is never shown here; treat it as an unreadable answer.
@@ -83,10 +142,25 @@ export function ContactFact({
         throw new AdminApiError({ kind: "invalid-response", status: 200, outcome: "uncertain" });
       }
 
-      return result;
+      return { result, ticket: issued };
     },
-    onDone: (result) => {
+    onDone: ({ result, ticket: issued }) => {
       setOpen(false);
+
+      if (!canRevealRef.current) {
+        setRevealed(null);
+
+        return;
+      }
+
+      if (issued !== ticket.current || document.visibilityState === "hidden") {
+        // Recorded by Laravel, but the tab was left meanwhile: never shown late.
+        setRevealed(null);
+        setMessage({ tone: "info", text: copy.notShownAway });
+
+        return;
+      }
+
       setMessage(null);
       setRevealed(result);
     },
@@ -101,6 +175,7 @@ export function ContactFact({
   };
 
   const hide = () => {
+    ticket.current += 1;
     setRevealed(null);
     setMessage({ tone: "info", text: copy.hidden });
   };

@@ -147,15 +147,33 @@ function InquiryView({ id }: { id: number }) {
     return () => controller.abort();
   }, [id]);
 
+  /**
+   * Every answer that replaces the inquiry on screen (a read or a confirmed write) takes the
+   * next ticket; an answer whose ticket is no longer the latest arrived out of order and is
+   * dropped, so an older read can never paint over a newer state. Writes stay safe without it
+   * (compare and set); this keeps the screen honest.
+   */
+  const latest = useRef(0);
+
   /** A read of the current state: after a refusal, an uncertain write, or on request. */
   const read = useCallback(async (): Promise<AdminInquiryDetail | null> => {
+    const ticket = ++latest.current;
+
     try {
       const inquiry = await inquiryApi.getInquiry(id);
+
+      if (ticket !== latest.current) {
+        return null;
+      }
+
       setLoaded({ kind: "ready", inquiry });
 
       return inquiry;
     } catch (error) {
-      if (!(isAdminApiError(error) && error.kind === "unauthenticated")) {
+      if (
+        ticket === latest.current &&
+        !(isAdminApiError(error) && error.kind === "unauthenticated")
+      ) {
         setLoaded({ kind: "failed", error });
       }
 
@@ -235,6 +253,7 @@ function InquiryView({ id }: { id: number }) {
           onDone: (next) => {
             const label = statusLabel(next.status, t);
 
+            latest.current += 1;
             setLoaded({ kind: "ready", inquiry: next });
             setTarget(null);
             setUncertain(false);

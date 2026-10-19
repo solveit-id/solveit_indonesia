@@ -156,6 +156,10 @@ export const inquiryEn: InquiryMessages = {
     copy: "Copy the contact",
     hide: "Hide",
     hidden: "The full contact is hidden again. Opening it again is recorded as a new opening.",
+    hiddenAway:
+      "The full contact was hidden because this tab was left. Opening it again is recorded as a new opening.",
+    notShownAway:
+      "The opening was recorded in the audit log, but the contact is not shown because this tab was left before the answer arrived. Open it again if you still need it; that is recorded as a new opening.",
     uncertain:
       "The contact could not be opened because the server gave no clear answer. If the server recorded the opening, that record stays in the audit log. Open it again if you still need it.",
   },
@@ -196,9 +200,18 @@ export const inquiryEn: InquiryMessages = {
       "The server gave no clear answer, so this note may already be saved. Check the notes before sending it again; the text stays in the field.",
     check: "Check the notes",
     checking: "Checking",
-    checkFound: "Your note is saved. The field was cleared; nothing needs to be sent again.",
-    checkNotFound:
-      "Your note is not among the newest notes. Press Add note if you still want to save it.",
+    checkFound: (id: number) =>
+      `Your note is saved as note #${id}: a new note from your account with this text appeared after the attempt. The field was cleared; nothing needs to be sent again.`,
+    checkAgain: "Check again",
+    notSeen:
+      "This note is not among the newest notes yet, but the outcome is still unknown: the server may still be finishing it. Check again in a moment. If you are sure it was not saved, send it again on purpose; a duplicate note cannot be deleted.",
+    ambiguous:
+      "A note from your account with the same text exists, but the console cannot tell whether it is this attempt, because the notes had not loaded when you sent it. Check the list below before you decide; a duplicate note cannot be deleted.",
+    sendAgain: "Send again",
+    discard: "Drop this text",
+    discarded:
+      "The note text was dropped from the field. If the earlier attempt was saved after all, it stays in the list.",
+    heldHint: "This text is held until the earlier attempt's outcome is clear.",
     loading: "Loading notes",
     loadFailed: "The notes could not be loaded.",
     empty: "No notes yet",
