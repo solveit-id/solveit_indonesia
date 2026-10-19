@@ -84,7 +84,7 @@ done
 pass "admin and admin-gateway: non-root (uid 101), read-only, no .env, key, dump, or .git files"
 rendered="$(compose exec -T admin-gateway nginx -T 2>/dev/null)"
 grep -q "server_name $admin_host;" <<< "$rendered" || fail "admin-gateway did not render the admin host from ADMIN_URL"
-if grep -v '^[[:space:]]*#' <<< "$rendered" | grep -qE '\$\{SOLVEIT_'; then fail "unrendered template variable in admin-gateway"; fi
+[[ "$(grep -v '^[[:space:]]*#' <<< "$rendered" | grep -cE '\$\{SOLVEIT_' || true)" == 0 ]] || fail "unrendered template variable in admin-gateway"
 pass "admin-gateway rendered server_name $admin_host from ADMIN_URL"
 
 echo "== ports and networks"
@@ -163,7 +163,7 @@ fi
 pass "unknown SNI: handshake refused (no certificate shown)"
 console / 421 "right SNI, foreign Host header" -H 'Host: evil.example.test'
 [[ -z "$(cookie '[^=]*')" ]] || fail "421 response set a cookie"
-if curl -V | grep -qi 'http2'; then
+if grep -qi 'http2' <<< "$(curl -V)"; then
   [[ "$(curl -sS -k "${resolve[@]}" --http2 -o "$tmp/discard" -w '%{http_version}' "$admin/")" == 2 ]] || fail "HTTP/2 not negotiated"
   pass "HTTP/2 negotiated"
 fi

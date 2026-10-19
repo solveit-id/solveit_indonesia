@@ -102,9 +102,9 @@ jobs:
           for _ in $(seq 1 60); do curl -sf http://127.0.0.1:8000/up > /dev/null && break; sleep 2; done
           test "$(curl -s http://127.0.0.1:8000/up)" = '{"status":"ok"}'
           for _ in $(seq 1 60); do curl -sf http://127.0.0.1:5173/ > /dev/null && break; sleep 2; done
-          curl -sf http://127.0.0.1:5173/ | grep -q '<html'
+          grep -q '<html' <<< "$(curl -sf http://127.0.0.1:5173/)"
           for _ in $(seq 1 90); do curl -sf http://127.0.0.1:5174/ > /dev/null && break; sleep 2; done
-          curl -sf http://127.0.0.1:5174/ | grep -q 'id="root"'
+          grep -q 'id="root"' <<< "$(curl -sf http://127.0.0.1:5174/)"
           # Same-origin proxy to the backend service: Laravel's admin boundary accepts the admin
           # origin (204, anonymous session only) and refuses a foreign one (403).
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: http://127.0.0.1:5174' http://127.0.0.1:5174/api/v1/admin/auth/csrf-cookie)" = 204

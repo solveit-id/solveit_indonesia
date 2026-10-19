@@ -75,7 +75,8 @@ gzip -t "$tmp/backup.sql.gz" || fail "backup archive is corrupt"
 size="$(wc -c < "$tmp/backup.sql.gz" | tr -d ' ')"
 checksum="$(sha256sum "$tmp/backup.sql.gz" | cut -c1-16)"
 [[ "$(gunzip -c "$tmp/backup.sql.gz" | grep -c 'CREATE.*TRIGGER')" -ge 2 ]] || fail "backup lacks the audit triggers"
-if gunzip -c "$tmp/backup.sql.gz" | grep -qiE 'CREATE USER|GRANT '; then fail "backup carries accounts or grants (provisioning belongs to initdb)"; fi
+# Counted, not grep -q: an early exit would break the pipe and, under pipefail, hide a match.
+[[ "$(gunzip -c "$tmp/backup.sql.gz" | grep -ciE 'CREATE USER|GRANT ' || true)" == 0 ]] || fail "backup carries accounts or grants (provisioning belongs to initdb)"
 pass "backup: $size bytes gzip, sha256 $checksum..., triggers included, no accounts or grants"
 
 echo "== disaster: the drill project's MySQL container and volume are deleted"
