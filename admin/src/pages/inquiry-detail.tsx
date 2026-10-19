@@ -355,10 +355,9 @@ function InquiryView({ id }: { id: number }) {
       ) : null}
 
       <div className="mt-10 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_23rem] xl:gap-x-12">
-        <div className="grid min-w-0 gap-6 xl:col-start-1">
-          <SubmissionPanel inquiry={inquiry} onGone={() => void read()} />
-        </div>
-
+        {/* Status comes first in the document: below 1280 px it is the first thing after the
+            header (no scrolling past a long message), and visual, focus, and reading order
+            agree; from 1280 px the grid places it in the sticky side column. */}
         <section
           ref={statusPanel}
           aria-labelledby="status-title"
@@ -411,6 +410,10 @@ function InquiryView({ id }: { id: number }) {
             </Link>
           ) : null}
         </section>
+
+        <div className="grid min-w-0 gap-6 xl:col-start-1 xl:row-start-1">
+          <SubmissionPanel inquiry={inquiry} onGone={() => void read()} />
+        </div>
 
         <div className="min-w-0 xl:col-start-1">
           <StatusHistory inquiryId={id} version={changes} currentId={account.id} />

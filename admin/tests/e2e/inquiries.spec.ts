@@ -190,3 +190,38 @@ test("a revealed contact is dropped when the tab is hidden or the page is put aw
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   expect(await page.content()).not.toContain(mockRevealedContact);
 });
+
+test("the Status panel leads below 1280px and stays the sticky side column above it", async ({
+  page,
+}) => {
+  await mockOwner(page);
+  await page.goto("/inquiry/42");
+  await settled(page);
+  const status = page.getByRole("region", { name: "Status", exact: true });
+  const submission = page.getByRole("region", { name: "Kiriman", exact: true });
+  const statusBox = (await status.boundingBox())!;
+  const submissionBox = (await submission.boundingBox())!;
+  const wide = page.viewportSize()!.width >= 1280;
+
+  if (wide) {
+    // Desktop layout unchanged: side column on the right, top-aligned, sticky.
+    expect(statusBox.x).toBeGreaterThan(submissionBox.x + submissionBox.width);
+    expect(Math.abs(statusBox.y - submissionBox.y)).toBeLessThan(2);
+    expect(await status.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+  } else {
+    // Before the submission (and its long message), within the first screen.
+    expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(submissionBox.y);
+    expect(statusBox.y).toBeLessThan(page.viewportSize()!.height);
+  }
+  await noSidewaysScroll(page);
+
+  // Keyboard order follows the document: back link, then the status moves, then the reveal.
+  await page.getByRole("main").getByRole("link", { name: "Inquiry", exact: true }).focus();
+  const order: string[] = [];
+  for (let step = 0; step < 6; step += 1) {
+    await page.keyboard.press("Tab");
+    order.push(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ""));
+  }
+  expect(order.indexOf("Tandai ditinjau")).toBeGreaterThanOrEqual(0);
+  expect(order.indexOf("Tandai ditinjau")).toBeLessThan(order.indexOf("Buka kontak lengkap"));
+});

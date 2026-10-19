@@ -68,6 +68,19 @@ Tambahan tes nyata: perubahan oleh **operator kedua** (akun admin nyata dengan s
 | Suite ber-mock | desktop **60**, tablet **61**, mobile **61** lulus (2, 1, 1 dilewati) |
 | Suite nyata | `inquiries.spec.ts` desktop **5 lulus** (termasuk batas laju), responsif tablet **4** dan mobile **4** lulus. Run penuh desktop tidak diulang lokal (crash memori sebelumnya); run penuh bersih adalah Admin integration pada head PR terbaru |
 
+### Opsi B: panel Status lebih dulu di bawah 1280 px (2026-10-19)
+
+Pemilik memilih Opsi B setelah tinjauan penerimaan: di ponsel 390 px dengan pesan panjang, panel Status sebelumnya mulai sekitar 2.100 px dari atas. Perubahan (`admin/src/pages/inquiry-detail.tsx`): satu-satunya panel Status dipindah sebelum panel Kiriman di dokumen; grid tetap menempatkannya di kolom samping yang lengket mulai 1280 px (`xl:col-start-2 xl:row-start-1 xl:row-span-3`, Kiriman disematkan `xl:row-start-1`). Tidak ada salinan panel, state, atau perilaku yang berubah. Urutan dokumen (bukan CSS `order`) dipilih agar di bawah 1280 px urutan visual, fokus keyboard, dan pembaca layar sama; mulai 1280 px fokus mencapai panel ringkasan kanan atas sebelum kolom kiri.
+
+| Pemeriksaan (lokal) | Hasil |
+|---|---|
+| `npm run check` | Lulus, **448 tes** (satu tes baru: panel Status sebelum Kiriman di dokumen, satu instance) |
+| Suite ber-mock `inquiries.spec.ts` | desktop, tablet, mobile masing-masing **13 lulus**: tes baru memeriksa posisi (di bawah 1280 px panel Status di atas Kiriman dan di layar pertama; di 1440 px kolom kanan, rata atas, `position: sticky`), tanpa scroll samping, dan urutan Tab (tombol status sebelum Buka kontak lengkap); axe kedua tema tetap tanpa pelanggaran |
+| Suite nyata (Laravel, MySQL 8.4) | `inquiries.spec.ts` desktop **5 lulus** (status, 409 dua operator, kontak, sesi berakhir, batas laju); tes inquiry responsif tablet **1** dan mobile **1** lulus |
+| Tangkapan layar | 1440, 820, 390 px, terang dan gelap, pesan panjang: di 390 px panel Status dan tombolnya di layar pertama (844 px); 1440 px tidak berubah |
+
+Tinjauan desain akhir dan waiver concept-seed tetap menunggu pemilik; Opsi B adalah keputusan tata letak, bukan persetujuan desain akhir.
+
 ### Tidak dijalankan atau tidak berlaku
 
 - **Backend:** tidak ada perubahan di `backend/`, jadi `php artisan test`, Pint, dan Composer tidak dijalankan ulang untuk B4b (baseline B4a: 529 tes). Laravel Boost MCP gagal tersambung saat sesi dimulai (`CONNECT_TIMEOUT`) dan tidak dipakai; tidak dibutuhkan karena tidak ada kode Laravel yang ditulis.

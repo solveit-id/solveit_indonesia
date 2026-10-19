@@ -68,6 +68,19 @@ const surfaces = () =>
   });
 
 describe("an inquiry", () => {
+  it("puts the one Status panel before the submission in the document", async () => {
+    await openInquiry();
+
+    const status = screen.getByRole("region", { name: "Status" });
+    const submission = screen.getByRole("region", { name: "Kiriman" });
+    expect(
+      status.compareDocumentPosition(submission) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // One instance, never a copy per breakpoint.
+    expect(screen.getAllByRole("region", { name: "Status" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Tandai ditinjau" })).toHaveLength(1);
+  });
+
   it("shows what the visitor sent with the contact masked and the moves Laravel allows", async () => {
     await openInquiry();
 
