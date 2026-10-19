@@ -3,6 +3,7 @@ import { EnvelopeSimple } from "@phosphor-icons/react/dist/csr/EnvelopeSimple";
 import { House } from "@phosphor-icons/react/dist/csr/House";
 import { ShieldCheck } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 import { Swatches } from "@phosphor-icons/react/dist/csr/Swatches";
+import { Tray } from "@phosphor-icons/react/dist/csr/Tray";
 import { UserCircle } from "@phosphor-icons/react/dist/csr/UserCircle";
 import { UsersThree } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { type ComponentType, useEffect, useId, useRef } from "react";
@@ -23,9 +24,9 @@ interface NavItem {
 
 /**
  * Only screens that exist are listed (docs/architecture/admin-dashboard.md section 7): no
- * greyed-out "coming soon" modules. The private screens appear only with a verified account,
- * and the owner screens only when Laravel's `GET me` reports their permission (Laravel still
- * authorizes every request). The current item carries the cobalt 33 degree capsule, which
+ * greyed-out "coming soon" modules. The private screens appear only with a verified account;
+ * the "Operasional" group (inquiries, B4b) and the owner screens only when Laravel's `GET me`
+ * reports their permission (Laravel still authorizes every request). The current item carries the cobalt 33 degree capsule, which
  * travels from the previous item when the screen changes.
  */
 export function PrimaryNavigation({
@@ -38,6 +39,7 @@ export function PrimaryNavigation({
 }) {
   const { t } = useI18n();
   const nav = useRef<HTMLElement>(null);
+  const operationsId = useId();
   const groupId = useId();
   const { pathname } = useLocation();
   const lastMarkerTop = useRef<number | null>(null);
@@ -54,6 +56,10 @@ export function PrimaryNavigation({
       ? [{ to: referencePath, label: t.nav.reference, icon: Swatches }]
       : []),
   ];
+
+  const operations: NavItem[] = permissions?.includes("inquiries.view")
+    ? [{ to: paths.inquiries, label: t.nav.inquiries, icon: Tray, nested: true }]
+    : [];
 
   const administration: NavItem[] = [
     ...(permissions?.includes("users.view")
@@ -94,13 +100,21 @@ export function PrimaryNavigation({
     lastMarkerTop.current = markerTop();
   }, [pathname]);
 
-  if (personal.length === 0 && administration.length === 0) {
+  if (personal.length === 0 && operations.length === 0 && administration.length === 0) {
     return null;
   }
 
   return (
     <nav ref={nav} aria-label={t.shell.navigation} className="grid gap-5">
       <NavList items={personal} onNavigate={onNavigate} />
+      {operations.length > 0 ? (
+        <div className="grid gap-2">
+          <p id={operationsId} className="px-4 text-meta text-ink-muted">
+            {t.home.operationsTitle}
+          </p>
+          <NavList items={operations} onNavigate={onNavigate} labelledBy={operationsId} />
+        </div>
+      ) : null}
       {administration.length > 0 ? (
         <div className="grid gap-2">
           <p id={groupId} className="px-4 text-meta text-ink-muted">

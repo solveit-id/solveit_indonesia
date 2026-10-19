@@ -9,7 +9,7 @@ export const en: Messages = {
   shell: {
     skipToContent: "Skip to content",
     consoleName: "Admin console",
-    environmentLead: "B3.2d console",
+    environmentLead: "B4b console",
     environmentDetail: "not deployed",
     navigation: "Main navigation",
     openMenu: "Menu",
@@ -30,6 +30,7 @@ export const en: Messages = {
     users: "Users",
     invitations: "Invitations",
     audit: "Audit log",
+    inquiries: "Inquiries",
     invite: "Invite an admin",
     reference: "Component reference",
   },
@@ -239,6 +240,9 @@ export const en: Messages = {
     authenticatorOn: "authenticator active",
     authenticatorOff: "authenticator not confirmed",
     securityLink: "Security",
+    operationsTitle: "Operations",
+    inquiriesLink: "Inquiries",
+    inquiriesDetail: "Messages from the website form, their status, and team notes",
     administrationTitle: "Administration",
     usersLink: "Users",
     usersDetail: "Accounts, roles, suspension, and credential resets",
@@ -260,8 +264,8 @@ export const en: Messages = {
     role: "Role",
     roleDetail: {
       owner:
-        "Manages users, invitations, roles, suspension, and credential resets, and reads the audit log.",
-      admin: "Manages the security of their own account.",
+        "Manages users, invitations, roles, suspension, and credential resets, reads the audit log, and handles inquiries.",
+      admin: "Manages the security of their own account and handles inquiries.",
       none: "An account without a role cannot use the console.",
     },
     authenticatorTitle: "Authenticator",
@@ -406,6 +410,16 @@ export const en: Messages = {
         title: "Private admin release",
         detail:
           "Production image, separate admin listener (loopback by default), security headers, smoke test.",
+      },
+      b4a: {
+        title: "Inquiry management (API)",
+        detail:
+          "Masked contacts, a status workflow with history, append-only internal notes, recorded contact reveals.",
+      },
+      b4b: {
+        title: "Inquiry console",
+        detail:
+          "Inquiry list and detail, collision-safe status changes, team notes, and a deliberate contact reveal.",
       },
     },
   },

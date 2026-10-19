@@ -2,6 +2,7 @@ import { ArrowRight } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import { ClockCounterClockwise } from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
 import { EnvelopeSimple } from "@phosphor-icons/react/dist/csr/EnvelopeSimple";
 import { ShieldCheck } from "@phosphor-icons/react/dist/csr/ShieldCheck";
+import { Tray } from "@phosphor-icons/react/dist/csr/Tray";
 import { UserCircle } from "@phosphor-icons/react/dist/csr/UserCircle";
 import { UsersThree } from "@phosphor-icons/react/dist/csr/UsersThree";
 import type { ComponentType } from "react";
@@ -22,8 +23,9 @@ const LOW_RECOVERY_CODES = 3;
 
 /**
  * The signed-in home (owner decision 2026-10-17): who is signed in, this session's limits,
- * the way to the account's security, and the honest phase track. Owners also get the way into
- * administration (B3.2c), by permission from `GET me`. No metrics or modules that do not exist.
+ * the way to the account's security, and the honest phase track. Accounts that handle inquiries
+ * get the way there (B4b), owners the way into administration (B3.2c), each by permission from
+ * `GET me`. No metrics, counts, or modules that do not exist.
  * Rendered only after the private loader verified the account.
  */
 export function Home() {
@@ -33,6 +35,7 @@ export function Home() {
   const remaining = account.two_factor.recovery_codes_remaining;
   const canViewUsers = account.permissions.includes("users.view");
   const canReadAudit = account.permissions.includes("audit.view-all");
+  const canViewInquiries = account.permissions.includes("inquiries.view");
 
   return (
     <article>
@@ -80,6 +83,17 @@ export function Home() {
               detail={`${t.account.recoveryCodes}: ${t.account.recoveryRemaining(remaining)}`}
             />
           </nav>
+          {canViewInquiries ? (
+            <nav aria-label={t.home.operationsTitle} className="grid gap-3">
+              <h2 className="text-item font-semibold font-wide">{t.home.operationsTitle}</h2>
+              <Shortcut
+                to={paths.inquiries}
+                icon={Tray}
+                title={t.home.inquiriesLink}
+                detail={t.home.inquiriesDetail}
+              />
+            </nav>
+          ) : null}
           {canViewUsers || canReadAudit ? (
             <nav aria-label={t.home.administrationTitle} className="grid gap-3">
               <h2 className="text-item font-semibold font-wide">{t.home.administrationTitle}</h2>

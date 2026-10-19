@@ -9,6 +9,7 @@ import type {
   AdminActorType,
   AdminAuditAction,
 } from "~/services/admin-api/owner-contracts";
+import { inquiryId } from "../inquiry/id";
 
 /**
  * Copy of the owner administration workspace (B3.2c), Indonesian. Kept apart from the core
@@ -41,10 +42,13 @@ export const ownerId = {
     activation: "Undangan",
     "credential-reset": "Reset kredensial",
   } satisfies Record<AdminAccessLinkPurpose, string>,
+  /** Status names for inquiry audit metadata: the inquiry catalogue's own, never a copy. */
+  inquiryStatus: inquiryId.status,
   owner: {
     you: "Anda",
     accountNumber: (id: number) => `Akun #${id}`,
     linkNumber: (id: number) => `Tautan akses #${id}`,
+    inquiryNumber: (id: number) => `Inquiry #${id}`,
     shell: "Shell server",
     anonymous: "Tanpa akun",
     never: "Belum pernah",
@@ -210,7 +214,7 @@ export const ownerId = {
     roleOptions: {
       admin: {
         title: "Admin",
-        detail: "Mengelola keamanan akunnya sendiri. Belum ada modul lain untuk admin.",
+        detail: "Mengelola keamanan akunnya sendiri dan menangani inquiry.",
       },
       owner: {
         title: "Owner",
@@ -289,6 +293,10 @@ export const ownerId = {
         "Alamat ini masih punya undangan yang berlaku. Cabut undangan itu dulu, lalu undang lagi.",
       invitation_completed:
         "Undangan ini sudah diterima dan tidak dapat dicabut. Kelola akunnya di Pengguna.",
+      status_changed:
+        "Status inquiry ini sudah diubah sejak Anda membukanya, jadi perubahan Anda tidak disimpan. Status terbaru dimuat ulang; periksa lalu putuskan lagi.",
+      transition_not_allowed:
+        "Inquiry ini tidak dapat dipindahkan ke status itu dari status sekarang. Status terbaru dimuat ulang.",
     } satisfies Record<AdminConflictCode, string>,
     conflictUnknown: "Keadaan berubah dan server menolak tindakan ini. Data dimuat ulang.",
     acknowledgeRequired: "Centang pernyataan di atas sebelum melanjutkan.",
@@ -335,6 +343,8 @@ export const ownerId = {
     actor: "Pelaku",
     subject: "Akun terdampak",
     anyAccount: "Semua akun",
+    inquiryOnly: (label: string) => `Hanya kejadian yang mengenai ${label}.`,
+    allSubjects: "Tampilkan semua sasaran",
     from: "Dari tanggal",
     to: "Sampai tanggal",
     dateHint: "Menurut zona waktu perangkat ini.",
@@ -344,6 +354,7 @@ export const ownerId = {
       signIn: "Masuk dan sesi",
       links: "Tautan dan aktivasi",
       security: "Keamanan akun",
+      inquiry: "Inquiry",
     },
     actions: {
       "owner.bootstrap-issued": "Tautan owner pertama diterbitkan",
@@ -370,13 +381,16 @@ export const ownerId = {
       "account.role-changed": "Peran diubah",
       "account.suspended": "Akun ditangguhkan",
       "account.reactivated": "Akun diaktifkan ulang",
+      "inquiry.contact-revealed": "Kontak inquiry dibuka",
+      "inquiry.status-changed": "Status inquiry diubah",
+      "inquiry.note-added": "Catatan inquiry ditambahkan",
     } satisfies Record<AdminAuditAction, string>,
     unknownAction: (action: string) => `Kejadian ${action}`,
     legendLabel: "Arti penanda",
     legend: {
-      administration: "Tindakan owner",
+      administration: "Tindakan owner dan pembukaan kontak",
       failure: "Penolakan atau kegagalan",
-      routine: "Masuk, sesi, dan keamanan",
+      routine: "Masuk, sesi, keamanan, dan pekerjaan inquiry",
     },
     by: "Pelaku",
     on: "Sasaran",
@@ -396,6 +410,8 @@ export const ownerId = {
       linksRevoked: (count: number) => `${count} tautan dicabut`,
       accountCreated: "Akun baru dibuat",
       accountExisting: "Akun tertunda yang sudah ada",
+      status: (from: string, to: string) => `Status: ${from} ke ${to}`,
+      note: (id: number | string) => `Catatan #${id}`,
       reason: (value: string) => `Alasan: ${value}`,
     },
     reasons: {

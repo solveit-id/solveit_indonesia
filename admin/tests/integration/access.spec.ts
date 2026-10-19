@@ -246,7 +246,9 @@ test("an invited admin activates, sees their own account only, and owner routes 
   await activateThroughUi(page, inviteLink, admin, { name: "E2E Admin" });
   await expect(page.getByText("Anda masuk sebagai E2E Admin, Admin.")).toBeVisible();
   await page.goto("/akun");
-  await expect(page.getByText("Mengelola keamanan akun sendiri.")).toBeVisible();
+  await expect(
+    page.getByText("Mengelola keamanan akun sendiri dan menangani inquiry."),
+  ).toBeVisible();
 
   // Laravel stays the authority: an owner route refuses this session.
   const users = await page.request.get("/api/v1/admin/users");

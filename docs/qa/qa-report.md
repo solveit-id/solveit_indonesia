@@ -2,6 +2,95 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B4b konsol inquiry (2026-10-19)
+
+Cakupan: layar `/inquiry` dan `/inquiry/:id` di `admin/` di atas API B4a (`docs/api/admin-inquiries.md`), klien inquiry bertipe, label audit `inquiry.*` dan filter `?inquiry=` di audit log, grup navigasi Operasional, jalur fase (B3.2d dan B4a dirilis, B4b sekarang) dan kapsul lingkungan "Konsol B4b". Dibangun dan dites di branch `admin` dari `58cead5`; **belum dirilis, belum di-deploy**. Backend, kontrak API, infrastruktur, dan website publik tidak diubah.
+
+Keputusan yang dipakai: nilai status `received`, `in-review`, `contacted`, `closed` disetujui pemilik di brief B4b (2026-10-19); transisi tetap aturan backend dan konsol membacanya dari `allowed_transitions`. Keputusan privasi **tidak** dianggap disetujui: tidak ada ekspor, penghapusan, retensi, penugasan, aktivasi kanal publik, atau penerusan OpsHub. Pola UI B3.2c dipakai sebagai dasar **provisional**; tinjauan desain akhir dan waiver concept-seed tetap menunggu pemilik.
+
+### Audit sebelum implementasi
+
+| Temuan | Risiko | Tindakan |
+|---|---|---|
+| Dokumen status masih menyebut B4a "PR terbuka, belum di-merge" dan menaruh run CI B3.2d di butir B4a | Handoff salah | Dikoreksi di commit awal (`2b3631b`) dengan fakta PR #46/#47 dan run CI yang terverifikasi |
+| Audit log B3.2c menampilkan tiga tindakan B4a sebagai "Kejadian inquiry.*" dan sasaran `inquiry` tanpa nama | Owner tidak dapat membaca jejak pembukaan kontak | Label, grup filter, kapsul metadata (status, ID catatan), sasaran "Inquiry #42" bertaut, filter `subject_inquiry_id` |
+| `adminConflictCodes` tidak mengenal `status_changed` dan `transition_not_allowed` | `409` inquiry kehilangan `code` di klien | Dua kode ditambahkan, kalimatnya di dialog |
+| Teks peran "Belum ada modul lain untuk admin" dan deskripsi peran admin di Akun | Klaim yang tidak lagi benar setelah B4b | Diperbarui (admin menangani inquiry); asersi tes B3.2b ikut diperbarui ke kalimat baru, kekuatannya sama |
+| Katalog teks lazy digabung di atas katalog inti | Kunci `common` milik katalog inquiry akan menutupi `common` inti (Coba lagi, Tutup) | Kunci dinamai `inquiry`; tes baru menolak kunci katalog lazy yang sama dengan kunci inti |
+| Catatan tidak punya kunci idempotensi | Kirim ulang setelah hasil tidak pasti dapat membuat catatan ganda | Pengiriman ditahan, teks tetap, **Periksa catatan** membaca catatan terbaru |
+| Bantuan cursor hanya ada di klien owner | Klien inquiry akan menarik klien owner ke chunk-nya | `pagination.ts` bersama |
+
+### Pemeriksaan otomatis (lokal, Windows 11, Node 22.23, Chromium dari Playwright 1.64, PHP 8.5.7, MySQL 8.4.11)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run check` di `admin/` (Prettier, ESLint, typecheck, Vitest, build, `check-build.mjs`) | Lulus. **28 file, 435 tes** (25 dan 370 di baseline B3.2c/B3.2d) |
+| Anggaran build | JavaScript awal **136,5 KB gzip** (135,2 sebelumnya; anggaran 150), CSS 8,9 KB; teks dan kode inquiry hanya di chunk lazy (diperiksa: tidak ada teks inquiry di chunk awal) |
+| Suite browser ber-mock (`npm run build:reference`, `--workers=1`) | desktop **58 lulus**, 2 dilewati; tablet **59 lulus**, 1 dilewati; mobile **59 lulus**, 1 dilewati (B3.2c: 48, 49, 49) |
+| Suite browser nyata, Laravel dan MySQL testing (`npm run build`, `test:integration`) | desktop: run penuh pertama **44 lulus, 1 gagal** (asersi B3.2b masih memakai teks peran admin lama; diperbarui), lalu `access.spec.ts` **7 lulus**, jadi ke-45 tes desktop lulus di lokal, tetapi tidak dalam satu run bersih: run penuh kedua berhenti setelah 31 lulus karena Chromium crash (`Target crashed`, worker keluar `0xC0000142`) saat memori mesin menipis, lalu dihentikan Claude Code; tes yang crash adalah tes B3.2b yang lulus di run pertama. Run penuh yang bersih: Admin integration 39222015679 pada PR #48, **53 lulus dalam satu run** (desktop 45, tablet 4, mobile 4); tablet **4 lulus**; mobile **4 lulus** |
+
+| Area | Yang dibuktikan |
+|---|---|
+| Klien | Body persis (`status` dan `expected_status`, `body` catatan, `acknowledge_personal_data`); hanya filter yang diizinkan; cursor diteruskan apa adanya; `409` membawa kedua kode; `419` tidak pernah dikirim ulang (status, catatan, kontak); `503` catatan dan `500` kontak `uncertain`; `423` dan `429` dengan `Retry-After`; ID bukan bilangan bulat positif ditolak sebelum ada request; pola referensi sama dengan Laravel |
+| Akses peran | Grup Operasional hanya dengan `inquiries.view`; tanpa izin: "Tanpa izin inquiry" tanpa request; `403` daftar dan detail sama; izin per tindakan menyembunyikan tombol dan menjelaskan dengan kalimat; `403` saat menulis membaca ulang akun; admin nyata melihat Inquiry dan tidak melihat Pengguna; tautan audit hanya untuk owner |
+| Daftar dan filter | Pengirim, referensi, layanan, status; kontak samaran dan pesan **tidak** ada di daftar; filter status dan layanan lewat alamat tanpa `GET me` ulang; tanggal sebagai batas hari lokal; rentang terbalik dan nilai tidak dikenal tidak dikirim; referensi dinormalkan huruf besar, format salah ditolak tanpa request; muat lebih lama dengan cursor dan fokus ke baris baru; keadaan kosong, kosong tersaring, gagal dengan coba lagi, `422` tanpa kata-kata Laravel. Nyata: urutan terbaru dulu, filter layanan dan referensi di Laravel |
+| Detail | Kontak samaran, pesan teks polos dengan baris asli, judul dokumen tanpa nama pengirim, ID bukan angka tanpa request, `404` "Inquiry tidak ditemukan" |
+| Status dan konkurensi | Dialog dengan fokus pada Batal; `expected_status` = status yang tampil; riwayat dibaca ulang; `200` tanpa perubahan dikatakan; `409 status_changed` dan `transition_not_allowed`: hanya Tutup, detail dibaca ulang, pesan "sekarang Dihubungi" menerima fokus, tidak dikirim ulang; `419` tetap di dialog; `502` tidak pasti diselesaikan dengan membaca. **Nyata:** status diubah lewat API di belakang layar, tekanan di konsol mendapat `409` asli, status tetap `contacted`, satu baris riwayat, satu kejadian audit |
+| Catatan | Satu tekanan, di-trim; kosong dan lebih dari 2000 karakter tidak dikirim; `503` menahan pengiriman dan menyimpan teks, Periksa menemukan catatan tersimpan (kolom dikosongkan) atau tidak (boleh tekan lagi, tepat satu request kedua); `419` dan `429` tanpa request tambahan; tanpa tombol ubah atau hapus. Nyata: catatan tersimpan, kejadian audit tanpa isi catatan |
+| Kontak lengkap | Tanpa centang tidak ada request; `423` lalu kata sandi lalu tekanan kedua; Batal di keputusan atau di kata sandi tidak mengirim apa pun; `429` hitung mundur; `500` tidak menampilkan kontak; respons untuk inquiry lain tidak ditampilkan; nilai tidak ada di localStorage, sessionStorage, alamat, state history, judul, atau atribut apa pun; Sembunyikan membuangnya. **Nyata (admin):** Batal tidak menulis kejadian audit; setelah kata sandi kontak sama dengan yang dikirim (dibandingkan tanpa dicetak); penyimpanan browser dan cookie bersih; tepat satu `inquiry.contact-revealed` tanpa metadata dan tanpa kontak |
+| Autentikasi berakhir | `401` saat membuka kontak: ke `/masuk` dengan `alasan=berakhir` dan `kembali=/inquiry/42`, tanpa data. **Nyata:** sesi browser diakhiri dari klien lain (`DELETE me/sessions`), Tambah catatan berakhir di `/masuk?kembali=/inquiry/<id>`, tidak ada catatan tertulis |
+| Audit log | Tiga label, grup filter Inquiry, "Status: Baru ke Ditinjau", "Catatan #12", sasaran bertaut ke `/inquiry/42`, `?inquiry=42` dikirim sebagai `subject_inquiry_id` tanpa `subject_user_id`, kembali ke semua sasaran. Nyata: label tampil untuk kejadian asli |
+| Aksesibilitas dan tata letak | axe WCAG 2.2 AA tanpa pelanggaran di `/inquiry`, dua detail, dialog status, dialog kontak, dan kontak terbuka, tema terang dan gelap, desktop, tablet, ponsel (mock) dan data nyata (tablet, ponsel, desktop); tanpa scroll samping; tabel mulai 768 px, kartu di bawahnya; keyboard dari daftar ke detail ke dialog, Escape memilih Batal dan fokus kembali ke pembuka; nol pelanggaran CSP |
+| Regresi | Seluruh suite Vitest, mock, dan nyata B3.2b sampai B3.2d tetap lulus; satu asersi B3.2b mengikuti teks peran admin yang baru |
+
+CI pada PR #48 (head `1acb047`), semuanya hijau: Admin CI 39222015637 (suite ber-mock 176 lulus, JavaScript awal 136,5 KB), Admin integration 39222015679 (53 lulus), Docker CI 39222015530 (compose, onboarding clone baru, image produksi, listener admin, smoke test); run push 39221977471, 39221977386, 39221977432.
+
+Tangkapan layar 1440, 820, dan 390 px (daftar, detail, dialog kontak, kontak terbuka, gelap) diperiksa manual; satu temuan diperbaiki: tombol Cari meregang selebar sisa baris filter mulai 640 px.
+
+### Tinjauan keamanan akhir sebelum merge (2026-10-19)
+
+Dasar: diff `staging...admin` PR #48 (head `43ab204`, CI hijau). Temuan yang terverifikasi dan diperbaiki di branch `admin`:
+
+| ID | Tingkat | Temuan dan bukti | Tindakan | Verifikasi |
+|---|---|---|---|---|
+| R1 | P1, sedang | Kontak lengkap tetap di DOM saat tab tersembunyi atau halaman masuk back-forward cache; jawaban pembukaan yang tiba saat tab tersembunyi tetap ditampilkan (`components/inquiry/contact-reveal.tsx`) | Page Visibility API dan `pagehide` membuang nilai dengan `flushSync`; tiket per permintaan, sehingga jawaban terlambat (setelah Sembunyikan, saat tersembunyi, setelah unmount) tidak pernah tampil; tidak ada pembukaan ulang otomatis; listener dilepas saat unmount | Vitest (tab tersembunyi, `pagehide` lalu `pageshow`, jawaban saat tersembunyi, pindah rute saat menunggu, sesi berakhir), Chromium ber-mock dengan CSP produksi, Laravel nyata (dibuang lalu pembukaan kedua tercatat sebagai kejadian kedua); uji mutasi: tanpa listener dan tanpa cek tiket tes gagal |
+| R2 | P1, rendah | Setelah akun kehilangan `inquiries.reveal-contact` (dibaca ulang setelah `403`), kontak yang sudah terbuka tetap tampil | State disesuaikan saat render bila izin hilang, dan jawaban yang masih di jalan dibuang | Vitest dengan `GET me` tanpa izin setelah `403`; uji mutasi |
+| N1 | P1, sedang | Pemeriksaan catatan tidak pasti membandingkan draf yang masih dapat diubah, dan menganggap catatan identik apa pun dari akun yang sama sebagai bukti (termasuk catatan lama), lalu mengosongkan draf (`components/inquiry/inquiry-notes.tsx`) | Percobaan dibekukan (teks dan ID catatan terbaru yang diketahui sebelum mengirim); kolom hanya baca selama tidak pasti; tersimpan hanya bila ada catatan akun ini dengan teks persis dan ID lebih baru; selain itu tetap tidak pasti dengan pilihan sadar (periksa lagi, kirim lagi, buang teks) | Vitest (catatan identik lama bukan bukti, daftar belum termuat berarti tidak dapat dipastikan, kirim lagi hanya dengan tekanan, buang teks, tekanan ganda mengirim satu kali); uji mutasi |
+| D1 | P2, rendah | Jawaban baca detail yang tiba tidak berurutan dapat menimpa keadaan yang lebih baru di layar (penulisan tetap aman lewat compare and set) (`pages/inquiry-detail.tsx`) | Tiket per baca dan per penulisan yang dikonfirmasi; jawaban lama dibuang | Vitest dengan baca lambat yang selesai setelah perubahan status; uji mutasi |
+
+Diperiksa tanpa temuan: pesan dan nama pengunjung dirender React sebagai teks (markup, `<script>`, `onerror`, tautan `javascript:`, URL mencurigakan, karakter kontrol dan bidi tidak pernah menjadi elemen atau tautan; dibuktikan di jsdom dan Chromium dengan CSP produksi; URL panjang tanpa spasi terbungkus tanpa scroll samping); error boundary tidak pernah menampilkan pesan atau stack; tidak ada log, storage, atau telemetry di kode inquiry; daftar tanpa kontak dan pesan; salin hanya saat ditekan; setiap route dan tindakan mengikuti satu dari empat izin dan Laravel tetap otoritas; `401`, `403`, `409`, `429`, `5xx` tidak menampilkan pesan server dan tidak memicu penulisan otomatis.
+
+Tambahan tes nyata: perubahan oleh **operator kedua** (akun admin nyata dengan sesinya sendiri) menghasilkan `409` asli di layar owner, riwayat menyebut "Operator Kedua", tidak ada yang ditimpa; **batas laju nyata** di stack tes terisolasi: 10 pembukaan lewat API, pembukaan ke-11 di konsol menampilkan hitung mundur, tidak ada kontak, tetap 10 kejadian audit.
+
+| Pemeriksaan (lokal, setelah perbaikan) | Hasil |
+|---|---|
+| `npm run check` | Lulus. **28 file, 447 tes** (435 sebelum tinjauan) |
+| Suite ber-mock | desktop **60**, tablet **61**, mobile **61** lulus (2, 1, 1 dilewati) |
+| Suite nyata | `inquiries.spec.ts` desktop **5 lulus** (termasuk batas laju), responsif tablet **4** dan mobile **4** lulus. Run penuh desktop tidak diulang lokal (crash memori sebelumnya); run penuh bersih adalah Admin integration pada head PR terbaru |
+
+### Opsi B: panel Status lebih dulu di bawah 1280 px (2026-10-19)
+
+Pemilik memilih Opsi B setelah tinjauan penerimaan: di ponsel 390 px dengan pesan panjang, panel Status sebelumnya mulai sekitar 2.100 px dari atas. Perubahan (`admin/src/pages/inquiry-detail.tsx`): satu-satunya panel Status dipindah sebelum panel Kiriman di dokumen; grid tetap menempatkannya di kolom samping yang lengket mulai 1280 px (`xl:col-start-2 xl:row-start-1 xl:row-span-3`, Kiriman disematkan `xl:row-start-1`). Tidak ada salinan panel, state, atau perilaku yang berubah. Urutan dokumen (bukan CSS `order`) dipilih agar di bawah 1280 px urutan visual, fokus keyboard, dan pembaca layar sama; mulai 1280 px fokus mencapai panel ringkasan kanan atas sebelum kolom kiri.
+
+| Pemeriksaan (lokal) | Hasil |
+|---|---|
+| `npm run check` | Lulus, **448 tes** (satu tes baru: panel Status sebelum Kiriman di dokumen, satu instance) |
+| Suite ber-mock `inquiries.spec.ts` | desktop, tablet, mobile masing-masing **13 lulus**: tes baru memeriksa posisi (di bawah 1280 px panel Status di atas Kiriman dan di layar pertama; di 1440 px kolom kanan, rata atas, `position: sticky`), tanpa scroll samping, dan urutan Tab (tombol status sebelum Buka kontak lengkap); axe kedua tema tetap tanpa pelanggaran |
+| Suite nyata (Laravel, MySQL 8.4) | `inquiries.spec.ts` desktop **5 lulus** (status, 409 dua operator, kontak, sesi berakhir, batas laju); tes inquiry responsif tablet **1** dan mobile **1** lulus |
+| Tangkapan layar | 1440, 820, 390 px, terang dan gelap, pesan panjang: di 390 px panel Status dan tombolnya di layar pertama (844 px); 1440 px tidak berubah |
+
+Tinjauan desain akhir dan waiver concept-seed tetap menunggu pemilik; Opsi B adalah keputusan tata letak, bukan persetujuan desain akhir.
+
+Admin CI event PR pada `ddcac0f` gagal sekali (run 39241964992) pada tes daftar B4b "holds back a reversed date range": tes membaca URL request sebelum request dibuat, karena pesan galat rentang tampil langsung dari alamat. Event push pada commit yang sama lulus. Tes kini menunggu jawaban daftar sebelum membaca URL; asersinya tidak diubah. Tidak terkait Opsi B.
+
+### Tidak dijalankan atau tidak berlaku
+
+- **Backend:** tidak ada perubahan di `backend/`, jadi `php artisan test`, Pint, dan Composer tidak dijalankan ulang untuk B4b (baseline B4a: 529 tes). Laravel Boost MCP gagal tersambung saat sesi dimulai (`CONNECT_TIMEOUT`) dan tidak dipakai; tidak dibutuhkan karena tidak ada kode Laravel yang ditulis.
+- **Batas laju nyata per jam** (60 per jam) tidak dipicu; batas per menit dibuktikan di stack tes terisolasi (tinjauan akhir di atas).
+- **WebKit dan Firefox:** tidak dijalankan untuk konsol admin (suite admin hanya Chromium). **Lighthouse:** tidak dijalankan.
+- **Idle 30 menit dengan jam server:** tidak dipakai di suite inquiry karena garbage collection sesi dapat menghapus sesi klien API pembanding; sesi berakhir dibuktikan dengan pencabutan sesi yang deterministik dan oleh tes idle B3.2b.
+- **Tinjauan desain akhir** (finish reviewer Impeccable) dan waiver concept-seed: menunggu pemilik; tidak ada yang dicatat sebagai disetujui.
+
 ## B4a API pengelolaan inquiry (2026-10-19)
 
 Cakupan: endpoint inquiry di `backend/` (`/api/v1/admin/inquiries...`): daftar dan detail dengan kontak disamarkan, filter berindeks dan cursor, alur status dengan compare and set dan riwayat, catatan internal hanya-tambah, pembukaan kontak lengkap yang disengaja dan dicatat, filter audit `subject_inquiry_id` (kontrak: `docs/api/admin-inquiries.md`). Backend saja: tidak ada perubahan konsol admin, website publik, atau infrastruktur, dan tidak ada deployment. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/admin`, `origin/frontend` = `eb31fae` (rilis B3.2d, PR #45), `origin/staging` `bdac8c6` (pohon sama), working tree bersih; suite baseline 389 tes, 2.887 asersi lulus sebelum perubahan.

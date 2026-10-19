@@ -13,10 +13,11 @@ import type { RouteHandle } from "./route-handle";
  * screens that really exist are routed; everything else is the honest 404.
  *
  * Two areas. Public (`/masuk`, `/access`, the 404) in the auth frame, without an account.
- * Private (`/`, `/akun`, `/akun/keamanan`, and the owner screens `/pengguna`, `/pengguna/:id`,
- * `/undangan`, `/undangan/baru`, `/audit`) behind `requireAccount`, which runs `GET me` on every
- * navigation into or inside it before anything renders (src/auth/guards.ts). Laravel authorizes
- * each owner endpoint itself; the screens only explain a 403.
+ * Private (`/`, `/akun`, `/akun/keamanan`, the inquiry screens `/inquiry`, `/inquiry/:id`, and
+ * the owner screens `/pengguna`, `/pengguna/:id`, `/undangan`, `/undangan/baru`, `/audit`)
+ * behind `requireAccount`, which runs `GET me` on every navigation into or inside it before
+ * anything renders (src/auth/guards.ts). Laravel authorizes each endpoint itself; the screens
+ * only explain a 403. Titles never carry a name or contact (they reach the browser history).
  */
 export const routes: RouteObject[] = [
   {
@@ -78,6 +79,18 @@ export const routes: RouteObject[] = [
                 path: "akun/keamanan",
                 handle: { title: (t) => t.security.title } satisfies RouteHandle,
                 lazy: async () => ({ Component: (await import("~/pages/security")).Security }),
+              },
+              {
+                path: "inquiry",
+                handle: { title: (t) => t.nav.inquiries } satisfies RouteHandle,
+                lazy: async () => ({ Component: (await import("~/pages/inquiries")).Inquiries }),
+              },
+              {
+                path: "inquiry/:id",
+                handle: { title: (t) => t.nav.inquiries } satisfies RouteHandle,
+                lazy: async () => ({
+                  Component: (await import("~/pages/inquiry-detail")).InquiryDetail,
+                }),
               },
               {
                 path: "pengguna",
