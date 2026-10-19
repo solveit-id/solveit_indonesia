@@ -70,7 +70,7 @@ services:
   # Admin console (admin/, B3.2a): Vite dev server and the same-origin proxy for /api/v1/admin.
   # Open http://127.0.0.1:5174 (not localhost): the backend's ADMIN_URL defaults to exactly that
   # origin, and the proxy forwards the browser's Host and Origin unchanged to the backend
-  # service. Loopback only; no production listener here (B3.2d).
+  # service. Loopback only. The production listener is admin-gateway in compose.prod.yaml (B3.2d).
   admin:
     build:
       context: ../..

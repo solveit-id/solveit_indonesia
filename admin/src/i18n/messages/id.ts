@@ -14,7 +14,7 @@ export const id = {
   shell: {
     skipToContent: "Langsung ke konten",
     consoleName: "Konsol admin",
-    environmentLead: "Konsol B3.2c",
+    environmentLead: "Konsol B3.2d",
     environmentDetail: "belum di-deploy",
     navigation: "Navigasi utama",
     openMenu: "Menu",

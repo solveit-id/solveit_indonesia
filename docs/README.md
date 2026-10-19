@@ -22,7 +22,7 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 | | [admin-users.md](api/admin-users.md) | Kontrak API owner B3.1b: akun, undangan, peran, penangguhan, reset kredensial, pembacaan audit log |
 | [architecture/](architecture) | [architecture-overview.md](architecture/architecture-overview.md) | Gambaran repository, lapisan backend dan frontend, routing dan prerender, keputusan teknis |
 | | [integration-plan.md](architecture/integration-plan.md) | Batas sistem dengan Solveit OpsHub, endpoint usulan, peta jalan backend |
-| | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas backend B3.1a (dibangun), keputusan autentikasi, sesi, peran, audit; aplikasi admin, modul, desain, dan performa (Planned) |
+| | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas dan administrasi (B3.1a, B3.1b), konsol (B3.2a sampai B3.2c), rilis privat (B3.2d, disiapkan, belum di-deploy), keputusan autentikasi, sesi, peran, audit, modul, desain, dan performa |
 | | [visitor-analytics.md](architecture/visitor-analytics.md) | Rancangan (Planned) analitik pengunjung first-party: definisi metrik, privasi dan UU PDP, penyimpanan, near-real-time |
 | | [github-integration.md](architecture/github-integration.md) | Rancangan (Planned) integrasi GitHub organisasi `solveit-id`: kepemilikan OpsHub, GitHub App, webhook, tindakan berisiko |
 | [design/](design) | [design-system.md](design/design-system.md) | Prinsip visual, token, komponen, aturan motion dan aksesibilitas |

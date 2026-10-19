@@ -7,7 +7,7 @@ Repository website company profile dan portofolio Solveit Indonesia: frontend da
 | Folder | Isi |
 |---|---|
 | [`frontend/`](frontend) | React + TypeScript + Vite + React Router (prerender statis) + Tailwind CSS v4 + GSAP |
-| [`admin/`](admin) | Konsol admin terpisah (React + Vite, React Router mode data): fondasi B3.2a, belum ada layar masuk, belum di-deploy. [admin/README.md](admin/README.md) |
+| [`admin/`](admin) | Konsol admin terpisah (React + Vite, React Router mode data): masuk dengan TOTP, keamanan akun, ruang kerja owner (B3.2a sampai B3.2c, dirilis); image produksi dan listener admin privat disiapkan (B3.2d), belum di-deploy. [admin/README.md](admin/README.md) |
 | [`backend/`](backend) | Laravel 13 API (PHP 8.5 minimal 8.5.7, MySQL 8.4 LTS): endpoint inquiry dengan idempotensi, belum di-deploy. Laravel Boost untuk Claude Code dan Codex |
 | [`infra/`](infra) | Docker: lingkungan pengembangan lengkap dan konfigurasi produksi (disiapkan, belum di-deploy) |
 | [`docs/`](docs) | Fakta produk, spesifikasi desain, arsitektur, panduan pengembangan, SEO/GEO, laporan QA, aturan struktur proyek. Peta: [docs/README.md](docs/README.md) |

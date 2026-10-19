@@ -1,0 +1,53 @@
+# Private admin listener (compose.prod.yaml, service admin-gateway, profile admin). B3.2d,
+# prepared and validated, NOT deployed: no hostname, certificate, or admin account exists.
+# Rendered at container start by the nginx image (envsubst, only ${SOLVEIT_ADMIN_*} through
+# NGINX_ENVSUBST_FILTER) after nginx/admin-origin.envsh derived the host from ADMIN_URL.
+#
+#   Host = the admin host   routes in nginx/admin-gateway-routes.conf:
+#                             /api/v1/admin/*  Laravel over FastCGI (same origin as the console)
+#                             other /api paths 404 (the public inquiry API is not served here)
+#                             everything else  the static console (service admin)
+#   any other Host          421, nothing proxied
+#
+# Plain HTTP on 8080, published on loopback by default (SOLVEIT_ADMIN_HTTP_BIND, SOLVEIT_ADMIN_HTTP_PORT):
+# for a TLS-terminating proxy, VPN, or SSH tunnel in front of it. The listener can terminate TLS
+# itself with compose.prod.admin-tls.yaml (nginx/admin-gateway-tls.conf.template).
+# Guide: docs/development/docker-production.md, Admin privat.
+
+# HSTS only on connections this listener encrypted itself; with TLS terminated in front of it,
+# that proxy sends HSTS.
+map $https $solveit_admin_hsts {
+    on       "max-age=31536000";
+    default  "";
+}
+
+server {
+    listen 8080 default_server;
+    server_name _;
+    server_tokens off;
+    default_type application/json;
+    add_header Cache-Control "no-store" always;
+    return 421 '{"message":"Misdirected Request."}';
+}
+
+server {
+    listen 8080;
+    server_name ${SOLVEIT_ADMIN_HOST};
+
+    # A TLS-terminating proxy in front of this listener: trust only its address, so Laravel's
+    # rate limits and audit log see the person's IP (REMOTE_ADDR). Laravel itself trusts no
+    # forwarded header (TRUSTED_PROXIES stays empty).
+    set_real_ip_from ${SOLVEIT_ADMIN_REAL_IP_FROM};
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+
+    include /etc/nginx/solveit/admin-gateway-routes.conf;
+}
+
+# Container health check only. Port 8081 is never published.
+server {
+    listen 127.0.0.1:8081;
+    access_log off;
+    default_type text/plain;
+    return 200 "ok\n";
+}

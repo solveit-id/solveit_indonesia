@@ -1,4 +1,25 @@
-# Build context is the repository root; the dev image needs only its entrypoint (the source
-# is bind-mounted at run time). BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile.
+# Build context is the repository root. Allowlist: the admin entrypoint (dev), the admin source
+# needed for the production build, the static nginx configuration, and the four website design
+# files the console reads in place. BuildKit reads <Dockerfile>.dockerignore next to the
+# Dockerfile. Never: .env files, secrets, node_modules, builds, tests, reports, .git.
 *
 !infra/docker/admin/
+!infra/docker/nginx/admin.conf
+!admin/package.json
+!admin/package-lock.json
+!admin/index.html
+!admin/tsconfig.json
+!admin/vite.config.ts
+!admin/security-policy.ts
+!admin/public/
+!admin/scripts/
+!admin/src/
+admin/src/**/*.test.ts
+admin/src/**/*.test.tsx
+admin/src/test/
+!frontend/src/styles/tokens.css
+!frontend/src/assets/fonts/archivo-solveit.woff2
+!frontend/src/components/brand/logo-paths.ts
+!frontend/public/favicon.svg
+**/.env
+**/.env.*

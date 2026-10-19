@@ -489,9 +489,11 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 │       │   ├── Dockerfile.dockerignore Allowlist build context untuk Dockerfile ini
 │       │   ├── entrypoint-<target>.sh  Entrypoint per target
 │       │   └── <runtime>/              Konfigurasi runtime yang di-bake (php/, php-fpm/)
-│       ├── nginx/<peran>.conf          Konfigurasi nginx atau reverse proxy (frontend.conf, gateway.conf)
+│       ├── nginx/<peran>.conf          Konfigurasi nginx atau reverse proxy (frontend.conf, gateway.conf, admin.conf);
+│       │                               template runtime <peran>.conf.template dan hook entrypoint *.envsh untuk image resmi
 │       ├── mysql/initdb-<lingkungan>/  Provisioning database yang dikelola file Compose di folder ini
-│       ├── scripts/<kata-kerja>-<objek>.sh   Skrip operasional (setup-dev.sh, verify-production.sh)
+│       ├── scripts/<kata-kerja>-<objek>.sh   Skrip operasional (setup-dev.sh, verify-production.sh, verify-admin.sh, drill-backup-restore.sh,
+│       │                               check-synthetic-stack.sh, test-safety-guards.sh)
 │       └── secrets/                    [L] Rahasia produksi, diabaikan Git
 └── <aplikasi>/docker/<layanan>/        Infrastruktur milik satu aplikasi yang juga dipakai tanpa infra/
 ```
@@ -504,7 +506,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 
 ### 11.2 File Compose, Dockerfile, dan konteks build
 
-1. File Compose: `infra/docker/compose.<lingkungan>.yaml` (`dev`, `prod`), tidak di root repository (bagian 1, prinsip 2). Setiap file punya `name:` di tingkat atas. Perintah dijalankan dari root dengan `-f`.
+1. File Compose: `infra/docker/compose.<lingkungan>.yaml` (`dev`, `prod`), tidak di root repository (bagian 1, prinsip 2). Setiap file punya `name:` di tingkat atas. Perintah dijalankan dari root dengan `-f`. Opsi yang menambah sesuatu pada satu lingkungan adalah file override `compose.<lingkungan>.<opsi>.yaml` tanpa `name:` (**proyek ini:** `compose.prod.admin-tls.yaml`), dipakai dengan `-f` kedua; bukan cabang di dalam file utama.
 2. Dockerfile: satu per image di `infra/docker/<aplikasi>/Dockerfile`, multi-stage dengan target bernama: `dev` (server pengembangan, kode di-bind-mount), `build` atau `vendor` (dependensi dan kompilasi), `prod` (runtime minimum). Folder aplikasi tidak berisi Dockerfile.
 3. Konteks build adalah root repository. Setiap Dockerfile punya `Dockerfile.dockerignore` di sebelahnya yang dimulai dengan `*` lalu hanya membuka path yang dibutuhkan, dan tetap mengecualikan `.env*`, folder secret, `vendor/`, `node_modules/`, tes, dump, log, file agent, dan `.git`. Tidak ada `.dockerignore` di root.
 4. Image dasar dikunci ke tag patch resmi yang sudah diverifikasi ada (**proyek ini:** `php:8.5.11-fpm-bookworm`, `node:22.23.1-bookworm-slim`, `nginxinc/nginx-unprivileged:1.30.6-alpine`, `mysql:8.4.11`, `composer:2.10.3`), bukan `latest`. Versi minimum proyek (PHP 8.5.7, Node 22, MySQL 8.4) ditegaskan di dalam build atau di CI.
@@ -515,7 +517,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 1. Konfigurasi nginx atau reverse proxy: `infra/docker/nginx/<peran>.conf`. Konfigurasi untuk image buatan proyek di-bake (`COPY`); untuk image resmi tanpa build di-mount read-only.
 2. Konfigurasi pengembangan dan produksi berada di file terpisah, tidak satu file yang bercabang menurut variabel. Pengembangan: bind mount kode, server dev, dev dependency, port loopback. Produksi: kode di dalam image, tanpa bind mount kode, `APP_DEBUG=false`, konfigurasi runtime di `<aplikasi>/<runtime>/production.*`.
 3. Entrypoint: `entrypoint-<target>.sh` di sebelah Dockerfile, POSIX `sh` dengan `set -eu`, diakhiri `exec "$@"`. Entrypoint tidak pernah menjalankan migrasi, menghapus data, atau mencetak rahasia; ia boleh memasang dependensi ke volume yang kosong dan membuat folder kerja.
-4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`.
+4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`. Skrip uji yang mengubah stack (akun, data, restart, rollback, volume) tidak punya default proyek atau konfigurasi dan menjalankan penjaga baca-saja lebih dulu (**proyek ini:** `check-synthetic-stack.sh`), yang menolak apa pun selain stack sintetis sekali pakai; penolakannya dibuktikan dengan tes negatif.
 
 ### 11.4 Rahasia, environment, dan data
 
@@ -529,7 +531,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 
 1. Nama layanan adalah perannya, huruf kecil: `backend`, `frontend`, `gateway`, `mysql`, `migrate`. `container_name` hanya bila alat atau dokumentasi lain bergantung padanya (**proyek ini:** `solveit-mysql`).
 2. Setiap layanan yang berjalan lama punya health check yang hanya memeriksa dirinya sendiri; ketergantungan dinyatakan dengan `depends_on` dan `condition: service_healthy`. Ketersediaan aplikasi dan kesiapan database dibedakan (**proyek ini:** `/up` tanpa database; kesiapan database lewat health check MySQL dan `migrate:status`).
-3. Produksi: hanya satu layanan (gateway) yang mempublikasikan port; database dan PHP-FPM tidak pernah dipublikasikan dan berada di jaringan `internal: true`. Port dipublikasikan ke loopback secara default, termasuk pengembangan; alamat publik hanya lewat variabel yang disetel sadar.
+3. Produksi: hanya gateway yang mempublikasikan port (**proyek ini:** `gateway` untuk website; `admin-gateway` hanya dengan profil `admin`, dengan jaringan `admin-edge` dan `admin-internal` sendiri); database dan PHP-FPM tidak pernah dipublikasikan dan berada di jaringan `internal: true`. Port dipublikasikan ke loopback secara default, termasuk pengembangan; alamat publik hanya lewat variabel yang disetel sadar.
 4. Migrasi adalah layanan sekali jalan di profil `ops` dengan pengguna database yang terpisah dari pengguna aplikasi, tidak pernah bagian dari start container. Worker queue dan scheduler hanya ditambahkan bila aplikasi benar-benar membutuhkannya.
 
 ### 11.6 Penamaan
@@ -546,7 +548,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 
 ### 11.7 Beberapa aplikasi dan portabilitas
 
-1. Aplikasi baru di monorepo (**proyek ini:** `admin/` sejak B3.2a, saat ini target `dev` saja; image produksi dan listener admin privat di B3.2d) menambah `infra/docker/<aplikasi>/` dan layanannya di file Compose yang sama; gateway merutekan menurut path atau host. Tidak ada file Compose per aplikasi selain layanan milik aplikasi (11.1).
+1. Aplikasi baru di monorepo (**proyek ini:** `admin/` sejak B3.2a; sejak B3.2d target `prod` dan listener admin privat `admin-gateway` di profil `admin`) menambah `infra/docker/<aplikasi>/` dan layanannya di file Compose yang sama; gateway merutekan menurut path atau host. Permukaan yang harus terisolasi dari website publik (admin) mendapat listener dan jaringan sendiri, bukan server block tambahan di gateway publik. Tidak ada file Compose per aplikasi selain layanan milik aplikasi (11.1).
 2. Harus berjalan di Windows (Docker Desktop, Git Bash), Linux, dan macOS: skrip berakhiran LF (`.gitattributes`), path relatif, tanpa path mesin; Compose 2.20 atau lebih baru (`include`); UID/GID pengguna container dapat disetel (build argument) agar bind mount dapat ditulis di Linux; Docker Desktop tidak meneruskan event file dari folder Windows, jadi server dev menyediakan sakelar polling; port host dapat diubah lewat variabel agar tidak bentrok dengan layanan lain.
 3. Alur native tetap didukung dan didokumentasikan terpisah; Docker adalah alternatif, bukan syarat.
 
