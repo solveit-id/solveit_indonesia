@@ -18,6 +18,16 @@ enum AdminRole: string
      */
     public function permissions(): array
     {
+        // Inquiry handling for both roles, as planned in docs/architecture/admin-dashboard.md
+        // section 4. Who handles inquiries is still an owner decision; narrowing it is a
+        // change to this list only.
+        $inquiryHandling = [
+            AdminPermission::ViewInquiries,
+            AdminPermission::RevealInquiryContacts,
+            AdminPermission::ChangeInquiryStatuses,
+            AdminPermission::AddInquiryNotes,
+        ];
+
         return match ($this) {
             // Listed one by one: a permission added later is granted to nobody until a
             // role names it here.
@@ -29,8 +39,9 @@ enum AdminRole: string
                 AdminPermission::SuspendUsers,
                 AdminPermission::ResetUserCredentials,
                 AdminPermission::ViewAllAuditEvents,
+                ...$inquiryHandling,
             ],
-            self::Admin => [AdminPermission::ManageOwnAccount],
+            self::Admin => [AdminPermission::ManageOwnAccount, ...$inquiryHandling],
         };
     }
 

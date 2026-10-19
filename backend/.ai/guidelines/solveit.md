@@ -22,7 +22,7 @@ These rules come from the repository and take precedence over the generic Larave
 - Never return 201 or a reference unless the row is stored. Never add a public endpoint that lists, reads, changes, or deletes inquiries.
 - `POST /api/v1/inquiries` is idempotent per `Idempotency-Key` (B2.1): the UNIQUE `idempotency_key_hash` column decides, never a read-before-insert. Keep that contract (docs/api/inquiries.md, Idempotensi) and its multi-process tests (`tests/Feature/Actions/SubmitInquiryConcurrencyTest.php`).
 
-## Admin API (B3.1a, B3.1b)
+## Admin API (B3.1a, B3.1b, B4a)
 
 - Admin routes live only in `routes/admin.php` (served at `/api/v1/admin`, middleware group `admin`), the only routes with a session. Never add `web` or session middleware to `routes/api.php`, and never install Sanctum or apply `statefulApi()`: Sanctum forces `SameSite=Lax` and the admin is same-origin (`docs/architecture/admin-dashboard.md` 3.1).
 - Fortify is used as a library only: keep `Fortify::ignoreRoutes()` (`App\Providers\FortifyServiceProvider`) and map controllers explicitly in `routes/admin.php`. Generic Fortify guidance about its own routes, views, registration, password reset, profile updates, passkeys, or disabling two-factor authentication does not apply; enabling any of them needs an owner decision.
@@ -32,8 +32,10 @@ These rules come from the repository and take precedence over the generic Larave
 - Owner operations (`app/Actions/Admin/`) start with `ActiveOwners::lockForActor()` inside `DB::transaction(..., ActiveOwners::TRANSACTION_ATTEMPTS)`, write their audit event in the same transaction, and keep the multi-process tests in `tests/Feature/Admin/AdminAdministrationConcurrencyTest.php` passing. One open access link per account is enforced by MySQL (`admin_access_links.open_for_user_id` UNIQUE); never replace it with a read-before-write check. Access-link URLs appear only in the response that issued them, never in lists, audit rows, or logs.
 - No default accounts or passwords: seeders create no users, factories use random passwords. Accounts come from `admin:bootstrap-owner` or owner invitations (B3.1b, delivered by hand, no email). Never run the bootstrap or reset commands against shared or production data; tests use synthetic addresses.
 - Admin HTTP tests use `Tests\Support\InteractsWithAdminApi` (real cookies, Origin, CSRF, and TOTP), not `actingAs()`.
+- Inquiry management (B4a, `docs/api/admin-inquiries.md`): contacts are masked in every admin response (`Inquiry::maskedContact()`; `contact` is hidden from serialization); the full contact leaves the server only through `POST inquiries/{id}/contact-reveal`, after `password.confirm` and once its audit event has committed. Inquiry writes run in `DB::transaction(..., InquiryHandler::TRANSACTION_ATTEMPTS)` and start with `InquiryHandler::lockFor()`; status changes are compare and set under `lockForUpdate()` with history and audit in the same transaction. Keep `tests/Feature/Admin/AdminInquiryConcurrencyTest.php` passing.
+- The submitted fields of an inquiry never change (model guard and the `inquiries_keep_submission` trigger); only `status` may. `inquiry_status_changes` and `inquiry_notes` are append-only (triggers) and leave only with their inquiry (cascade). The public receipt of `POST /api/v1/inquiries` always says `received`, never the workflow status. No export, deletion, retention, or pruning of inquiries until the owner decides them.
 
 ## Personal data
 
-- Inquiries hold names, contacts, and messages. Never log them, include them in exception messages or context, or print them in agent output. Do not chain a `QueryException` into a reported exception: its message contains the SQL bindings.
+- Inquiries hold names, contacts, and messages, and internal notes (B4a) may hold more. Never log them, write them into audit metadata, include them in exception messages or context, or print them in agent output. Do not chain a `QueryException` into a reported exception: its message contains the SQL bindings.
 - Use Boost database tools only against the local development or testing MySQL database of this project, never against shared or production data.

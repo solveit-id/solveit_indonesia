@@ -20,9 +20,10 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 | | [inquiries.md](api/inquiries.md) | Kontrak `POST /api/v1/inquiries`: validasi, respons, proteksi spam, penyimpanan, privasi |
 | | [admin-auth.md](api/admin-auth.md) | Kontrak API admin B3.1a: tautan akses, masuk dengan TOTP, sesi, CSRF, keamanan akun sendiri |
 | | [admin-users.md](api/admin-users.md) | Kontrak API owner B3.1b: akun, undangan, peran, penangguhan, reset kredensial, pembacaan audit log |
+| | [admin-inquiries.md](api/admin-inquiries.md) | Kontrak API inquiry admin B4a: daftar dan detail dengan kontak disamarkan, alur status, catatan internal, pembukaan kontak yang dicatat |
 | [architecture/](architecture) | [architecture-overview.md](architecture/architecture-overview.md) | Gambaran repository, lapisan backend dan frontend, routing dan prerender, keputusan teknis |
 | | [integration-plan.md](architecture/integration-plan.md) | Batas sistem dengan Solveit OpsHub, endpoint usulan, peta jalan backend |
-| | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas dan administrasi (B3.1a, B3.1b), konsol (B3.2a sampai B3.2c), rilis privat (B3.2d, disiapkan, belum di-deploy), keputusan autentikasi, sesi, peran, audit, modul, desain, dan performa |
+| | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas dan administrasi (B3.1a, B3.1b), konsol (B3.2a sampai B3.2c), rilis privat (B3.2d, dirilis, belum di-deploy), API inquiry (B4a), keputusan autentikasi, sesi, peran, audit, modul, desain, dan performa |
 | | [visitor-analytics.md](architecture/visitor-analytics.md) | Rancangan (Planned) analitik pengunjung first-party: definisi metrik, privasi dan UU PDP, penyimpanan, near-real-time |
 | | [github-integration.md](architecture/github-integration.md) | Rancangan (Planned) integrasi GitHub organisasi `solveit-id`: kepemilikan OpsHub, GitHub App, webhook, tindakan berisiko |
 | [design/](design) | [design-system.md](design/design-system.md) | Prinsip visual, token, komponen, aturan motion dan aksesibilitas |

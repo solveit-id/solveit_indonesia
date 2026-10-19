@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\V1\Admin\AccessLinkController;
 use App\Http\Controllers\Api\V1\Admin\AccountController;
 use App\Http\Controllers\Api\V1\Admin\AuditEventController;
 use App\Http\Controllers\Api\V1\Admin\CsrfCookieController;
+use App\Http\Controllers\Api\V1\Admin\InquiryController;
+use App\Http\Controllers\Api\V1\Admin\InquiryNoteController;
 use App\Http\Controllers\Api\V1\Admin\InvitationController;
 use App\Http\Controllers\Api\V1\Admin\SessionController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
@@ -12,10 +14,10 @@ use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
 
-// Admin API (B3.1a; user administration B3.1b), loaded by bootstrap/app.php under
-// /api/v1/admin with the "admin" middleware group: host and origin boundary, encrypted
-// cookies, database session, request-forgery check. Contracts: docs/api/admin-auth.md,
-// docs/api/admin-users.md.
+// Admin API (B3.1a; user administration B3.1b; inquiry management B4a), loaded by
+// bootstrap/app.php under /api/v1/admin with the "admin" middleware group: host and origin
+// boundary, encrypted cookies, database session, request-forgery check. Contracts:
+// docs/api/admin-auth.md, docs/api/admin-users.md, docs/api/admin-inquiries.md.
 //
 // Every route belongs to exactly one tier below; tests/Feature/Admin/AdminRouteCoverageTest.php
 // fails for a route that is not listed there with its tier.
@@ -107,5 +109,32 @@ Route::middleware(['auth:web', 'auth.session', 'admin.active', 'admin.session-li
             ->middleware(['can:users.reset-credentials', 'password.confirm'])
             ->whereNumber('user')
             ->name('users.credential-reset.store');
+    });
+
+    // Inquiry management (B4a), for owner and admin. Reads show contacts masked. Opening a
+    // full contact is recorded every time and needs a fresh password confirmation (after
+    // `can:`) and its own tighter limit; status changes and notes have theirs. Contract:
+    // docs/api/admin-inquiries.md.
+    Route::middleware('can:inquiries.view')->group(function (): void {
+        Route::get('inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
+        Route::get('inquiries/{inquiry}', [InquiryController::class, 'show'])->whereNumber('inquiry')->name('inquiries.show');
+        Route::get('inquiries/{inquiry}/status-changes', [InquiryController::class, 'statusChanges'])->whereNumber('inquiry')->name('inquiries.status-changes.index');
+        Route::get('inquiries/{inquiry}/notes', [InquiryNoteController::class, 'index'])->whereNumber('inquiry')->name('inquiries.notes.index');
+    });
+
+    Route::post('inquiries/{inquiry}/contact-reveal', [InquiryController::class, 'revealContact'])
+        ->middleware(['can:inquiries.reveal-contact', 'password.confirm', 'throttle:admin-inquiry-contact'])
+        ->whereNumber('inquiry')
+        ->name('inquiries.contact-reveal.store');
+
+    Route::middleware('throttle:admin-inquiry-write')->group(function (): void {
+        Route::put('inquiries/{inquiry}/status', [InquiryController::class, 'updateStatus'])
+            ->middleware('can:inquiries.change-status')
+            ->whereNumber('inquiry')
+            ->name('inquiries.status.update');
+        Route::post('inquiries/{inquiry}/notes', [InquiryNoteController::class, 'store'])
+            ->middleware('can:inquiries.add-note')
+            ->whereNumber('inquiry')
+            ->name('inquiries.notes.store');
     });
 });

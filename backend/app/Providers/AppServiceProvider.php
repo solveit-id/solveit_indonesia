@@ -69,6 +69,16 @@ class AppServiceProvider extends ServiceProvider
 
         // Owner writes of user administration (invitations, roles, suspension, resets).
         RateLimiter::for('admin-administration', fn (Request $request): Limit => Limit::perMinute(20)->by('admin-administration|'.$request->user()?->getAuthIdentifier()));
+
+        // Inquiry status changes and notes (B4a).
+        RateLimiter::for('admin-inquiry-write', fn (Request $request): Limit => Limit::perMinute(60)->by('admin-inquiry-write|'.$request->user()?->getAuthIdentifier()));
+
+        // Full inquiry contacts (B4a): each reveal is deliberate and recorded, so the limit
+        // is low and also hourly, which bounds how many contacts one session can collect.
+        RateLimiter::for('admin-inquiry-contact', fn (Request $request): array => [
+            Limit::perMinute(10)->by('admin-inquiry-contact-minute|'.$request->user()?->getAuthIdentifier()),
+            Limit::perHour(60)->by('admin-inquiry-contact-hour|'.$request->user()?->getAuthIdentifier()),
+        ]);
     }
 
     /**

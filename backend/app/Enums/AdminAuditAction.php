@@ -36,4 +36,8 @@ enum AdminAuditAction: string
     case RoleChanged = 'account.role-changed';
     case AccountSuspended = 'account.suspended';
     case AccountReactivated = 'account.reactivated';
+
+    case InquiryContactRevealed = 'inquiry.contact-revealed';
+    case InquiryStatusChanged = 'inquiry.status-changed';
+    case InquiryNoteAdded = 'inquiry.note-added';
 }
