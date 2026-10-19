@@ -1,0 +1,36 @@
+# Optional override of compose.prod.yaml for the local team demo (B5a): the production images
+# of the admin console and Laravel, with a bundled MySQL holding synthetic data only, on the
+# owner's computer. NOT a deployment. Used only through infra/docker/scripts/manage-demo.sh,
+# which adds compose.prod.admin-tls.yaml, the profiles bundled-db and admin, its own project
+# name (solveit-demo), and an env file and secrets outside the repository; it runs
+# check-demo-stack.sh before anything that changes the stack.
+# Guide: docs/development/cloudflare-demo.md.
+#
+# What this file adds, nothing else:
+# - every service carries the label org.solveit.environment=demo, which the demo guard requires
+#   on every container of the project (a stack started without this file is refused);
+# - the public gateway and the website container move to a profile the demo never enables, so
+#   even a bare `docker compose up` of the demo project cannot start the public inquiry API
+#   (POST /api/v1/inquiries). The website demo is the static preview (frontend/scripts/serve.mjs).
+
+x-demo: &demo
+  labels:
+    org.solveit.environment: demo
+
+services:
+  gateway:
+    <<: *demo
+    profiles: [public-website-not-in-demo]
+  frontend:
+    <<: *demo
+    profiles: [public-website-not-in-demo]
+  backend:
+    <<: *demo
+  migrate:
+    <<: *demo
+  mysql:
+    <<: *demo
+  admin:
+    <<: *demo
+  admin-gateway:
+    <<: *demo
