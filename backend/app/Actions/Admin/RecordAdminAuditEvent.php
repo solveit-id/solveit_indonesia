@@ -6,6 +6,7 @@ use App\Enums\AdminActorType;
 use App\Enums\AdminAuditAction;
 use App\Models\AdminAccessLink;
 use App\Models\AdminAuditEvent;
+use App\Models\Inquiry;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -34,6 +35,9 @@ class RecordAdminAuditEvent
         'access_link_id',
         'access_links_revoked',
         'account_created',
+        'from_status',
+        'to_status',
+        'note_id',
     ];
 
     /**
@@ -95,6 +99,7 @@ class RecordAdminAuditEvent
         return match (true) {
             $subject instanceof User => 'user',
             $subject instanceof AdminAccessLink => 'access-link',
+            $subject instanceof Inquiry => 'inquiry',
             default => throw new InvalidArgumentException('Unsupported audit subject.'),
         };
     }

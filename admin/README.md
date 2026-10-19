@@ -1,6 +1,6 @@
 # Konsol admin Solveit (`admin/`)
 
-Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38), B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`), dan B3.2c (ruang kerja administrasi owner; PR #43, `c0ecde9`) dirilis ke `main`, belum di-deploy. B3.2d di branch `admin`: image produksi (nginx statis, tanpa Node) dan listener admin privat, disiapkan dan divalidasi dengan data sintetis, belum di-deploy** (bagian Produksi). Tidak ada hostname admin, sertifikat, atau akun produksi. Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
+Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38), B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`), B3.2c (ruang kerja administrasi owner; PR #43, `c0ecde9`), dan B3.2d (image produksi nginx statis tanpa Node dan listener admin privat; PR #44, rilis PR #45, `eb31fae`) dirilis ke `main`, belum di-deploy** (bagian Produksi). Tidak ada hostname admin, sertifikat, atau akun produksi. API pengelolaan inquiry (B4a, `docs/api/admin-inquiries.md`) ada di backend, tetapi konsol belum memanggilnya (B4b). Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`, `docs/api/admin-inquiries.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
 
 React 19, TypeScript strict, Vite 8, React Router 7 dalam **mode data** (bukan framework mode: tanpa skrip inline, CSP ketat), Tailwind CSS 4, ikon Phosphor, GSAP (inti saja, chunk lazy sejak B3.2c). Tanpa Axios, state manager global, pustaka komponen, pustaka grafik, atau pustaka smooth scroll (Lenis dievaluasi dan tidak dipakai, lihat Motion).
 
@@ -113,7 +113,7 @@ Admin membaca empat file website **di tempat, read-only, tanpa salinan** (`vite.
 - CSP produksi tetap ketat: GSAP menulis gaya lewat CSSOM (diizinkan `style-src 'self'`) dan atribut `transform` SVG; tes browser memeriksa nol pelanggaran CSP.
 - **Lenis tidak dipakai.** Konsol adalah permukaan Operate dengan scroll native: rail dan menu ponsel punya scroll sendiri, dialog native, tabel, `scroll-margin`, pemulihan scroll React Router, dan fokus keyboard semuanya bergantung pada scroll native, dan `docs/DESIGN.md` melarang pustaka smooth scroll. Tidak ada area yang terbukti lebih baik dengan Lenis (sentuhan di ponsel tetap native di Lenis), jadi tidak ada byte atau listener tambahan.
 
-## Produksi (B3.2d, belum di-deploy)
+## Produksi (B3.2d, dirilis, belum di-deploy)
 
 Image `infra/docker/admin/Dockerfile` target `prod`: `vite build`, `check-build.mjs`, dan `scripts/write-nginx-headers.mjs` berjalan di tahap build; runtime hanya `dist/` di nginx unprivileged (`infra/docker/nginx/admin.conf`), tanpa Node, sumber, atau source map. CSP dikirim sebagai header HTTP (meta CSP ditambah `frame-ancestors 'none'`, dari `security-policy.ts` yang sama), HTML `no-store`, aset hashed `private, max-age=31536000, immutable`, semua path selain file menjadi `index.html`.
 

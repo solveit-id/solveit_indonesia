@@ -104,7 +104,7 @@ class AdminUserAdministrationTest extends TestCase
     {
         $this->signIn($this->createActiveAdmin());
 
-        $this->adminRequest('GET', 'me')->assertOk()->assertJsonPath('data.permissions', ['account.manage-own']);
+        $this->adminRequest('GET', 'me')->assertOk()->assertJsonPath('data.permissions', self::ADMIN_PERMISSIONS);
     }
 
     public function test_the_user_list_shows_admin_accounts_without_secrets(): void
