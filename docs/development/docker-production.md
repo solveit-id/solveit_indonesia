@@ -254,6 +254,10 @@ SOLVEIT_DRILL_PROJECT=solveit-drill-smoke SOLVEIT_PROD_PROJECT=solveit-drill-smo
 
 Tidak ada. Aplikasi saat ini tidak mengirim job dan tidak punya jadwal (`QUEUE_CONNECTION=sync`, `routes/console.php` tanpa jadwal). Tambahkan service worker atau scheduler hanya bila fitur yang membutuhkannya dibangun.
 
+## Demo tim lokal (B5a)
+
+Demo Admin untuk tim memakai image produksi yang sama, tetapi lewat alatnya sendiri: `infra/docker/scripts/manage-demo.sh` (di Windows `manage-demo.ps1`) dengan override `compose.prod.demo.yaml`, project `solveit-demo`, volume `solveit-demo_mysql-data`, env dan secret di luar repository, dan penjaga `check-demo-stack.sh`. Gateway publik dan API inquiry publik tidak dijalankan. Ini bukan deployment; panduannya `docs/development/cloudflare-demo.md`. Skrip di bawah (smoke test, drill) menolak project demo.
+
 ## Uji lokal mirip produksi
 
 Untuk QA saja, dengan data sintetis dan proyek terisolasi (tidak menyentuh `solveit-mysql` atau database pengembangan):

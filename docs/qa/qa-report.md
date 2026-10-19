@@ -2,6 +2,64 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B5a rekonsiliasi rilis B4b dan persiapan demo Cloudflare (2026-10-19)
+
+Cakupan: fakta rilis B4b (bagian di bawah), alat demo tim lokal untuk Solveit Admin (`infra/docker/scripts/manage-demo.sh`, `manage-demo.ps1`, `check-demo-stack.sh`, `compose.prod.demo.yaml`, `infra/docker/demo/seed-demo-data.php`), tes negatif dan tes browser nyata untuk demo, job **Docker CI** `demo`, runbook `docs/development/cloudflare-demo.md`, walkthrough `docs/development/demo-walkthrough.md`, dan asesmen `docs/architecture/shared-hosting-assessment.md`. Tidak ada perubahan backend, kontrak API, migrasi, website publik, atau `check-synthetic-stack.sh`. Tidak ada deployment, tidak ada tunnel yang dibuka oleh agent, kanal inquiry publik tetap nonaktif.
+
+### Audit sebelum implementasi
+
+- `AdminRequestBoundary` membandingkan `Host` dan `Origin` dengan `ADMIN_URL` (port bawaan skema diabaikan); `admin-gateway` meneruskan `Host` lewat FastCGI apa adanya dan membuang header terusan. Di belakang cloudflared (HTTPS diputus di Cloudflare, HTTP ke `127.0.0.1`), `Host` tetap URL tunnel dan `Origin` browser `https://<tunnel>`, jadi `ADMIN_URL=https://<tunnel>` cukup tanpa mengubah kontrak.
+- Cookie sesi `Secure` dan `__Host-` ditentukan oleh skema `ADMIN_URL` di konfigurasi, bukan oleh skema permintaan; `PreventRequestForgery` Laravel 13 memakai `Sec-Fetch-Site` atau token, tidak memakai skema. Jadi TLS di depan listener tidak melemahkan apa pun.
+- Rate limit dan audit memakai `REMOTE_ADDR`. Tanpa penyesuaian, semua orang lewat tunnel terlihat sebagai satu alamat (gateway jaringan Docker) dan berbagi batas masuk 20 per jam per alamat. `SOLVEIT_ADMIN_REAL_IP_FROM` (B3.2d) dipakai untuk mempercayai tepat satu alamat jalur loopback, diukur saat start.
+- Gateway publik `compose.prod.yaml` melayani `POST /api/v1/inquiries`; menjalankannya di demo sama dengan membuka API inquiry. Override demo memindahkannya ke profil yang tidak pernah aktif.
+- `check-synthetic-stack.sh` hanya menerima origin `.test` dan nama proyek `smoke|drill|ci`; tidak dilonggarkan. Demo mendapat penjaga sendiri, dan penolakan proyek demo oleh skrip smoke test dan drill menjadi bagian isolasi.
+- Cloudflare: `--allowed-mail` ada sejak cloudflared 2026.9.3 (blog Cloudflare "Protected Quick Tunnels", dokumentasi Quick Tunnels: tanpa SLA, 200 permintaan bersamaan, tanpa SSE, URL berubah, butuh browser interaktif). Issue terbuka cloudflare/cloudflared#1752: sesi berakhir sekitar 5 detik setelah PIN, GET dialihkan ke login dan POST mendapat `401` polos; dilaporkan juga pada 2026.10.1, versi yang terpasang di komputer pemilik (`C:\Program Files (x86)\cloudflared`, flag `--allowed-mail` ada di `cloudflared tunnel --help`).
+
+### Hasil lokal (Windows 11, Docker Desktop 29.8.2, Git Bash, PowerShell 5.1, proyek latihan `solveit-demo-qa`)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `manage-demo.sh prepare` (build image `backend` dan `admin` tag `demo`, MySQL, migrasi, seed) | Lulus. Dijalankan dua kali (yang pertama berhenti di pembuatan sertifikat, lihat temuan); empat secret yang sudah ada identik byte per byte (md5) |
+| Seed | 6 inquiry, 9 perubahan status, 6 catatan, 2 pembukaan kontak, 1 persona; menjalankan lagi: semua 0 (idempoten) |
+| `check` mode lokal (bash dan `manage-demo.ps1`) | `SIAP`: 8 baris pengaman, 4 layanan sehat, tanpa migrasi tertunda, konsol 200 dengan CSP ketat dan `no-store`, rute SPA, `__Host-` Secure HttpOnly SameSite=Strict Path=/ tanpa Domain, XSRF-TOKEN Secure Strict, origin asing 403, tulis tanpa CSRF 419, API inquiry publik 404, host lain 421 |
+| `check` mode tunnel (`tunnel` dengan host Quick Tunnel tiruan, `SOLVEIT_DEMO_SKIP_PUBLIC_PROBE=1`) | `SIAP`, plus `X-Forwarded-For` terakhir dipakai hanya dari jalur loopback yang diukur (`172.24.0.1`, setelah reset `172.23.0.1`, diukur ulang otomatis) |
+| `npx playwright test --config playwright.demo.config.ts`, mode lokal | 1 passed: owner lewat `manage-demo owner`, aktivasi dengan TOTP dan kode pemulihan, cookie `__Host-`, enam inquiry dengan urutan dan empat status, riwayat dan catatan persona, kontak tersamar, perubahan status, audit `inquiry.*` dan `owner.bootstrap-issued`, keluar dan masuk dengan TOTP, tanpa rahasia di penyimpanan browser, 0 pelanggaran CSP |
+| Tes yang sama, mode tunnel di belakang pengganti edge lokal (TLS, `X-Forwarded-For` ditambahkan seperti Cloudflare) | 1 passed; semua kejadian audit owner beralamat pengunjung tiruan `198.51.100.23`, juga saat browser mengirim `X-Forwarded-For: 203.0.113.50` palsu |
+| `test-demo-guards.sh` | 115 PASS (mode lokal), 116 PASS (mode tunnel, termasuk header terusan dari container internal diabaikan); snapshot container, waktu start, baris, volume, dan `ADMIN_URL` identik setelah setiap kelompok penolakan |
+| `reset` | Konfirmasi salah ditolak dan volume tetap; konfirmasi benar menghapus hanya container, jaringan, dan volume `solveit-demo-qa` |
+| shellcheck (perintah Docker CI, semua skrip) | Bersih |
+| Konfigurasi Compose demo | Hanya `admin`, `admin-gateway`, `backend`, `mysql`; semua berlabel demo; semua port `127.0.0.1` |
+| Admin `npm run check` | Bersih; Vitest 449 (448 sebelum, +1 jalur fase); JS awal 136.5 KB gzip |
+| Admin mocked browser suite | desktop 61 (+2 skip), tablet 62 (+1), mobile 62 (+1) |
+| Mesin pemilik | `solveit-mysql` ID `7286975bacf9`, start `2026-10-18T11:25:41Z`, sama sebelum dan sesudah; volume `solveit-mysql-data` tidak disentuh; preview website pemilik di port 4173 (PID yang sama) tidak disentuh; proyek latihan dihapus setelah uji (0 container, volume, jaringan) |
+
+### Ditemukan dan diperbaiki selama QA
+
+- `openssl` dan `curl` dari Git for Windows adalah program native: dengan `MSYS_NO_PATHCONV=1` mereka menerima path `/c/...` yang tidak dikenal, sehingga pembuatan sertifikat gagal. Kini diberi path Windows (`cygpath -m`), seperti skrip lain.
+- `check` menambahkan `000` pada kode status bila curl keluar non-zero setelah mencetak kode (`421000`). Kode kini ditangkap sekali dengan nilai bawaan `000`.
+- Trap `RETURN` di `check` tetap aktif setelah fungsi selesai dan memicu `set -u`; diganti trap `EXIT` dengan variabel global.
+- Daftar inquiry diurutkan menurut ID (cursor Laravel), jadi fixture lama yang disimpan terakhir tampil paling atas. Seed kini menyimpan yang tertua lebih dulu.
+- Request konsol Laravel di proses CLI mengaku `REMOTE_ADDR=127.0.0.1` dan user agent "Symfony"; kejadian audit seed kini tanpa alamat IP dan dengan user agent "Solveit demo seed (data sintetis)".
+- `prepare` sempat membuat folder status sebelum memeriksa bahwa folder itu di luar repository; kini path diputuskan lebih dulu (tes negatif memastikan tidak ada folder yang dibuat).
+- Label status "closed" di konsol adalah "Selesai", bukan "Ditutup" (tes dan dokumen diselaraskan).
+- **Ditemukan oleh job CI `demo` pertama (Docker CI 39274565006):** dengan host Quick Tunnel yang panjang, nginx `admin-gateway` menolak start (`could not build server_names_hash, you should increase server_names_hash_bucket_size: 64`), sehingga container tidak sehat. Nama Quick Tunnel sungguhan (empat kata acak) bisa sepanjang itu, jadi pemilik bisa terkena. Diperbaiki khusus demo: `compose.prod.demo.yaml` memasang `nginx/admin-gateway-demo.conf.template` (`server_names_hash_bucket_size 128`); konfigurasi produksi tidak berubah (hostname admin produksi pendek). Host CI kini sengaja panjang (77 karakter) sebagai tes regresi; diulang lokal: `check` `SIAP` dan tes browser mode tunnel lulus. Sertifikat pengganti edge memakai CN pendek karena CN X.509 dibatasi 64 karakter (host tetap di subjectAltName).
+
+### Tidak dijalankan atau tidak berlaku
+
+- **Cloudflare end to end: NOT RUN.** Agent tidak membuka tunnel publik (larangan brief). Perlindungan `--allowed-mail`, sesi Cloudflare, dan pemeriksaan probe terhadap tunnel sungguhan harus diuji pemilik: runbook bagian 8. Logika klasifikasi probe dites dengan 12 kasus di `test-demo-guards.sh`.
+- **Tunnel Admin interaktif jarak jauh: berisiko BLOCKED** sampai uji bagian 8 lulus, karena issue #1752 masih terbuka dan direproduksi pada 2026.10.1. Jalur yang disarankan: mode lokal dan berbagi layar.
+- Backend `php artisan test`: tidak berlaku (tidak ada perubahan di `backend/`; image demo dibangun dari kode `main`).
+- Website: tidak ada perubahan di `frontend/`; build tidak diulang karena preview pemilik sedang menyajikan `build/client`.
+- Admin real-browser suite (Laravel dan MySQL 8.4.11 di database tes): tablet 4 passed dan mobile 4 passed secara lokal; desktop diserahkan ke **Admin integration** di CI (riwayat crash Chromium lokal karena memori).
+
+## B4b rilis dan rekonsiliasi status (2026-10-19, putaran B5a)
+
+- **Rilis:** PR #48 (`admin` ke `staging`, head `ccdb022`) di-merge pemilik sebagai `37db32a`; PR rilis #49 (`staging` ke `main`) di-merge sebagai `11b0a7d`, tree `738517f`. `admin`, `backend`, dan `frontend` di-fast-forward ke `11b0a7d`; `staging` tetap di `37db32a` dengan tree yang sama. Diperiksa ulang di awal B5a dengan `git fetch --prune` dan `git rev-parse` (kelima branch remote: tree `738517f`).
+- **CI:** head `ccdb022`: Admin CI 39243316078 dan 39243304100, Admin integration 39243316335 dan 39243304572, Docker CI 39243316035 dan 39243303976; PR #49: Admin CI 39246628252, Admin integration 39246628059, Docker CI 39246628012. Semua hijau.
+- **Penerimaan pemilik (komentar PR #48):** desain konsol inquiry dan layout Opsi B diterima; waiver concept-seed **khusus B4b** dengan tetap mengacu pada design system B3.2c; RBAC owner dan admin dipertahankan untuk operator internal tepercaya; pembacaan biasa tidak diaudit, sedangkan pembukaan kontak dan mutasi tetap wajib diaudit; risiko residual B4b diterima; kebijakan privasi, retensi, penghapusan, aktivasi formulir publik, dan integrasi OpsHub tetap pending.
+- **Persetujuan rilis (komentar PR #49):** hanya merge ke `main`; bukan deployment produksi dan bukan aktivasi kanal inquiry publik.
+- **Konsol:** jalur fase kini menandai B4b dirilis, tidak ada fase "sedang dibangun", dan tidak ada fase B5 yang ditambahkan (belum ada keputusan desain). Pengantar jalur fase berbunyi "API dan konsol admin sudah dirilis ke main, tetapi belum di-deploy ke mana pun" (EN: "The admin API and console are released to main but not deployed anywhere"); label status tetap "Dirilis, belum di-deploy". Tes baru di `admin/src/app/app.test.tsx` memeriksa delapan fase, semua dirilis, tanpa `aria-current`; tes itu gagal bila B4b dikembalikan ke `current` (diperiksa).
+
 ## B4b konsol inquiry (2026-10-19)
 
 Cakupan: layar `/inquiry` dan `/inquiry/:id` di `admin/` di atas API B4a (`docs/api/admin-inquiries.md`), klien inquiry bertipe, label audit `inquiry.*` dan filter `?inquiry=` di audit log, grup navigasi Operasional, jalur fase (B3.2d dan B4a dirilis, B4b sekarang) dan kapsul lingkungan "Konsol B4b". Dibangun dan dites di branch `admin` dari `58cead5`; **belum dirilis, belum di-deploy**. Backend, kontrak API, infrastruktur, dan website publik tidak diubah.

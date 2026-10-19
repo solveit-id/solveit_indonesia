@@ -484,6 +484,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 │   └── docker/
 │       ├── compose.dev.yaml            Lingkungan pengembangan lengkap
 │       ├── compose.prod.yaml           Deployment produksi berbasis Docker
+│       ├── compose.prod.<opsi>.yaml    Override opsional tanpa name: (proyek ini: admin-tls, demo)
 │       ├── production.env.example      Template konfigurasi runtime produksi, tanpa rahasia
 │       ├── <aplikasi>/                 Satu folder per image (backend/, frontend/, admin/)
 │       │   ├── Dockerfile              Multi-stage, target bernama (dev, build, prod)
@@ -493,8 +494,11 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 │       ├── nginx/<peran>.conf          Konfigurasi nginx atau reverse proxy (frontend.conf, gateway.conf, admin.conf);
 │       │                               template runtime <peran>.conf.template dan hook entrypoint *.envsh untuk image resmi
 │       ├── mysql/initdb-<lingkungan>/  Provisioning database yang dikelola file Compose di folder ini
+│       ├── demo/                       Data contoh sintetis demo tim (seed-demo-data.php), tidak masuk image
 │       ├── scripts/<kata-kerja>-<objek>.sh   Skrip operasional (setup-dev.sh, verify-production.sh, verify-admin.sh, drill-backup-restore.sh,
-│       │                               check-synthetic-stack.sh, test-safety-guards.sh)
+│       │                               check-synthetic-stack.sh, test-safety-guards.sh, manage-demo.sh,
+│       │                               check-demo-stack.sh, test-demo-guards.sh); manage-demo.ps1 adalah
+│       │                               satu-satunya pintu masuk PowerShell, hanya memanggil skrip bash-nya
 │       └── secrets/                    [L] Rahasia produksi, diabaikan Git
 └── <aplikasi>/docker/<layanan>/        Infrastruktur milik satu aplikasi yang juga dipakai tanpa infra/
 ```
@@ -507,7 +511,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 
 ### 11.2 File Compose, Dockerfile, dan konteks build
 
-1. File Compose: `infra/docker/compose.<lingkungan>.yaml` (`dev`, `prod`), tidak di root repository (bagian 1, prinsip 2). Setiap file punya `name:` di tingkat atas. Perintah dijalankan dari root dengan `-f`. Opsi yang menambah sesuatu pada satu lingkungan adalah file override `compose.<lingkungan>.<opsi>.yaml` tanpa `name:` (**proyek ini:** `compose.prod.admin-tls.yaml`), dipakai dengan `-f` kedua; bukan cabang di dalam file utama.
+1. File Compose: `infra/docker/compose.<lingkungan>.yaml` (`dev`, `prod`), tidak di root repository (bagian 1, prinsip 2). Setiap file punya `name:` di tingkat atas. Perintah dijalankan dari root dengan `-f`. Opsi yang menambah sesuatu pada satu lingkungan adalah file override `compose.<lingkungan>.<opsi>.yaml` tanpa `name:` (**proyek ini:** `compose.prod.admin-tls.yaml`, dan `compose.prod.demo.yaml` untuk demo tim lokal sejak B5a), dipakai dengan `-f` kedua; bukan cabang di dalam file utama.
 2. Dockerfile: satu per image di `infra/docker/<aplikasi>/Dockerfile`, multi-stage dengan target bernama: `dev` (server pengembangan, kode di-bind-mount), `build` atau `vendor` (dependensi dan kompilasi), `prod` (runtime minimum). Folder aplikasi tidak berisi Dockerfile.
 3. Konteks build adalah root repository. Setiap Dockerfile punya `Dockerfile.dockerignore` di sebelahnya yang dimulai dengan `*` lalu hanya membuka path yang dibutuhkan, dan tetap mengecualikan `.env*`, folder secret, `vendor/`, `node_modules/`, tes, dump, log, file agent, dan `.git`. Tidak ada `.dockerignore` di root.
 4. Image dasar dikunci ke tag patch resmi yang sudah diverifikasi ada (**proyek ini:** `php:8.5.11-fpm-bookworm`, `node:22.23.1-bookworm-slim`, `nginxinc/nginx-unprivileged:1.30.6-alpine`, `mysql:8.4.11`, `composer:2.10.3`), bukan `latest`. Versi minimum proyek (PHP 8.5.7, Node 22, MySQL 8.4) ditegaskan di dalam build atau di CI.
@@ -518,7 +522,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 1. Konfigurasi nginx atau reverse proxy: `infra/docker/nginx/<peran>.conf`. Konfigurasi untuk image buatan proyek di-bake (`COPY`); untuk image resmi tanpa build di-mount read-only.
 2. Konfigurasi pengembangan dan produksi berada di file terpisah, tidak satu file yang bercabang menurut variabel. Pengembangan: bind mount kode, server dev, dev dependency, port loopback. Produksi: kode di dalam image, tanpa bind mount kode, `APP_DEBUG=false`, konfigurasi runtime di `<aplikasi>/<runtime>/production.*`.
 3. Entrypoint: `entrypoint-<target>.sh` di sebelah Dockerfile, POSIX `sh` dengan `set -eu`, diakhiri `exec "$@"`. Entrypoint tidak pernah menjalankan migrasi, menghapus data, atau mencetak rahasia; ia boleh memasang dependensi ke volume yang kosong dan membuat folder kerja.
-4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`. Skrip uji yang mengubah stack (akun, data, restart, rollback, volume) tidak punya default proyek atau konfigurasi dan menjalankan penjaga baca-saja lebih dulu (**proyek ini:** `check-synthetic-stack.sh`), yang menolak apa pun selain stack sintetis sekali pakai; penolakannya dibuktikan dengan tes negatif.
+4. Skrip operasional: `infra/docker/scripts/<kata-kerja>-<objek>.sh` (bash). Idempoten, hanya membuat yang belum ada, tidak pernah menimpa `.env` atau secret, tidak pernah `down -v`. Skrip uji yang mengubah stack (akun, data, restart, rollback, volume) tidak punya default proyek atau konfigurasi dan menjalankan penjaga baca-saja lebih dulu (**proyek ini:** `check-synthetic-stack.sh`), yang menolak apa pun selain stack sintetis sekali pakai; penolakannya dibuktikan dengan tes negatif. Lingkungan dengan aturan berbeda mendapat penjaga sendiri, bukan pengecualian di penjaga yang ada (**proyek ini:** demo tim lokal B5a memakai `check-demo-stack.sh` untuk origin `*.trycloudflare.com` dan `admin.<proyek>.localhost`, diuji oleh `test-demo-guards.sh`; `check-synthetic-stack.sh` tetap menolak proyek demo). Pembungkus untuk shell lain (misalnya `manage-demo.ps1` untuk PowerShell) hanya mencari bash dan meneruskan argumen; semua pemeriksaan tetap di skrip bash.
 
 ### 11.4 Rahasia, environment, dan data
 
@@ -540,7 +544,7 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 | Jenis | Aturan | **(proyek ini)** |
 |---|---|---|
 | File Compose | `compose.<lingkungan>.yaml` | `compose.dev.yaml`, `compose.prod.yaml` |
-| Nama proyek Compose | `<repo>` untuk pengembangan, `<repo>-<lingkungan>` untuk lainnya | `solveit-indonesia`, `solveit-indonesia-prod` |
+| Nama proyek Compose | `<repo>` untuk pengembangan, `<repo>-<lingkungan>` untuk lainnya | `solveit-indonesia`, `solveit-indonesia-prod`, `solveit-demo` (demo tim lokal; latihan dan CI `solveit-demo-<akhiran>`) |
 | Image | `<repo>/<aplikasi>:<tag>`; `dev` untuk pengembangan, SHA Git atau `local` untuk produksi | `solveit-indonesia/backend:dev` |
 | Target build | `base`, `dev`, `build`/`vendor`, `prod` | |
 | Volume | `kebab-case` menurut isinya | `backend-vendor`, `frontend-node-modules`, `mysql-data` |
@@ -593,7 +597,8 @@ Bagian ini menentukan **di mana** file infrastruktur berada dan aturan arsitektu
 | Layanan Docker milik satu aplikasi (misalnya database lokal alur native) | `<aplikasi>/docker/<layanan>/`, disertakan oleh Compose bersama |
 | Konfigurasi runtime produksi | Template `infra/docker/production.env.example`; file nyata `production.env` hanya di server |
 | Rahasia Docker | `infra/docker/secrets/` atau `<aplikasi>/docker/<layanan>/secrets/`, diabaikan Git |
-| Panduan Docker (perintah) | `docs/development/docker-development.md`, `docs/development/docker-production.md` |
+| Panduan Docker (perintah) | `docs/development/docker-development.md`, `docs/development/docker-production.md`, `docs/development/cloudflare-demo.md` (demo tim lokal) |
+| Data contoh untuk demo | `infra/docker/demo/`, dijalankan lewat `manage-demo.sh`, hanya alamat `@example.test`; tidak pernah seeder Laravel di image produksi |
 | Rahasia | `.env` lokal atau file secret Docker saja; nama variabelnya di `.env.example` atau `*.env.example` |
 | Screenshot atau bukti audit | Folder yang diabaikan Git, angkanya di laporan QA |
 

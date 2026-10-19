@@ -38,7 +38,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Unresolved
 
-- Seed: the finish reviewer asks for a recorded concept-seed reference or the owner's explicit waiver. Neither exists yet (2026-10-17, reaffirmed 2026-10-18 for B3.2c); no waiver is recorded until the owner gives one.
+- Seed: the finish reviewer asks for a recorded concept-seed reference or the owner's explicit waiver. For B3.2a to B3.2c neither exists (kept pending 2026-10-17, reaffirmed 2026-10-18 for B3.2c). For B4b only, the owner granted the waiver in the PR #48 acceptance (2026-10-19), on the condition that the inquiry screens keep following the B3.2c design system. It does not extend to earlier or later phases; a new admin phase needs its own seed or waiver.
 
 - Production hostname, TLS, listener exposure (B3.2d).
 - Whether audit reads are themselves audited (owner).

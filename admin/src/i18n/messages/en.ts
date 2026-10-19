@@ -374,8 +374,7 @@ export const en: Messages = {
   },
   phases: {
     title: "Build phases",
-    intro:
-      "The admin API is released to main but not deployed anywhere. This console follows phase by phase.",
+    intro: "The admin API and console are released to main but not deployed anywhere.",
     status: {
       released: "Released, not deployed",
       current: "In progress",

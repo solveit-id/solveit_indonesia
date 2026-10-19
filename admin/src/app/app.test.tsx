@@ -110,6 +110,35 @@ describe("private area", () => {
     expect(screen.getByText("Anda masuk sebagai Contoh Admin, Admin.")).toBeInTheDocument();
   });
 
+  it("shows every phase through B4b as released and none as deployed or in progress", async () => {
+    mockAdminApi({ "GET me": me() });
+    renderApp("/");
+    await screen.findByRole("heading", { level: 1, name: "Beranda konsol" });
+
+    const track = screen.getByRole("region", { name: "Tahap pembangunan" });
+    const rows = within(track).getAllByRole("listitem");
+    expect(rows.map((row) => within(row).getByRole("heading", { level: 3 }).textContent)).toEqual([
+      "B3.1aIdentitas backend",
+      "B3.1bAdministrasi pengguna dan audit (API)",
+      "B3.2aFondasi konsol",
+      "B3.2bMasuk, aktivasi, dan pemulihan",
+      "B3.2cRuang kerja administrasi",
+      "B3.2dRilis admin privat",
+      "B4aPengelolaan inquiry (API)",
+      "B4bKonsol inquiry",
+    ]);
+    for (const row of rows) {
+      expect(row).not.toHaveAttribute("aria-current");
+      expect(within(row).getByText("Dirilis, belum di-deploy")).toBeInTheDocument();
+    }
+    expect(within(track).queryByText("Sedang dibangun")).toBeNull();
+    expect(
+      within(track).getByText(
+        "API dan konsol admin sudah dirilis ke main, tetapi belum di-deploy ke mana pun.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("signs out, clears the account view, and lands on sign-in", async () => {
     const api = mockAdminApi({
       "GET me": [me(), unauthenticated()],

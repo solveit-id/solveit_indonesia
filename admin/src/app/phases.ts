@@ -4,7 +4,9 @@
  * titles and details per language are in src/i18n/messages/. Update both when a phase moves.
  *
  * `released`: merged to main, not deployed (no phase is deployed). `current`: being built on
- * the `admin` branch. `planned`: not started.
+ * the `admin` branch. `planned`: not started. Since the B4b release (PR #49, 2026-10-19) every
+ * phase is released and none is current: a new phase is added here only once its scope and
+ * design are decided, never as a placeholder.
  */
 export type PhaseStatus = "released" | "current" | "planned";
 
@@ -24,5 +26,5 @@ export const phases: Phase[] = [
   { code: "b32c", label: "B3.2c", status: "released" },
   { code: "b32d", label: "B3.2d", status: "released" },
   { code: "b4a", label: "B4a", status: "released" },
-  { code: "b4b", label: "B4b", status: "current" },
+  { code: "b4b", label: "B4b", status: "released" },
 ];
