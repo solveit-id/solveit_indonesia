@@ -340,7 +340,7 @@ cmd_tunnel() {
         die "tunnel ini TIDAK meminta kode email. Admin tidak dibuka. Hentikan cloudflared (Ctrl+C), lalu jalankan lagi dengan --allowed-mail <email-tim>."
         ;;
       *)
-        die "tunnel belum dapat diperiksa (${verdict#unknown }). Pastikan jendela cloudflared masih berjalan dan URL-nya benar, tunggu 30 detik, lalu ulangi."
+        die "tunnel belum dapat diperiksa (${verdict#unknown }). Pastikan demo berjalan ($entry start), jendela cloudflared masih terbuka, dan URL-nya benar; tunggu 30 detik, lalu ulangi. Admin tidak dibuka."
         ;;
     esac
   fi
