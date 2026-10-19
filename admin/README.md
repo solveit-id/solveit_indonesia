@@ -1,6 +1,6 @@
 # Konsol admin Solveit (`admin/`)
 
-Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38) dan B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`) dirilis ke `main`, belum di-deploy. B3.2c (ruang kerja administrasi owner: pengguna, detail akun dengan perubahan peran, penangguhan, aktivasi ulang, dan reset kredensial, undangan, audit log) dibangun dan dites di branch `admin`, menunggu tinjauan pemilik.** Belum ada rilis admin privat (B3.2d); tidak ada akun produksi. Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
+Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38), B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`), dan B3.2c (ruang kerja administrasi owner; PR #43, `c0ecde9`) dirilis ke `main`, belum di-deploy. B3.2d di branch `admin`: image produksi (nginx statis, tanpa Node) dan listener admin privat, disiapkan dan divalidasi dengan data sintetis, belum di-deploy** (bagian Produksi). Tidak ada hostname admin, sertifikat, atau akun produksi. Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
 
 React 19, TypeScript strict, Vite 8, React Router 7 dalam **mode data** (bukan framework mode: tanpa skrip inline, CSP ketat), Tailwind CSS 4, ikon Phosphor, GSAP (inti saja, chunk lazy sejak B3.2c). Tanpa Axios, state manager global, pustaka komponen, pustaka grafik, atau pustaka smooth scroll (Lenis dievaluasi dan tidak dipakai, lihat Motion).
 
@@ -36,8 +36,8 @@ Untuk pemeriksaan koneksi, Laravel harus berjalan: `php artisan serve` di `backe
 ```text
 admin/
 ├── public/              theme-init.js (tema sebelum paint, eksternal karena CSP), robots.txt
-├── scripts/             check-build.mjs
-├── security-policy.ts   CSP dan header keamanan: satu definisi untuk dev, preview, build (dan B3.2d)
+├── scripts/             check-build.mjs, write-nginx-headers.mjs (header produksi dari security-policy.ts)
+├── security-policy.ts   CSP dan header keamanan: satu definisi untuk dev, preview, build, dan header nginx produksi (B3.2d)
 ├── src/
 │   ├── app/             router (mode data, lazy), layout akar dan privat, error boundary, peringatan idle, metadata route, data fase
 │   ├── auth/            sesi di memori, loader penjaga (GET me), jalur kembali yang aman, salinan galat
@@ -54,7 +54,8 @@ admin/
 │   ├── services/admin-api/  klien API bertipe: satu-satunya tempat yang memanggil Laravel; owner.ts untuk endpoint owner
 │   └── styles/admin.css lapisan admin di atas token merek bersama
 ├── tests/e2e/           Playwright pada build referensi, API di-mock
-└── tests/integration/   Playwright pada build produksi terhadap Laravel dan MySQL nyata (playwright.integration.config.ts)
+├── tests/integration/   Playwright pada build produksi terhadap Laravel dan MySQL nyata (playwright.integration.config.ts)
+└── tests/production/    Playwright pada image produksi di belakang listener admin, TLS nyata (playwright.production.config.ts, B3.2d)
 ```
 
 ## Design system bersama
@@ -111,6 +112,20 @@ Admin membaca empat file website **di tempat, read-only, tanpa salinan** (`vite.
 - Pemakaian: konten layar naik saat layar berganti (bukan layar pertama), kapsul aktif navigasi berpindah dari item sebelumnya (FLIP), baris baru daftar naik (paling banyak 12, kurang dari 300 ms), langkah dialog bergeser masuk, fakta yang berubah setelah tindakan bergeser masuk, dan momen fokus: tanda Solveit merakit diri dari empat kapsulnya pada sumbu 33 derajat saat tautan sekali tampil muncul (keputusan pemilik 2026-10-18).
 - CSP produksi tetap ketat: GSAP menulis gaya lewat CSSOM (diizinkan `style-src 'self'`) dan atribut `transform` SVG; tes browser memeriksa nol pelanggaran CSP.
 - **Lenis tidak dipakai.** Konsol adalah permukaan Operate dengan scroll native: rail dan menu ponsel punya scroll sendiri, dialog native, tabel, `scroll-margin`, pemulihan scroll React Router, dan fokus keyboard semuanya bergantung pada scroll native, dan `docs/DESIGN.md` melarang pustaka smooth scroll. Tidak ada area yang terbukti lebih baik dengan Lenis (sentuhan di ponsel tetap native di Lenis), jadi tidak ada byte atau listener tambahan.
+
+## Produksi (B3.2d, belum di-deploy)
+
+Image `infra/docker/admin/Dockerfile` target `prod`: `vite build`, `check-build.mjs`, dan `scripts/write-nginx-headers.mjs` berjalan di tahap build; runtime hanya `dist/` di nginx unprivileged (`infra/docker/nginx/admin.conf`), tanpa Node, sumber, atau source map. CSP dikirim sebagai header HTTP (meta CSP ditambah `frame-ancestors 'none'`, dari `security-policy.ts` yang sama), HTML `no-store`, aset hashed `private, max-age=31536000, immutable`, semua path selain file menjadi `index.html`.
+
+Di depan image itu ada listener admin privat `admin-gateway` (Compose profil `admin`, loopback secara default): konsol dan `/api/v1/admin` pada satu origin `ADMIN_URL`, host lain `421`, gateway publik tetap menolak semua path admin. Arsitektur, opsi paparan, TLS, proxy tepercaya, dan keputusan pemilik: `docs/development/docker-production.md`, Admin privat.
+
+`npm run` tidak punya perintah untuk ini; tes browser produksi dijalankan pada stack Docker produksi sintetis yang sudah berjalan (urutan lengkap di panduan produksi, Uji lokal mirip produksi):
+
+```bash
+npx playwright test --config playwright.production.config.ts   # SOLVEIT_PROD_PROJECT, SOLVEIT_ADMIN_URL
+```
+
+Tes itu membuat owner pertama dengan `admin:bootstrap-owner`, jadi hanya berjalan sekali per database. Tanpa trace, screenshot, atau video; asersi cookie dan rahasia tidak pernah mencetak nilai.
 
 ## Tes browser nyata (Laravel dan MySQL)
 

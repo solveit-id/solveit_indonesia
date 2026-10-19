@@ -116,13 +116,13 @@ Hover yang menggerakkan sesuatu (ikon tema, gulungan label bahasa, panah kembali
 | Badge teknologi | Logo resmi (Simple Icons, CC0) dalam sumur porselen, berwarna tinta di kedua tema, dan nama yang selalu tertulis. Bukan tautan atau tombol. Nama generik (REST API) memakai glyph netral. Pada studi kasus demo judulnya "Teknologi yang diusulkan" disertai catatan bahwa ini usulan, bukan stack proyek klien | Hanya lima path yang dibundel (`technology-icons.ts`), tanpa pustaka ikon |
 | Cerita klien | Tanpa testimoni yang diizinkan: janji tertulis dengan slot kapsul putus-putus. Dengan testimoni: kutipan besar di samping tanda kutip dua kapsul, tombol, panah kiri/kanan, geser; tanpa autoplay | Tidak pernah menerbitkan Review atau AggregateRating |
 
-## Konsol admin (`admin/`, B3.2a sampai B3.2c)
+## Konsol admin (`admin/`, B3.2a sampai B3.2d)
 
 Permukaan Operate di dunia visual yang sama: token merek dibaca dari `frontend/src/styles/tokens.css` (satu sumber dengan website), lapisan admin di `admin/src/styles/admin.css`. Arah kerja "Precision Console" (brief B3.2a); kontrak arah di `.impeccable/surfaces/admin-src-app.md`.
 
 | Unsur | Aturan |
 |---|---|
-| Shell | Rail navy 17,5 rem mulai 1024 px (lockup asli, kapsul lingkungan putus-putus "Konsol B3.2c, belum di-deploy", navigasi setelah masuk, kaki akun dengan Keluar, tema dan bahasa di kaki); di bawahnya bar navy 64 px dengan tombol kapsul "Menu" (nama tetap, `aria-expanded`, Escape menutup dan mengembalikan fokus). Di dalam rail token tinta berganti ke tinta malam dan `--paper` menjadi navy, sehingga komponen yang sama terbaca di sana. Gelap: rail memakai tanah malam cekung `#030a18` dengan garis rambut |
+| Shell | Rail navy 17,5 rem mulai 1024 px (lockup asli, kapsul lingkungan putus-putus "Konsol B3.2d, belum di-deploy", navigasi setelah masuk, kaki akun dengan Keluar, tema dan bahasa di kaki); di bawahnya bar navy 64 px dengan tombol kapsul "Menu" (nama tetap, `aria-expanded`, Escape menutup dan mengembalikan fokus). Di dalam rail token tinta berganti ke tinta malam dan `--paper` menjadi navy, sehingga komponen yang sama terbaca di sana. Gelap: rail memakai tanah malam cekung `#030a18` dengan garis rambut |
 | Tipe | Archivo yang sama, skala rem tetap: judul halaman 1,875 rem, seksi 1,25 rem, item 1,0625 rem, meta 0,875 rem; judul 720 di lebar 112 persen, teks lebar normal |
 | Kontrol | Satu kosakata: tombol kapsul 44 px (utama cobalt dengan angkatan cobalt, satu-satunya bayangan di dalam alur halaman; dialog memakai bayangan overlay untuk lapisan mengambang; sekunder bergaris; tenang; bahaya dengan tint `--danger-soft`), isian kapsul dengan label, petunjuk, dan galat yang terhubung (`aria-describedby`), kontrol segmen berbasis radio native |
 | Status | Kapsul logo pada sumbu 33 derajat: penuh (dirilis), separuh (sedang dibangun), berongga putus-putus (direncanakan). Selalu disertai kata; di jalur fase hanya satu glyph per baris (pada tulang punggung) |
