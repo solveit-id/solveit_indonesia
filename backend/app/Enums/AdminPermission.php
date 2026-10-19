@@ -29,4 +29,16 @@ enum AdminPermission: string
 
     /** Read the whole admin audit log (B3.1b, owner decision: owners only). */
     case ViewAllAuditEvents = 'audit.view-all';
+
+    /** List and read inquiries with the contact masked, their status history and notes (B4a). */
+    case ViewInquiries = 'inquiries.view';
+
+    /** Show an inquiry's full contact, recorded in the audit log every time (B4a). */
+    case RevealInquiryContacts = 'inquiries.reveal-contact';
+
+    /** Move an inquiry through the status workflow (B4a). */
+    case ChangeInquiryStatuses = 'inquiries.change-status';
+
+    /** Add an internal note to an inquiry (B4a). */
+    case AddInquiryNotes = 'inquiries.add-note';
 }

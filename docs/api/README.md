@@ -2,7 +2,7 @@
 
 Referensi endpoint backend Laravel milik website ini (`backend/`). Hanya kontrak yang benar-benar dibangun dan dites yang ditulis di sini; rencana endpoint lain ada di `docs/architecture/integration-plan.md`.
 
-Status: **dibangun, dites lokal dan di CI, dan dirilis ke `main` (B1, idempotensi B2.1, identitas admin B3.1a lewat PR #33, administrasi pengguna dan audit B3.1b lewat PR #35, merge `4874c73`), belum di-deploy.** Konsumen API admin adalah konsol `admin/` (B3.2a, belum di-deploy): klien bertipe di `admin/src/services/admin-api/`, yang mengikuti kontrak `admin-auth.md` dan `admin-users.md` dan aturan klien untuk 419 (`admin-auth.md`, CSRF). Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
+Status: **dibangun, dites lokal dan di CI, dan dirilis ke `main` (B1, idempotensi B2.1, identitas admin B3.1a lewat PR #33, administrasi pengguna dan audit B3.1b lewat PR #35, merge `4874c73`), belum di-deploy.** Pengelolaan inquiry untuk admin (B4a, `admin-inquiries.md`) dibangun dan dites di branch `backend`, belum dirilis dan belum di-deploy. Konsumen API admin adalah konsol `admin/` (B3.2a, belum di-deploy): klien bertipe di `admin/src/services/admin-api/`, yang mengikuti kontrak `admin-auth.md` dan `admin-users.md` dan aturan klien untuk 419 (`admin-auth.md`, CSRF). Klien frontend (B2) ada di balik flag `VITE_INQUIRY_API_ENABLED` yang nonaktif secara default, sehingga website publik belum memanggil API. Domain, hosting, dan URL produksi belum ditentukan.
 
 ## Endpoint
 
@@ -11,9 +11,10 @@ Status: **dibangun, dites lokal dan di CI, dan dirilis ke `main` (B1, idempotens
 | `POST` | `/api/v1/inquiries` | Menyimpan permintaan konsultasi dari formulir website | [inquiries.md](inquiries.md) |
 | `GET`, `POST`, `PUT`, `DELETE` | `/api/v1/admin/...` | API admin website (B3.1a): aktivasi lewat tautan akses, masuk dengan kata sandi dan TOTP, sesi dan keamanan akun sendiri. Hanya untuk aplikasi admin di origin `ADMIN_URL`; tidak disajikan di listener publik | [admin-auth.md](admin-auth.md) |
 | `GET`, `POST`, `PUT`, `DELETE` | `/api/v1/admin/users`, `invitations`, `audit-events` | Khusus owner (B3.1b): daftar dan detail akun, undangan (tautan ditampilkan sekali, tanpa email), perubahan peran, penangguhan, reset kredensial, pembacaan audit log. Batas dan konvensi sama dengan API admin | [admin-users.md](admin-users.md) |
+| `GET`, `PUT`, `POST` | `/api/v1/admin/inquiries` | Owner dan admin (B4a): daftar dan detail inquiry dengan kontak disamarkan, alur status dengan riwayat, catatan internal hanya-tambah, pembukaan kontak lengkap yang dicatat di audit log. Tanpa ekspor atau penghapusan | [admin-inquiries.md](admin-inquiries.md) |
 | `GET` | `/up` | Pemeriksaan kesehatan untuk monitor uptime: `{"status":"ok"}` (200) atau `{"status":"down"}` (503) | Bagian di bawah |
 
-Tidak ada endpoint publik lain. Tidak ada endpoint untuk membaca, mengubah, atau menghapus inquiry: data itu berisi data pribadi dan baru akan dibuka untuk admin website yang terautentikasi pada B4. Konvensi di bawah berlaku untuk API publik; API admin punya konvensinya sendiri (sesi, CSRF, satu origin) di `admin-auth.md`.
+Tidak ada endpoint publik lain. Tidak ada endpoint **publik** untuk membaca, mengubah, atau menghapus inquiry: data itu berisi data pribadi dan hanya dibuka untuk admin website yang terautentikasi lewat API admin (B4a, `admin-inquiries.md`), dengan kontak disamarkan dan tanpa penghapusan. Konvensi di bawah berlaku untuk API publik; API admin punya konvensinya sendiri (sesi, CSRF, satu origin) di `admin-auth.md`.
 
 ## Konvensi bersama
 

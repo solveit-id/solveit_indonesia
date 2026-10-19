@@ -2,7 +2,85 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B4a API pengelolaan inquiry (2026-10-19)
+
+Cakupan: endpoint inquiry di `backend/` (`/api/v1/admin/inquiries...`): daftar dan detail dengan kontak disamarkan, filter berindeks dan cursor, alur status dengan compare and set dan riwayat, catatan internal hanya-tambah, pembukaan kontak lengkap yang disengaja dan dicatat, filter audit `subject_inquiry_id` (kontrak: `docs/api/admin-inquiries.md`). Backend saja: tidak ada perubahan konsol admin, website publik, atau infrastruktur, dan tidak ada deployment. Baseline yang diverifikasi: `origin/main`, `origin/backend`, `origin/admin`, `origin/frontend` = `eb31fae` (rilis B3.2d, PR #45), `origin/staging` `bdac8c6` (pohon sama), working tree bersih; suite baseline 389 tes, 2.887 asersi lulus sebelum perubahan.
+
+Keputusan privasi **tidak** dianggap disetujui: tidak ada ekspor, penghapusan, retensi, pemangkasan, aktivasi kanal publik, atau penerusan OpsHub. Pembagian izin (kedua peran memegang keempat izin inquiry) mengikuti rencana arsitektur bagian 4 dan dicatat sebagai keputusan pemilik yang masih terbuka.
+
+Laravel Boost MCP gagal tersambung saat sesi dimulai (`CONNECT_TIMEOUT`) dan tidak tersedia di sesi ini; `claude mcp list` setelahnya melaporkan `laravel-boost` Connected. API framework yang dipakai (cursor pagination, `sharedLock`/`lockForUpdate`, percobaan ulang transaksi, prioritas middleware `ThrottleRequests` sebelum `Authorize`, `RequirePassword` 423) diperiksa dari sumber Laravel 13.36.0 yang terpasang. Playwright MCP juga gagal tersambung (tidak dibutuhkan: backend saja).
+
+### Audit sebelum implementasi
+
+| Temuan | Risiko | Tindakan |
+|---|---|---|
+| Respons publik `POST /api/v1/inquiries` memakai `$inquiry->status` | Begitu tim memindahkan status, replay idempoten akan menjawab `closed` dan sebagainya; klien B2.2 (`inquiry-api.ts`) membaca selain `received` sebagai hasil tidak pasti, dan status internal bocor ke pemegang kunci | `InquiryResource` selalu `received` (tanda terima); dites, uji mutasi di bawah |
+| Field kiriman hanya "sebaiknya tidak diubah" (dokumen B2.1) | Perubahan oleh admin atau query langsung merusak replay (`409`) | Penjaga model dan trigger MySQL biner `inquiries_keep_submission` |
+| `GET me` dipakai konsol B3.2c untuk navigasi | Izin baru dapat mengubah perilaku konsol | Konsol hanya memakai `.includes()` pada izin yang dikenalnya (tanpa validasi runtime); izin baru tidak mengubah apa pun. Audit konsol juga menampilkan aksi dan subjek yang tidak dikenal secara aman (`unknownAction`) |
+| Kegagalan `INSERT` catatan | `QueryException` memuat body catatan di pesan dan masuk log | `InquiryNoteNotStoredException` dengan SQLSTATE saja, tanpa rantai |
+| Otorisasi route terjadi sebelum transaksi | Penangguhan yang commit di antaranya tidak menghentikan penulisan yang sedang berjalan | `InquiryHandler::lockFor` membaca ulang akun dengan kunci bersama di dalam transaksi |
+| Infrastruktur | Skrip latihan pemulihan menghitung trigger hanya pada `admin_audit_events`; gateway publik menolak awalan `/api/v1/admin` | Tidak ada perubahan infra yang dibutuhkan; trigger baru tidak mengganggu pemeriksaan itu |
+
+### Pemeriksaan otomatis (lokal, Windows 11, PHP 8.5.7, MySQL 8.4.11)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `vendor/bin/pint --test` | Lulus |
+| `php artisan test` (database `solveit_indonesia_testing`) | **529 tes, 4.313 asersi lulus** (389 dan 2.887 di baseline). Tes B1, B2.1, B3.1a, B3.1b tetap lulus; tiga asersi izin diperbarui karena kedua peran kini memegang empat izin inquiry, dan route coverage diperluas |
+| Tes baru dengan `APP_DEBUG=true` (seperti Backend CI) | 132 tes lulus (kelas HTTP baru menyematkan `app.debug=false`, pola B3.1b) |
+| `composer validate --strict`, `check-platform-reqs`, `audit` | Lulus, tanpa advisory. Tidak ada dependensi baru |
+| `php artisan route:list --except-vendor` | 30 route: 7 route inquiry admin baru, `POST api/v1/inquiries` tanpa prefiks ganda |
+| Migrasi | Dua migrasi aditif lulus di database tes (setiap run) dan dijalankan di database pengembangan setelah `--pretend` (bukan `fresh`; tidak ada akun admin atau inquiry yang dibuat) |
+| `php artisan boost:update --no-discover` | Hanya `backend/AGENTS.md` berubah (aturan B4a dari `.ai/guidelines/solveit.md`) |
+
+| Area | Yang dibuktikan |
+|---|---|
+| Otorisasi | Ketujuh route tanpa sesi `401`; setiap route meminta Gate-nya sendiri (Gate dipaksa menolak: `403` identik untuk ID ada dan tidak ada, tanpa data dan tanpa penulisan); matriks Gate lengkap; route coverage: izin persis, baca tanpa batas tambahan atau konfirmasi, penulisan dengan `admin-inquiry-write`, pembukaan kontak dengan `password.confirm` setelah `can:` dan `admin-inquiry-contact`; `admin` tetap ditolak di route owner |
+| CSRF dan origin | `419` tanpa token, `403` untuk origin lain, tanpa `Origin`, dan `cross-site`; pembukaan kontak tidak ada sebagai `GET` (`405`) |
+| Daftar | Terbaru dulu, kunci field persis, kontak disamarkan (email dan telepon), tanpa pesan, kontak lengkap, atau hash kunci; filter status, layanan, rentang tanggal, referensi, kombinasi; cursor dengan filter terbawa; 12 parameter tidak sah ditolak `422` (termasuk pencarian atas kontak, teks bebas, referensi huruf kecil, cursor dimanipulasi) |
+| Index | Untuk setiap filter, `EXPLAIN` atas SQL yang benar-benar dijalankan endpoint mencantumkan index-nya di `possible_keys` |
+| Detail | Pesan, transisi yang diizinkan, jumlah catatan dan riwayat, kontak tetap disamarkan, `no-store, private` |
+| Alur status | Perubahan dengan riwayat dan audit (metadata `from_status`, `to_status`); alur lengkap termasuk buka ulang; status yang sama tanpa perubahan; `409 status_changed` untuk bacaan basi; `409 transition_not_allowed`; validasi `422`; field kiriman dan pelaku palsu di body diabaikan |
+| Catatan | `201` dengan penulis dari sesi; audit hanya `note_id`; daftar terbaru dulu per halaman dengan nama penulis tanpa email; validasi (kosong, spasi saja, 2001 karakter, bukan string); 2000 karakter emoji dan aksara lain tersimpan utuh; penolakan database `503` dan dilaporkan tanpa isi catatan |
+| Kontak lengkap | Hanya setelah konfirmasi kata sandi (`423`, berlaku 14 menit, ditolak setelah 16), persetujuan eksplisit (`422`), dan kejadian audit yang commit; gagal menulis audit `500` tanpa kontak; setiap pembukaan dicatat terpisah; batas 10 per menit dan 60 per jam |
+| Kegagalan audit | Status dan catatan dibatalkan seluruhnya bila audit gagal ditulis |
+| Pelaku basi | Akun yang ditangguhkan setelah otorisasi ditolak oleh ketiga operasi tanpa menulis apa pun |
+| Privasi | Seluruh modul dijalani oleh kedua peran: kontak lengkap hanya di respons pembukaan; tidak ada nama, kontak, organisasi, pesan, atau isi catatan di respons audit, baris audit, atau log (pendengar `MessageLogged`) |
+| Kontrak publik | Replay idempoten setelah status `closed` dan catatan tetap `201` dengan body asli `received` dan `Idempotent-Replayed: true`, tanpa cookie; isi berbeda tetap `409` |
+| Database | Trigger menolak perubahan ke-12 kasus kolom kiriman lewat query langsung (termasuk hanya huruf besar) dan model menolak hal yang sama; status boleh berubah; kontak tidak terserialisasi; riwayat dan catatan menolak `UPDATE`/`DELETE` di MySQL dan di model; menghapus inquiry menghapus riwayat dan catatannya saja (aksi foreign key tidak menjalankan trigger); akun penulis tidak dapat dihapus |
+| Unit | Penyamaran (tujuh bentuk kontak, panjang tetap), matriks transisi 16 pasangan |
+
+### Konkurensi nyata (proses PHP dan koneksi MySQL terpisah)
+
+`AdminInquiryConcurrencyTest` (`tests/Support/inquiry-workflow-worker.php`, dijaga `TestDatabaseGuard`, tiga putaran per skenario): enam perubahan status dari bacaan `received` yang sama (tepat satu berubah, sisanya `status_changed` atau tanpa perubahan bila targetnya sama, satu riwayat, satu audit); enam catatan bersamaan (semua tersimpan, satu audit masing-masing); penangguhan bersamaan dengan perubahan status, catatan, dan pembukaan kontak pelakunya (setiap penulisan yang berhasil tercatat sebelum penangguhan, sisanya `403` tanpa penulisan). 3 tes, 58 asersi.
+
+### Uji mutasi (setiap pertahanan dirusak sementara, lalu dipulihkan dan diverifikasi)
+
+| Mutasi | Hasil |
+|---|---|
+| `lockForUpdate()` dihapus dari `ChangeInquiryStatus` | Tes konkurensi status gagal: keenam perubahan "berhasil" (pembaruan yang hilang) |
+| `sharedLock()` dihapus dari `InquiryHandler::lockFor` | Tes penangguhan gagal: `inquiry.status-changed` tercatat setelah penangguhan |
+| Pemeriksaan ulang akun dihapus | Tes pelaku basi gagal: perubahan status berjalan untuk akun yang ditangguhkan |
+| `InquiryResource` memakai status alur | Tes kontrak publik gagal: replay menjawab `closed` |
+
+### Mesin pemilik
+
+- Dua migrasi aditif B4a dijalankan pada database pengembangan `solveit_indonesia` (index, satu trigger pada `inquiries`, dua tabel dengan empat trigger). `solveit-mysql`, volumenya, XAMPP, dan file secret tidak diubah; tidak ada `.env` yang dibaca atau diedit; tidak ada akun atau inquiry dibuat.
+
+### CI pertama pada PR #46
+
+Backend CI 39204677043 dan 39204709249 serta job pengembangan Docker CI 39204676988 dan 39204709197 gagal dengan **529 lulus, 1 warning**: provider `singleInquiryRoutes` memberi empat argumen kepada `test_a_missing_inquiry_is_404` yang hanya menerima tiga, dan runner CI keluar dengan kode 1 untuk warning. Lokal warning itu tidak terlihat karena keluaran ringkas untuk agen hanya melaporkan "passed". Diperbaiki pada signature tes (tanpa melemahkan asersi), lalu suite penuh dijalankan ulang dengan keluaran biasa untuk memastikan nol warning. Job lain pada run itu hijau: smoke test produksi Docker dengan listener admin (migrasi B4a sebagai `solveit_migrator`), Admin CI, dan Admin integration (browser nyata ke Laravel dan MySQL).
+
+### Belum diverifikasi
+
+- HTTP nyata lewat `php artisan serve` atau listener admin: butuh akun di database pengembangan, dan "tidak ada akun admin di mana pun" harus tetap benar. Seluruh stack middleware, sesi database, CSRF, dan TOTP dijalankan oleh tes fitur.
+- Migrasi turun dan naik lagi: dijalankan oleh Backend CI pada database CI sekali pakai (tidak dijalankan lokal, karena `rollback` hanya boleh pada database sekali pakai dan perintah lokal memakai database pengembangan). Smoke test produksi Docker CI menjalankan migrasi sebagai `solveit_migrator`.
+- `EXPLAIN` dengan volume produksi: belum ada data nyata.
+- Konsol admin (B4b), Lighthouse, dan WebKit: tidak relevan untuk perubahan backend saja. Hasil CI pada PR dicatat di `.ai/project-status.md` dan di PR.
+
 ## B3.2d infrastruktur admin privat (2026-10-19)
+
+**Rilis:** PR #44 (`admin` ke `staging`, head `b188b4f`) digabung sebagai `bdac8c6`, rilis PR #45 digabung ke `main` sebagai `eb31fae` (2026-10-19). CI hijau: head PR #44 Admin CI 39197373893, Admin integration 39197373872, Docker CI 39197373892; PR #45 Admin CI 39198854492, Admin integration 39198854367, Docker CI 39198854358; setelah `backend` di-fast-forward ke `eb31fae`, Admin integration 39200328455 dan Docker CI 39200328391.
 
 Cakupan: image produksi konsol admin, listener admin privat `admin-gateway` (profil `admin`, TLS opsional lewat `compose.prod.admin-tls.yaml`), gagal tertutup pada `ADMIN_URL` di listener dan entrypoint backend, isolasi dari gateway publik, smoke test, tes browser nyata pada image produksi, latihan backup dan pemulihan, dan dokumen B3.2c yang basi setelah rilis PR #43. **Tidak ada deployment**: semua bukti berasal dari proyek Docker sintetis yang terisolasi (`solveit-b32d-smoke`, dihapus beserta volumenya setelahnya) dengan secret acak dan sertifikat self-signed sekali pakai untuk `admin.solveit.test` (tidak pernah di-resolve DNS). `solveit-mysql`, volumenya, XAMPP, dan database pengembangan tidak disentuh.
 

@@ -27,8 +27,9 @@ class AdminAuthorizationTest extends TestCase
     }
 
     /**
-     * The complete matrix (B3.1b): owners hold every permission, admins only their own
-     * account. A permission added later must be added here, or this test fails.
+     * The complete matrix (B3.1b, B4a): owners hold every permission; admins their own
+     * account and inquiry handling. A permission added later must be added here, or this
+     * test fails.
      *
      * @return array<string, array{AdminPermission, bool, bool}>
      */
@@ -42,6 +43,10 @@ class AdminAuthorizationTest extends TestCase
             'users.suspend' => [AdminPermission::SuspendUsers, true, false],
             'users.reset-credentials' => [AdminPermission::ResetUserCredentials, true, false],
             'audit.view-all' => [AdminPermission::ViewAllAuditEvents, true, false],
+            'inquiries.view' => [AdminPermission::ViewInquiries, true, true],
+            'inquiries.reveal-contact' => [AdminPermission::RevealInquiryContacts, true, true],
+            'inquiries.change-status' => [AdminPermission::ChangeInquiryStatuses, true, true],
+            'inquiries.add-note' => [AdminPermission::AddInquiryNotes, true, true],
         ];
     }
 
@@ -93,7 +98,9 @@ class AdminAuthorizationTest extends TestCase
         $owner = User::factory()->owner()->create();
 
         $this->assertFalse(Gate::forUser($owner)->allows('users.manage'));
-        $this->assertFalse(Gate::forUser($owner)->allows('inquiries.view'));
+        // Export and deletion of inquiries are not built (owner decisions pending).
+        $this->assertFalse(Gate::forUser($owner)->allows('inquiries.export'));
+        $this->assertFalse(Gate::forUser($owner)->allows('inquiries.delete'));
     }
 
     public function test_only_owner_and_admin_roles_exist(): void

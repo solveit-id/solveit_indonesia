@@ -4,6 +4,8 @@ Menyimpan satu permintaan konsultasi dari formulir kontak website. Ini satu-satu
 
 Implementasi: `backend/routes/api.php`, `app/Http/Requests/Api/V1/StoreInquiryRequest.php` (validasi dan header `Idempotency-Key`), `app/Actions/SubmitInquiry.php` (penyimpanan dan idempotensi), `app/Http/Resources/InquiryResource.php` (respons). Tes: `backend/tests/Feature/Http/Controllers/Api/V1/InquiryControllerTest.php` dan `InquiryIdempotencyTest.php` di folder yang sama, serta `backend/tests/Feature/Actions/SubmitInquiryTest.php` dan `SubmitInquiryConcurrencyTest.php`.
 
+Pengelolaan oleh tim lewat API admin (daftar, detail dengan kontak disamarkan, alur status, catatan internal, pembukaan kontak yang dicatat) dibangun di B4a: [admin-inquiries.md](admin-inquiries.md). Endpoint publik di bawah tidak berubah.
+
 Klien frontend (B2) sudah dibangun, tetapi **nonaktif secara default**: kanal **Kirim melalui website** hanya muncul pada build dengan `VITE_INQUIRY_API_ENABLED=true` dan `VITE_API_BASE_URL` yang valid (lihat Klien frontend di bawah). Build produksi saat ini tidak mengaktifkannya dan API belum di-deploy, jadi website publik tetap hanya menyusun pesan WhatsApp atau email.
 
 ## Permintaan
@@ -69,7 +71,7 @@ Dikirim **hanya** setelah baris tersimpan di database.
 ```
 
 - `id` adalah nomor referensi publik: `INQ-` lalu 12 karakter acak Crockford base32 (tanpa `I`, `L`, `O`, `U`, sehingga aman dibacakan) dalam tiga kelompok. 60 bit acak dari `random_int`, kolom `UNIQUE` di database, dan hingga tiga percobaan bila terjadi tabrakan. Tidak berurutan dan tidak menyingkap ID internal.
-- `status` selalu `received` untuk inquiry baru.
+- `status` selalu `received`: tanda terima bahwa server menyimpannya, bukan status alur internal. Sejak B4a tim dapat memindahkan inquiry ke `in-review`, `contacted`, atau `closed`, tetapi respons ini (termasuk replay idempoten) tetap `received`, sehingga status alur tidak bocor ke pemegang kunci dan website tetap membaca replay sebagai sukses (dites).
 
 Percobaan ulang dengan `Idempotency-Key` dan isi yang setara mendapat `201` dengan body yang sama persis (nomor referensi inquiry yang sudah tersimpan) ditambah header `Idempotent-Replayed: true`. Tidak ada baris baru.
 
@@ -148,7 +150,7 @@ Status: **dibangun dan dites di backend (B2.1); dipakai klien website sejak B2.2
 
 **Konkurensi.** Pemeriksaan adalah `INSERT` itu sendiri, bukan baca-lalu-tulis. InnoDB membuat `INSERT` kedua dengan hash yang sama menunggu transaksi pertama. Bila yang pertama commit, yang kedua gagal dengan galat 1062, lalu server membaca baris pemilik kunci (locking read) dan menjawab `201` replay atau `409`. Bila yang pertama rollback, yang kedua tersimpan sebagai inquiry baru. Tabrakan nomor referensi (`public_id`) dibedakan dari tabrakan kunci dengan memeriksa apakah ada baris pemilik hash itu, bukan dengan membaca pesan galat (yang memuat data pribadi). Deadlock di antara beberapa penunggu dicoba ulang hingga tiga kali. Dites dengan proses PHP terpisah yang masing-masing punya koneksi MySQL sendiri (`SubmitInquiryConcurrencyTest`): enam permintaan serentak dengan satu kunci, isi yang berbeda, dan `INSERT` yang tertahan transaksi lain lalu commit atau rollback.
 
-**Siklus hidup kunci.** Hash melekat pada baris inquiry dan hilang bersamanya. Tidak ada kedaluwarsa terpisah dan tidak ada penghapusan otomatis; masa simpan inquiry masih keputusan pemilik (bagian Privasi). Akibat teknisnya: selama baris ada, kunci yang sama selalu mengembalikan inquiry itu. Bila suatu saat inquiry dihapus sesuai kebijakan retensi, kunci lamanya dapat dipakai lagi dan akan membuat inquiry baru. Bila admin (fase B3) mengubah field yang dikirim pengunjung, percobaan ulang dengan isi asli akan mendapat `409`, jadi field kiriman pengunjung sebaiknya tidak diubah. Rotasi kunci tidak relevan bagi server: setiap kiriman logis membawa kunci baru dari klien.
+**Siklus hidup kunci.** Hash melekat pada baris inquiry dan hilang bersamanya. Tidak ada kedaluwarsa terpisah dan tidak ada penghapusan otomatis; masa simpan inquiry masih keputusan pemilik (bagian Privasi). Akibat teknisnya: selama baris ada, kunci yang sama selalu mengembalikan inquiry itu. Bila suatu saat inquiry dihapus sesuai kebijakan retensi, kunci lamanya dapat dipakai lagi dan akan membuat inquiry baru. Sejak B4a field yang dikirim pengunjung **tidak dapat diubah** sama sekali: model dan trigger MySQL `inquiries_keep_submission` menolaknya untuk setiap pengguna database (bagian Penyimpanan), jadi percobaan ulang dengan isi asli selalu menemukan baris yang sama. Status alur dan catatan tim tidak ikut dibandingkan. Rotasi kunci tidak relevan bagi server: setiap kiriman logis membawa kunci baru dari klien.
 
 ### Penerapan di frontend (B2.2)
 
@@ -219,8 +221,12 @@ Tabel `inquiries` di MySQL 8.4 (migrasi `backend/database/migrations/*_create_in
 | `contact` | `varchar(254)` | Email atau telepon |
 | `service`, `budget`, `timeline` | `varchar(32)` | Nilai enum (`app/Enums/`) |
 | `message` | `text` (maksimal 65.535 byte) | 5000 karakter emoji (4 byte) = 20.000 byte, masih muat (dites) |
-| `status` | `varchar(32)`, index, default `received` | `app/Enums/InquiryStatus.php`; status lain didefinisikan pada fase admin |
-| `created_at`, `updated_at` | `timestamp`, nullable | Ditulis dalam zona waktu aplikasi (UTC) |
+| `status` | `varchar(32)`, index, default `received` | Status alur internal (`app/Enums/InquiryStatus.php`): `received`, `in-review`, `contacted`, `closed` (B4a). Satu-satunya kolom kiriman yang boleh berubah, bersama `updated_at` |
+| `created_at`, `updated_at` | `timestamp`, nullable | Ditulis dalam zona waktu aplikasi (UTC). `created_at` berindeks sejak B4a (filter tanggal di admin) |
+
+Index tambahan B4a (migrasi `*_add_admin_indexes_and_submission_guard_to_inquiries_table.php`, aditif): `service` dan `created_at`, untuk filter daftar admin. Migrasi yang sama memasang trigger `inquiries_keep_submission` (`BEFORE UPDATE`): perubahan pada `name`, `organization`, `contact`, `service`, `budget`, `timeline`, `message`, `public_id`, `idempotency_key_hash`, atau `created_at` ditolak untuk setiap pengguna database, dengan perbandingan biner. Menghapus baris tetap mungkin (retensi masih keputusan pemilik). Membuat trigger butuh `log_bin_trust_function_creators = ON`, prasyarat yang sudah ada sejak B3.1a.
+
+Riwayat status (`inquiry_status_changes`) dan catatan internal (`inquiry_notes`) ada di tabel sendiri, hanya-tambah, dan ikut terhapus bila inquiry-nya dihapus (`admin-inquiries.md`, Jaminan di database). Keduanya tidak menyalin field kiriman.
 
 Strict mode membuat MySQL menolak nilai yang melebihi kolom alih-alih memotongnya diam-diam; penolakan itu menjadi `503` tanpa nomor referensi (dites).
 
@@ -230,9 +236,9 @@ Tidak ada alamat IP, user agent, atau data pelacakan yang disimpan.
 
 Inquiry berisi data pribadi (nama, kontak, isi kebutuhan). Aturan yang berlaku sekarang:
 
-- **Akses.** Tidak ada endpoint publik untuk membaca, mengubah, atau menghapus inquiry (dites: `GET`, `PUT`, `PATCH`, `DELETE` mengembalikan 404 atau 405 tanpa data). Hanya tim Solveit yang berwenang yang boleh membaca data, melalui panel admin terautentikasi yang akan dibangun nanti. Sampai panel itu ada, data hanya dibaca langsung dari database oleh pengelola server.
+- **Akses.** Tidak ada endpoint publik untuk membaca, mengubah, atau menghapus inquiry (dites: `GET`, `PUT`, `PATCH`, `DELETE` mengembalikan 404 atau 405 tanpa data). Hanya tim Solveit yang berwenang yang boleh membaca data, melalui API admin terautentikasi (B4a, `admin-inquiries.md`): kontak disamarkan secara default, kontak lengkap hanya lewat pembukaan yang disengaja, dikonfirmasi kata sandi, dibatasi lajunya, dan dicatat di audit log setiap kali. Antarmuka konsol untuk itu (B4b) belum dibangun, dan API belum di-deploy.
 - **Minimalisasi.** Hanya field formulir yang disimpan. Tidak ada IP, user agent, cookie, atau sesi.
-- **Log.** Inquiry yang tersimpan hanya mencatat nomor referensinya (`Inquiry received.` dengan `inquiry: INQ-...`). Percobaan ulang yang dijawab dari baris tersimpan mencatat `Inquiry retry answered with the stored reference.` dengan referensi yang sama, dan konflik kunci hanya `Inquiry idempotency key reused with different content.`, tanpa kunci, referensi, atau isi. Bila channel log gagal (misalnya `storage/logs` tidak dapat ditulis), inquiry yang sudah tersimpan tetap mendapat `201`, karena respons gagal akan membuat pengunjung mengirim ulang (dites). Nama, kontak, dan pesan tidak pernah masuk log. Kegagalan database dicatat sebagai `InquiryNotStoredException` dengan kode SQLSTATE saja, karena pesan `QueryException` asli memuat nilai SQL (data pribadi); dites. Coding agent tidak boleh mencetak isi inquiry, `.env`, atau log berisi data pribadi.
+- **Log.** Inquiry yang tersimpan hanya mencatat nomor referensinya (`Inquiry received.` dengan `inquiry: INQ-...`). Percobaan ulang yang dijawab dari baris tersimpan mencatat `Inquiry retry answered with the stored reference.` dengan referensi yang sama, dan konflik kunci hanya `Inquiry idempotency key reused with different content.`, tanpa kunci, referensi, atau isi. Bila channel log gagal (misalnya `storage/logs` tidak dapat ditulis), inquiry yang sudah tersimpan tetap mendapat `201`, karena respons gagal akan membuat pengunjung mengirim ulang (dites). Nama, kontak, pesan, dan catatan internal tidak pernah masuk log atau audit log (audit B4a hanya menyimpan pelaku, ID inquiry, status, dan ID catatan; dites). Kegagalan database dicatat sebagai `InquiryNotStoredException` dengan kode SQLSTATE saja, karena pesan `QueryException` asli memuat nilai SQL (data pribadi); dites. Coding agent tidak boleh mencetak isi inquiry, `.env`, atau log berisi data pribadi.
 - **Alat agent.** Tool database Laravel Boost hanya dipakai pada database MySQL pengembangan atau tes milik proyek ini, tidak pernah pada data bersama atau produksi.
 - **Database produksi.** MySQL 8.4 LTS (keputusan pemilik, B1.1); hosting belum dipilih. Saat deployment: akses jaringan hanya dari aplikasi, pengguna aplikasi tanpa hak DDL dan pengguna migrasi terpisah, kredensial di secret store hosting (bukan Git), TLS ke database bila server tidak berada di host yang sama (`MYSQL_ATTR_SSL_CA`), enkripsi saat diam bila tersedia, backup terenkripsi dengan akses terbatas, `APP_DEBUG=false`, `LOG_LEVEL` minimal `info`, document root `backend/public/`.
 

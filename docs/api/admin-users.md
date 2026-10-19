@@ -1,6 +1,6 @@
 # Admin API: administrasi pengguna dan audit (B3.1b)
 
-Kontrak endpoint owner di `/api/v1/admin` yang dibangun pada B3.1b: daftar dan detail akun admin, undangan, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner, dan pembacaan audit log. Status: **dibangun dan dites, belum di-deploy**. Konsol admin memanggilnya sejak B3.2c (ruang kerja owner, dirilis ke `main` lewat PR #43, `c0ecde9`, belum di-deploy; `admin/README.md`, Ruang kerja owner).; belum ada akun produksi, dan retensi audit masih menunggu keputusan pemilik.
+Kontrak endpoint owner di `/api/v1/admin` yang dibangun pada B3.1b: daftar dan detail akun admin, undangan, perubahan peran, penangguhan dan aktivasi ulang, reset kredensial oleh owner, dan pembacaan audit log. Status: **dibangun dan dites, belum di-deploy**. Konsol admin memanggilnya sejak B3.2c (ruang kerja owner, dirilis ke `main` lewat PR #43, `c0ecde9`, belum di-deploy; `admin/README.md`, Ruang kerja owner); belum ada akun produksi, dan retensi audit masih menunggu keputusan pemilik.
 
 Konvensi B3.1a tetap berlaku tanpa perubahan (satu origin `ADMIN_URL`, sesi cookie database, CSRF, `Cache-Control: no-store, private`, `401` tanpa sesi): `admin-auth.md`. Arsitektur dan keputusan: `docs/architecture/admin-dashboard.md` bagian 4 dan 6. Implementasi: `backend/routes/admin.php`, `app/Http/Controllers/Api/V1/Admin/{UserController,InvitationController,AuditEventController}.php`, `app/Actions/Admin/{InviteAdminAccount,RevokeAdminInvitation,ChangeAdminRole,SuspendAdminAccount,ResetAdminCredentials,ActiveOwners}.php`. Tes: `backend/tests/Feature/Admin/` (`AdminUserAdministrationTest`, `AdminInvitationTest`, `AdminCredentialRecoveryTest`, `AdminAuditReaderTest`, `AdminAdministrationConcurrencyTest`).
 
@@ -206,6 +206,7 @@ Filter (masing-masing memakai kolom berindeks; tidak ada pencarian bebas di meta
 | `actor_type` | `user`, `cli`, `anonymous` |
 | `actor_user_id` | ID akun pelaku |
 | `subject_user_id` | ID akun yang dikenai tindakan |
+| `subject_inquiry_id` | ID inquiry yang dikenai tindakan (B4a: pembukaan kontak, perubahan status, catatan). Tidak boleh digabung dengan `subject_user_id` (`422`) |
 | `occurred_from`, `occurred_to` | Tanggal ISO 8601, inklusif, `occurred_to` tidak sebelum `occurred_from` |
 
 ```json
@@ -224,6 +225,7 @@ Filter (masing-masing memakai kolom berindeks; tidak ada pencarian bebas di meta
 - `metadata` disaring lagi dengan daftar kunci yang sama seperti saat ditulis (`RecordAdminAuditEvent::ALLOWED_METADATA_KEYS`), jadi kunci di luar daftar tidak pernah tampil, bahkan bila sebuah baris ditulis di luar aplikasi.
 - Isinya tidak pernah memuat kata sandi, kode TOTP, rahasia TOTP, kode pemulihan, token atau URL tautan, ID sesi, payload request, atau isi inquiry. Login gagal hanya menyimpan sidik jari HMAC dari alamat yang diketik.
 - IP dan user agent ditampilkan karena owner membutuhkannya untuk investigasi; keduanya data pribadi dan masa simpannya ikut keputusan retensi yang masih tertunda.
+- Kejadian B4a (`admin-inquiries.md`, Audit), dengan `subject` `{"type":"inquiry","id":...}`: `inquiry.contact-revealed` (tanpa metadata), `inquiry.status-changed` (`from_status`, `to_status`), `inquiry.note-added` (`note_id`). Tidak pernah nama, kontak, pesan, atau isi catatan.
 - Kejadian baru B3.1b: `invitation.issued` (metadata `to_role`, `from_role` bila peran akun tertunda berubah, `account_created`, `access_link_id`), `invitation.revoked` (`access_link_id`). `credentials.reset-issued` dari owner tercatat dengan `actor_type` `user` dan `access_link_id`; `account.suspended` menambah `access_links_revoked`.
 - **Batas jaminan:** trigger MySQL menolak `UPDATE` dan `DELETE` untuk setiap pengguna, dan pengguna aplikasi tidak punya hak DDL. Pemegang hak DDL (pengguna migrasi, root, DBA penyedia) tetap dapat `DROP TRIGGER`, `DROP TABLE`, atau `TRUNCATE` (yang tidak menjalankan trigger). Audit log ini bukan bukti yang tidak dapat diubah terhadap mereka.
 

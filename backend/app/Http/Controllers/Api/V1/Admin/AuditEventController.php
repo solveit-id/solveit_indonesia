@@ -37,6 +37,10 @@ class AuditEventController extends Controller
             $query->where('subject_type', 'user')->where('subject_id', $filters['subject_user_id']);
         }
 
+        if ($filters['subject_inquiry_id'] !== null) {
+            $query->where('subject_type', 'inquiry')->where('subject_id', $filters['subject_inquiry_id']);
+        }
+
         if ($filters['occurred_from'] !== null) {
             $query->where('occurred_at', '>=', $filters['occurred_from']);
         }

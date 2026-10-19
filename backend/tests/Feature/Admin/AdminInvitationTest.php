@@ -85,7 +85,7 @@ class AdminInvitationTest extends TestCase
         $this->adminRequest('POST', 'access-links/confirm', ['code' => (new Google2FA)->getCurrentOtp($redeemed->json('data.two_factor.setup_key'))])
             ->assertOk()
             ->assertJsonPath('data.account.role', 'admin')
-            ->assertJsonPath('data.account.permissions', ['account.manage-own']);
+            ->assertJsonPath('data.account.permissions', self::ADMIN_PERMISSIONS);
         $this->assertTrue($invitee->fresh()->canSignInToAdmin());
 
         // Used once: the same link never works again.
