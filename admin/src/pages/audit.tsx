@@ -38,12 +38,13 @@ import {
 
 const listAuditEvents = administrationApi.listAuditEvents;
 
-/** Address keys of the filters (`/audit?tindakan=...&subjek=7`). */
+/** Address keys of the filters (`/audit?tindakan=...&subjek=7`, `/audit?inquiry=42`). */
 const keys = {
   action: "tindakan",
   actorType: "jenis",
   actor: "pelaku",
   subject: "subjek",
+  inquiry: "inquiry",
   from: "dari",
   to: "sampai",
 } as const;
@@ -62,12 +63,16 @@ interface ReadFilters {
   any: boolean;
 }
 
-/** Filters from the address. Unknown or malformed values are ignored, never sent. */
+/**
+ * Filters from the address. Unknown or malformed values are ignored, never sent. An inquiry
+ * subject (from an inquiry's detail) replaces the account subject: Laravel refuses both at once.
+ */
 function readFilters(params: URLSearchParams): ReadFilters {
   const action = params.get(keys.action);
   const actorType = params.get(keys.actorType);
   const from = isCalendarDay(params.get(keys.from)) ? params.get(keys.from)! : "";
   const to = isCalendarDay(params.get(keys.to)) ? params.get(keys.to)! : "";
+  const inquiry = accountId(params.get(keys.inquiry));
   const rangeInvalid = from !== "" && to !== "" && to < from;
 
   const api: AdminAuditFilters = {
@@ -76,7 +81,8 @@ function readFilters(params: URLSearchParams): ReadFilters {
       ? (actorType as AdminActorType)
       : undefined,
     actor_user_id: accountId(params.get(keys.actor)),
-    subject_user_id: accountId(params.get(keys.subject)),
+    subject_user_id: inquiry === undefined ? accountId(params.get(keys.subject)) : undefined,
+    subject_inquiry_id: inquiry,
     occurred_from: from && !rangeInvalid ? dayBoundary(from, "start") : undefined,
     occurred_to: to && !rangeInvalid ? dayBoundary(to, "end") : undefined,
   };
@@ -193,13 +199,29 @@ function AuditLog() {
             currentId={account.id}
             onChange={(value) => setFilter(keys.actor, value)}
           />
-          <AccountSelect
-            label={copy.subject}
-            value={filters.api.subject_user_id}
-            directory={directory}
-            currentId={account.id}
-            onChange={(value) => setFilter(keys.subject, value)}
-          />
+          {filters.api.subject_inquiry_id === undefined ? (
+            <AccountSelect
+              label={copy.subject}
+              value={filters.api.subject_user_id}
+              directory={directory}
+              currentId={account.id}
+              onChange={(value) => setFilter(keys.subject, value)}
+            />
+          ) : (
+            <div className="grid content-start gap-2">
+              <p className="text-[0.9375rem] font-semibold">{copy.on}</p>
+              <p className="min-h-11 text-[0.9375rem] text-ink-muted">
+                {copy.inquiryOnly(t.owner.inquiryNumber(filters.api.subject_inquiry_id))}{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-accent-text underline underline-offset-4"
+                  onClick={() => setFilter(keys.inquiry, "")}
+                >
+                  {copy.allSubjects}
+                </button>
+              </p>
+            </div>
+          )}
           <TextField
             label={copy.from}
             type="date"

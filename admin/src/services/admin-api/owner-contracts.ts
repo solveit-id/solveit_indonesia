@@ -116,7 +116,8 @@ export interface AdminCredentialResetIssued {
   access_link: AdminIssuedLink & { id: number; purpose: "credential-reset" };
 }
 
-/** Stable values of `AdminAuditAction` (backend/app/Enums/AdminAuditAction.php). */
+/** Stable values of `AdminAuditAction` (backend/app/Enums/AdminAuditAction.php); the three
+ * `inquiry.*` actions are B4a's (admin-inquiries.md, Audit). */
 export const adminAuditActions = [
   "owner.bootstrap-issued",
   "owner.bootstrap-refused",
@@ -142,6 +143,9 @@ export const adminAuditActions = [
   "account.role-changed",
   "account.suspended",
   "account.reactivated",
+  "inquiry.contact-revealed",
+  "inquiry.status-changed",
+  "inquiry.note-added",
 ] as const;
 
 export type AdminAuditAction = (typeof adminAuditActions)[number];
@@ -162,7 +166,10 @@ export type AdminAuditMetadata = Partial<
     | "sessions_ended"
     | "access_link_id"
     | "access_links_revoked"
-    | "account_created",
+    | "account_created"
+    | "from_status"
+    | "to_status"
+    | "note_id",
     string | number | boolean | null
   >
 >;
@@ -174,18 +181,22 @@ export interface AdminAuditEvent {
   /** A known action, or a newer value this console does not know yet (shown as written). */
   action: AdminAuditAction | (string & {});
   actor: { type: AdminActorType; user_id: number | null };
-  subject: { type: "user" | "access-link" | (string & {}); id: number | null } | null;
+  subject: { type: "user" | "access-link" | "inquiry" | (string & {}); id: number | null } | null;
   ip_address: string | null;
   user_agent: string | null;
   metadata: AdminAuditMetadata | null;
 }
 
-/** Allowlisted audit filters; dates are ISO 8601 instants, both bounds inclusive. */
+/**
+ * Allowlisted audit filters; dates are ISO 8601 instants, both bounds inclusive. Laravel refuses
+ * `subject_user_id` together with `subject_inquiry_id` (422), so a caller sends one of them.
+ */
 export interface AdminAuditFilters {
   action?: AdminAuditAction | undefined;
   actor_type?: AdminActorType | undefined;
   actor_user_id?: number | undefined;
   subject_user_id?: number | undefined;
+  subject_inquiry_id?: number | undefined;
   occurred_from?: string | undefined;
   occurred_to?: string | undefined;
 }

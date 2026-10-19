@@ -1,7 +1,8 @@
 /**
- * Types of the released admin API (B3.1a and B3.1b). Source of truth: docs/api/admin-auth.md
- * and docs/api/admin-users.md; change those documents and these types together. Sign-in,
- * access links, and own account (B3.2b); owner administration and the audit reader (B3.2c).
+ * Types of the released admin API (B3.1a, B3.1b, B4a). Source of truth: docs/api/admin-auth.md,
+ * docs/api/admin-users.md, and docs/api/admin-inquiries.md; change those documents and these
+ * types together. Sign-in, access links, and own account (B3.2b); owner administration and the
+ * audit reader (B3.2c); the inquiry types themselves live in inquiry-contracts.ts (B4b).
  */
 
 /** Base path of every admin endpoint, always relative to the admin origin (same origin). */
@@ -17,7 +18,7 @@ export interface AdminValidationErrorBody extends AdminErrorBody {
   errors: Record<string, string[]>;
 }
 
-/** 409 from account operations carries a stable machine-readable code (admin-users.md). */
+/** 409 carries a stable machine-readable code (admin-users.md, admin-inquiries.md). */
 export interface AdminConflictBody extends AdminErrorBody {
   code: AdminConflictCode;
 }
@@ -31,6 +32,9 @@ export const adminConflictCodes = [
   "account_exists",
   "invitation_pending",
   "invitation_completed",
+  // Inquiry status changes (B4a): the compare and set lost, or the move is not allowed.
+  "status_changed",
+  "transition_not_allowed",
 ] as const;
 
 export type AdminConflictCode = (typeof adminConflictCodes)[number];
@@ -44,7 +48,12 @@ export type AdminPermission =
   | "users.change-role"
   | "users.suspend"
   | "users.reset-credentials"
-  | "audit.view-all";
+  | "audit.view-all"
+  // Inquiry handling (B4a), granted to both roles today (admin-inquiries.md, Izin dan peran).
+  | "inquiries.view"
+  | "inquiries.change-status"
+  | "inquiries.add-note"
+  | "inquiries.reveal-contact";
 
 /** `GET me` (admin-auth.md). Never contains a password hash, TOTP secret, or recovery codes. */
 export interface AdminAccount {

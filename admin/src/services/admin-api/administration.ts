@@ -1,6 +1,6 @@
-import type { AdminApiClient, AdminResponse } from "./client";
+import type { AdminApiClient } from "./client";
 import type { AdminRole } from "./contracts";
-import { invalid, unwrap } from "./envelope";
+import { unwrap } from "./envelope";
 import type {
   AdminAuditEvent,
   AdminAuditFilters,
@@ -15,6 +15,9 @@ import type {
   CursorPage,
 } from "./owner-contracts";
 import type { AdminEnvelope } from "./contracts";
+import { type PageRequest, cursorPage, idSegment, pageQuery } from "./pagination";
+
+export { ADMIN_PAGE_SIZE, type PageRequest } from "./pagination";
 
 /**
  * The owner endpoints of docs/api/admin-users.md (B3.1b): accounts, invitations, role changes,
@@ -29,50 +32,6 @@ import type { AdminEnvelope } from "./contracts";
  * The raw link in an invitation or reset response exists in that one response only. It is
  * returned to the caller and never stored, logged, or cached here.
  */
-
-/** A cursor page as Laravel returns it, or `invalid-response` when its shape is wrong. */
-function cursorPage<T>(response: AdminResponse<CursorPage<T>>): CursorPage<T> {
-  const body: unknown = response.data;
-  const page = body as Partial<CursorPage<T>> | null;
-
-  if (
-    typeof page !== "object" ||
-    page === null ||
-    !Array.isArray(page.data) ||
-    typeof page.meta !== "object" ||
-    page.meta === null
-  ) {
-    throw invalid(response.status, false);
-  }
-
-  return page as CursorPage<T>;
-}
-
-/** Page size of the owner lists; Laravel accepts 1 to 100 (default 25). */
-export const ADMIN_PAGE_SIZE = 25;
-
-export interface PageRequest {
-  /** `meta.next_cursor` of the previous page, exactly as Laravel returned it. */
-  cursor?: string | null | undefined;
-  perPage?: number | undefined;
-  signal?: AbortSignal | undefined;
-}
-
-/** An account or invitation ID in a path: a positive integer, nothing else. */
-function idSegment(id: number): string {
-  if (!Number.isSafeInteger(id) || id < 1) {
-    throw new TypeError("Admin record IDs are positive integers.");
-  }
-
-  return String(id);
-}
-
-function pageQuery(page: PageRequest): Record<string, string | number | undefined> {
-  return {
-    per_page: page.perPage ?? ADMIN_PAGE_SIZE,
-    cursor: page.cursor ?? undefined,
-  };
-}
 
 export function createAdministrationApi(client: AdminApiClient) {
   return {
@@ -191,6 +150,7 @@ export function createAdministrationApi(client: AdminApiClient) {
           actor_type: filters.actor_type,
           actor_user_id: filters.actor_user_id,
           subject_user_id: filters.subject_user_id,
+          subject_inquiry_id: filters.subject_inquiry_id,
           occurred_from: filters.occurred_from,
           occurred_to: filters.occurred_to,
           ...pageQuery(page),

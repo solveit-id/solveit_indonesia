@@ -1,3 +1,4 @@
+import { inquiryEn } from "../inquiry/en";
 import type { OwnerMessages } from "./id";
 
 /** Owner administration copy, English. Same structure as owner/id.ts. */
@@ -26,10 +27,12 @@ export const ownerEn: OwnerMessages = {
     activation: "Invitation",
     "credential-reset": "Credential reset",
   },
+  inquiryStatus: inquiryEn.status,
   owner: {
     you: "You",
     accountNumber: (id: number) => `Account #${id}`,
     linkNumber: (id: number) => `Access link #${id}`,
+    inquiryNumber: (id: number) => `Inquiry #${id}`,
     shell: "Server shell",
     anonymous: "No account",
     never: "Never",
@@ -195,7 +198,7 @@ export const ownerEn: OwnerMessages = {
     roleOptions: {
       admin: {
         title: "Admin",
-        detail: "Manages the security of their own account. No other module exists for admins yet.",
+        detail: "Manages the security of their own account and handles inquiries.",
       },
       owner: {
         title: "Owner",
@@ -273,6 +276,10 @@ export const ownerEn: OwnerMessages = {
         "This address still has a valid invitation. Revoke that invitation first, then invite again.",
       invitation_completed:
         "This invitation was already accepted and cannot be revoked. Manage the account under Users.",
+      status_changed:
+        "The status of this inquiry changed since you opened it, so your change was not saved. The current status is reloaded; check it, then decide again.",
+      transition_not_allowed:
+        "This inquiry cannot move to that status from its current one. The current status is reloaded.",
     },
     conflictUnknown: "The state changed and the server refused this action. The data is reloaded.",
     acknowledgeRequired: "Tick the statement above before going ahead.",
@@ -319,6 +326,8 @@ export const ownerEn: OwnerMessages = {
     actor: "Actor",
     subject: "Affected account",
     anyAccount: "All accounts",
+    inquiryOnly: (label: string) => `Only events about ${label}.`,
+    allSubjects: "Show every target",
     from: "From date",
     to: "To date",
     dateHint: "In this device's time zone.",
@@ -328,6 +337,7 @@ export const ownerEn: OwnerMessages = {
       signIn: "Sign-in and sessions",
       links: "Links and activation",
       security: "Account security",
+      inquiry: "Inquiries",
     },
     actions: {
       "owner.bootstrap-issued": "First owner link issued",
@@ -354,13 +364,16 @@ export const ownerEn: OwnerMessages = {
       "account.role-changed": "Role changed",
       "account.suspended": "Account suspended",
       "account.reactivated": "Account reactivated",
+      "inquiry.contact-revealed": "Inquiry contact opened",
+      "inquiry.status-changed": "Inquiry status changed",
+      "inquiry.note-added": "Inquiry note added",
     },
     unknownAction: (action: string) => `Event ${action}`,
     legendLabel: "What the markers mean",
     legend: {
-      administration: "Owner actions",
+      administration: "Owner actions and contact openings",
       failure: "Refusals and failures",
-      routine: "Sign-in, sessions, and security",
+      routine: "Sign-in, sessions, security, and inquiry work",
     },
     by: "Actor",
     on: "Target",
@@ -379,6 +392,8 @@ export const ownerEn: OwnerMessages = {
       linksRevoked: (count: number) => `${count} links revoked`,
       accountCreated: "New account created",
       accountExisting: "Existing pending account",
+      status: (from: string, to: string) => `Status: ${from} to ${to}`,
+      note: (id: number | string) => `Note #${id}`,
       reason: (value: string) => `Reason: ${value}`,
     },
     reasons: {
