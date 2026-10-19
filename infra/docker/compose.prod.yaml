@@ -15,7 +15,8 @@
 #                  or in it with compose.prod.admin-tls.yaml
 #
 # Published ports: gateway (public website) and, only with --profile admin, admin-gateway. Both
-# bind to loopback unless SOLVEIT_HTTP_BIND or SOLVEIT_ADMIN_BIND is set deliberately.
+# bind to loopback unless SOLVEIT_HTTP_BIND, SOLVEIT_ADMIN_HTTP_BIND, or SOLVEIT_ADMIN_TLS_BIND is set
+# deliberately.
 #
 # Never put credentials in this file or in the env file: they are Docker secrets read from
 # ${SOLVEIT_SECRETS_DIR:-./secrets}/ (ignored by Git).
@@ -207,11 +208,14 @@ services:
       - ./nginx/admin-origin.envsh:/docker-entrypoint.d/18-solveit-admin-origin.envsh:ro
       - ./nginx/admin-gateway.conf.template:/etc/nginx/templates/admin-gateway.conf.template:ro
       - ./nginx/admin-gateway-routes.conf:/etc/nginx/solveit/admin-gateway-routes.conf:ro
-    # Private by default: loopback only. Set SOLVEIT_ADMIN_BIND to a VPN or private interface
-    # address, or keep loopback behind a TLS proxy or SSH tunnel; never 0.0.0.0 without an
-    # allowlist in front (docs/development/docker-production.md, Admin privat).
+    # Plain HTTP, private by default: loopback only, for a TLS-terminating proxy on this host
+    # (or an SSH tunnel). Its address is separate from the TLS listener's
+    # (SOLVEIT_ADMIN_TLS_BIND, compose.prod.admin-tls.yaml), so putting TLS on a VPN or private
+    # interface never puts plain HTTP there too. Change SOLVEIT_ADMIN_HTTP_BIND only for a proxy
+    # on another host of a private network, never 0.0.0.0 without an allowlist in front
+    # (docs/development/docker-production.md, Admin privat).
     ports:
-      - "${SOLVEIT_ADMIN_BIND:-127.0.0.1}:${SOLVEIT_ADMIN_PORT:-8090}:8080"
+      - "${SOLVEIT_ADMIN_HTTP_BIND:-127.0.0.1}:${SOLVEIT_ADMIN_HTTP_PORT:-8090}:8080"
     networks: [admin-edge, admin-internal]
     depends_on:
       admin:

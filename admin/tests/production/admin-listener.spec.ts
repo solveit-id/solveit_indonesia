@@ -8,7 +8,10 @@ import {
   watchCsp,
 } from "../integration/support/flows";
 import { assertNoSecretsStored } from "../integration/support/secrets";
-import { PRODUCTION_ADMIN_ORIGIN, bootstrapOwner, productionAdminHost } from "./support/stack";
+import { bootstrapOwner, productionTarget } from "./support/stack";
+
+const { origin } = productionTarget();
+const adminHost = new URL(origin).hostname;
 
 /**
  * `GET me` from inside the page: the browser's own cookies, resolver, and TLS session. (The
@@ -61,12 +64,12 @@ test("the first owner activates, signs out, and signs in with password and TOTP 
   expect(await page.evaluate(() => window.isSecureContext)).toBe(true);
 
   const owner = await activateThroughUi(page, link, who, { name: "Production Owner" });
-  expect(new URL(page.url()).origin).toBe(PRODUCTION_ADMIN_ORIGIN);
+  expect(new URL(page.url()).origin).toBe(origin);
 
   const cookies = await context.cookies();
   const session = cookies.find((cookie) => cookie.name === "__Host-solveit-admin-session")?.value;
   expect(attributesOf(cookies, "__Host-solveit-admin-session")).toEqual({
-    domain: productionAdminHost(),
+    domain: adminHost,
     path: "/",
     secure: true,
     httpOnly: true,
@@ -75,7 +78,7 @@ test("the first owner activates, signs out, and signs in with password and TOTP 
   });
   expect(attributesOf(cookies, "solveit-admin-session")).toBeUndefined();
   expect(attributesOf(cookies, "XSRF-TOKEN")).toMatchObject({
-    domain: productionAdminHost(),
+    domain: adminHost,
     secure: true,
     httpOnly: false,
     sameSite: "Strict",

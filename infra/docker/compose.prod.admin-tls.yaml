@@ -16,9 +16,10 @@ services:
     volumes:
       - ./nginx/admin-gateway-tls.conf.template:/etc/nginx/templates/admin-gateway-tls.conf.template:ro
     secrets: [admin_tls_certificate, admin_tls_private_key]
-    # Loopback by default, like the plain listener (which stays published for a local check).
+    # Loopback by default. SOLVEIT_ADMIN_TLS_BIND (for example a VPN interface address) moves
+    # only this TLS port; the plain HTTP port keeps its own SOLVEIT_ADMIN_HTTP_BIND (loopback).
     ports:
-      - "${SOLVEIT_ADMIN_BIND:-127.0.0.1}:${SOLVEIT_ADMIN_TLS_PORT:-8443}:8443"
+      - "${SOLVEIT_ADMIN_TLS_BIND:-127.0.0.1}:${SOLVEIT_ADMIN_TLS_PORT:-8443}:8443"
 
 secrets:
   admin_tls_certificate:

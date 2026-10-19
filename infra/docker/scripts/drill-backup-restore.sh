@@ -5,14 +5,14 @@
 # and proves that rows, checksums, audit triggers, grants, schema, and the application are back.
 # Used by .github/workflows/docker-ci.yml and for local QA.
 #
-# It refuses to run unless every guard below holds, because it deletes a database volume:
-#   - SOLVEIT_DRILL_PROJECT is set, names a throwaway project (contains drill, smoke, or ci),
-#     and is never solveit-indonesia (development) or solveit-indonesia-prod (production);
-#   - the volume is <project>_mysql-data, labelled as that project's, never solveit-mysql-data;
-#   - the backend uses the bundled MySQL service (DB_HOST=mysql), not an external database;
-#   - every stored account and inquiry contact is synthetic (example.test or example.com).
+# It deletes a database volume, so it runs only after check-synthetic-stack.sh accepts the
+# stack (throwaway project name, temporary env file and secrets outside the repository, the
+# project's own MySQL volume and never solveit-mysql-data, DB_HOST=mysql, .test admin origin,
+# loopback ports, synthetic data only). Nothing is touched before that.
 #
-#   SOLVEIT_DRILL_PROJECT  Compose project of the running drill stack (required)
+#   SOLVEIT_DRILL_PROJECT  Compose project of the running drill stack (required, a deliberate
+#                          second opt-in for the destructive step; checked as SOLVEIT_PROD_PROJECT)
+#   SOLVEIT_ENV_FILE, SOLVEIT_SECRETS_DIR  those of the stack (required by the guard)
 #   SOLVEIT_BASE_URL       public gateway URL (default http://127.0.0.1:8080)
 #
 # The backup lives only in a temporary folder that is deleted on exit. Never point this at a
@@ -36,17 +36,10 @@ root_sql() { compose exec -T mysql bash -c "mysql --defaults-extra-file=<(printf
 query() { root_sql "solveit_indonesia -e \"$1\""; }
 as_app_user() { compose exec -T mysql bash -c "mysql --defaults-extra-file=<(printf \"[client]\nuser=solveit_app\npassword=%s\n\" \"\$(cat /run/secrets/db_app_password)\") -N solveit_indonesia -e \"$1\"" 2>&1; }
 
-echo "== guards"
+echo "== guards (before anything is touched)"
 [[ -n "$project" ]] || fail "set SOLVEIT_DRILL_PROJECT to the throwaway project of the drill stack"
-[[ "$project" != solveit-indonesia && "$project" != solveit-indonesia-prod ]] || fail "refusing the development or production project ($project)"
-[[ "$project" =~ ^[a-z0-9][a-z0-9_-]*$ && "$project" =~ (drill|smoke|ci) ]] || fail "project name must contain drill, smoke, or ci ($project)"
+SOLVEIT_PROD_PROJECT="$project" bash "$(dirname "${BASH_SOURCE[0]}")/check-synthetic-stack.sh" || fail "the guard refused this stack; nothing was changed"
 volume="${project}_mysql-data"
-[[ "$volume" != solveit-mysql-data ]] || fail "refusing the development volume"
-[[ "$(docker volume inspect -f '{{index .Labels "com.docker.compose.project"}}' "$volume" 2> /dev/null)" == "$project" ]] \
-  || fail "volume $volume does not exist or does not belong to project $project"
-[[ "$(compose exec -T backend php -r 'echo getenv("DB_HOST");')" == mysql ]] || fail "the backend does not use the bundled MySQL service"
-real_rows="$(query "SELECT (SELECT COUNT(*) FROM users WHERE email NOT LIKE '%@example.test') + (SELECT COUNT(*) FROM inquiries WHERE contact NOT LIKE '%@example.test' AND contact NOT LIKE '%@example.com')")"
-[[ "$real_rows" == 0 ]] || fail "the database holds $real_rows non-synthetic account or inquiry row(s); this is not a drill stack"
 pass "throwaway project $project, its own volume, bundled MySQL, synthetic data only"
 
 echo "== inventory (writes stopped)"

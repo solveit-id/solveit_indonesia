@@ -9,7 +9,7 @@
 #                             everything else  the static console (service admin)
 #   any other Host          421, nothing proxied
 #
-# Plain HTTP on 8080, published on loopback by default (SOLVEIT_ADMIN_BIND, SOLVEIT_ADMIN_PORT):
+# Plain HTTP on 8080, published on loopback by default (SOLVEIT_ADMIN_HTTP_BIND, SOLVEIT_ADMIN_HTTP_PORT):
 # for a TLS-terminating proxy, VPN, or SSH tunnel in front of it. The listener can terminate TLS
 # itself with compose.prod.admin-tls.yaml (nginx/admin-gateway-tls.conf.template).
 # Guide: docs/development/docker-production.md, Admin privat.

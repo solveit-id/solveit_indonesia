@@ -5,14 +5,17 @@
 # deployment. It stops, restarts, and re-tags containers of the project it is given (failure and
 # rollback rehearsal), and leaves the stack running and healthy on the original image tag.
 #
-#   SOLVEIT_PROD_PROJECT      Compose project name (default solveit-indonesia-prod)
+#   SOLVEIT_PROD_PROJECT      Compose project of the throwaway stack (required, no default)
+#   SOLVEIT_ENV_FILE, SOLVEIT_SECRETS_DIR  those of the stack (required)
+#   SOLVEIT_ADMIN_URL         optional; when set it must equal the backend's ADMIN_URL
 #   SOLVEIT_BASE_URL          public gateway URL (default http://127.0.0.1:8080)
 #   SOLVEIT_ADMIN_HTTP_URL    plain admin listener URL (default http://127.0.0.1:8090)
 #   SOLVEIT_ADMIN_TLS_IP      address the TLS admin listener is published on (default 127.0.0.1;
 #                             its port is the port of ADMIN_URL)
 #   SOLVEIT_IMAGE_TAG         image tag of the running stack (default local)
 #
-# ADMIN_URL is read from the running backend, the value Laravel checks Host and Origin against.
+# ADMIN_URL is read from the running backend, the value Laravel checks Host and Origin against;
+# the guard has already required a reserved .test host for it.
 # Exits non-zero on the first failed check.
 # SC2016: single-quoted $ is intended; it must expand inside the containers, not on the host.
 # shellcheck disable=SC2016
@@ -22,7 +25,11 @@ set -euo pipefail
 export MSYS_NO_PATHCONV=1
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && { pwd -W 2> /dev/null || pwd; })"
-project="${SOLVEIT_PROD_PROJECT:-solveit-indonesia-prod}"
+project="${SOLVEIT_PROD_PROJECT:-}"
+
+# Restarts, re-tags, recreates, and writes audit rows: only after the guard accepts the stack.
+bash "$(dirname "${BASH_SOURCE[0]}")/check-synthetic-stack.sh" || { echo "FAIL  the guard refused this stack; nothing was changed" >&2; exit 1; }
+
 public="${SOLVEIT_BASE_URL:-http://127.0.0.1:8080}"
 plain="${SOLVEIT_ADMIN_HTTP_URL:-http://127.0.0.1:8090}"
 tls_ip="${SOLVEIT_ADMIN_TLS_IP:-127.0.0.1}"
