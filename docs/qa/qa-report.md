@@ -42,6 +42,7 @@ Cakupan: fakta rilis B4b (bagian di bawah), alat demo tim lokal untuk Solveit Ad
 - Request konsol Laravel di proses CLI mengaku `REMOTE_ADDR=127.0.0.1` dan user agent "Symfony"; kejadian audit seed kini tanpa alamat IP dan dengan user agent "Solveit demo seed (data sintetis)".
 - `prepare` sempat membuat folder status sebelum memeriksa bahwa folder itu di luar repository; kini path diputuskan lebih dulu (tes negatif memastikan tidak ada folder yang dibuat).
 - Label status "closed" di konsol adalah "Selesai", bukan "Ditutup" (tes dan dokumen diselaraskan).
+- **Ditemukan oleh job CI `demo` pertama (Docker CI 39274565006):** dengan host Quick Tunnel yang panjang, nginx `admin-gateway` menolak start (`could not build server_names_hash, you should increase server_names_hash_bucket_size: 64`), sehingga container tidak sehat. Nama Quick Tunnel sungguhan (empat kata acak) bisa sepanjang itu, jadi pemilik bisa terkena. Diperbaiki khusus demo: `compose.prod.demo.yaml` memasang `nginx/admin-gateway-demo.conf.template` (`server_names_hash_bucket_size 128`); konfigurasi produksi tidak berubah (hostname admin produksi pendek). Host CI kini sengaja panjang (77 karakter) sebagai tes regresi; diulang lokal: `check` `SIAP` dan tes browser mode tunnel lulus. Sertifikat pengganti edge memakai CN pendek karena CN X.509 dibatasi 64 karakter (host tetap di subjectAltName).
 
 ### Tidak dijalankan atau tidak berlaku
 

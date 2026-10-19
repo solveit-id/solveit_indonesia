@@ -37,8 +37,10 @@ export function startEdge(host: string, listenPort: number, adminPort: number): 
         "-nodes",
         "-days",
         "1",
+        // A CN holds at most 64 characters and a Quick Tunnel host can be longer; browsers
+        // match the subjectAltName.
         "-subj",
-        `/CN=${host}`,
+        "/CN=solveit-demo-edge",
         "-addext",
         `subjectAltName=DNS:${host}`,
         "-keyout",

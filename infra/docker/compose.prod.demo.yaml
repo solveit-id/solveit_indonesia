@@ -11,7 +11,9 @@
 #   on every container of the project (a stack started without this file is refused);
 # - the public gateway and the website container move to a profile the demo never enables, so
 #   even a bare `docker compose up` of the demo project cannot start the public inquiry API
-#   (POST /api/v1/inquiries). The website demo is the static preview (frontend/scripts/serve.mjs).
+#   (POST /api/v1/inquiries). The website demo is the static preview (frontend/scripts/serve.mjs);
+# - the admin listener gets a larger server name hash bucket, because a Quick Tunnel host can be
+#   too long for nginx's default (nginx/admin-gateway-demo.conf.template).
 
 x-demo: &demo
   labels:
@@ -34,3 +36,5 @@ services:
     <<: *demo
   admin-gateway:
     <<: *demo
+    volumes:
+      - ./nginx/admin-gateway-demo.conf.template:/etc/nginx/templates/admin-gateway-demo.conf.template:ro
