@@ -3,12 +3,19 @@
 # no hosting, domain, certificate, or production database exists yet.
 # Guide (secrets, first deploy, migrations, backup, rollback): docs/development/docker-production.md.
 #
-#   gateway   nginx, the only published service: static site + /api/* and /up over FastCGI
-#   frontend  static prerendered site (nginx, no Node at runtime)
-#   backend   Laravel on PHP-FPM, no dev packages, never published
-#   migrate   one-off `php artisan migrate --force` as the migration user (profile ops)
-#   mysql     optional MySQL 8.4 on this host (profile bundled-db); otherwise set DB_HOST to a
-#             managed MySQL 8.4 in the env file
+#   gateway        public nginx: static site + /api/* and /up over FastCGI; refuses /api/v1/admin
+#   frontend       static prerendered site (nginx, no Node at runtime)
+#   backend        Laravel on PHP-FPM, no dev packages, never published
+#   migrate        one-off `php artisan migrate --force` as the migration user (profile ops)
+#   mysql          optional MySQL 8.4 on this host (profile bundled-db); otherwise set DB_HOST to
+#                  a managed MySQL 8.4 in the env file
+#   admin          static admin console (nginx, no Node at runtime; profile admin, B3.2d)
+#   admin-gateway  private admin listener: the console + /api/v1/admin over FastCGI on one
+#                  origin, loopback only by default (profile admin, B3.2d). TLS in front of it,
+#                  or in it with compose.prod.admin-tls.yaml
+#
+# Published ports: gateway (public website) and, only with --profile admin, admin-gateway. Both
+# bind to loopback unless SOLVEIT_HTTP_BIND or SOLVEIT_ADMIN_BIND is set deliberately.
 #
 # Never put credentials in this file or in the env file: they are Docker secrets read from
 # ${SOLVEIT_SECRETS_DIR:-./secrets}/ (ignored by Git).
@@ -104,7 +111,8 @@ services:
     # PHP-FPM finishes running requests on SIGQUIT before it exits.
     stop_signal: SIGQUIT
     stop_grace_period: 30s
-    networks: [internal]
+    # internal: public gateway and MySQL; admin-internal: the admin listener only.
+    networks: [internal, admin-internal]
     depends_on:
       mysql:
         condition: service_healthy
@@ -158,11 +166,77 @@ services:
       resources:
         limits: { cpus: "1.00", memory: 1G }
 
+
+  # --- Admin console (B3.2d): prepared and validated, NOT deployed -----------------------------
+  # Nothing here starts without --profile admin. No hostname, certificate, or admin account
+  # exists; ADMIN_URL in the env file is a placeholder until the owner decides the hostname.
+  admin:
+    <<: *hardened
+    profiles: [admin]
+    build:
+      context: ../..
+      dockerfile: infra/docker/admin/Dockerfile
+      target: prod
+    image: solveit-indonesia/admin:${SOLVEIT_IMAGE_TAG:-local}
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp
+    networks: [admin-internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 64M }
+
+  admin-gateway:
+    <<: [*hardened, *backend-env]
+    image: nginxinc/nginx-unprivileged:1.30.6-alpine
+    profiles: [admin]
+    # The env file (not secret) provides ADMIN_URL; nginx/admin-origin.envsh derives the admin
+    # host from it and stops the container unless it is an https:// origin. Only SOLVEIT_ADMIN_*
+    # variables are substituted into the configuration.
+    environment:
+      NGINX_ENVSUBST_FILTER: "^SOLVEIT_ADMIN_"
+      SOLVEIT_ADMIN_REAL_IP_FROM: ${SOLVEIT_ADMIN_REAL_IP_FROM:-}
+    read_only: true
+    cap_drop: [ALL]
+    # The image renders its templates into conf.d at start; uid/gid 101 is nginx.
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
+    volumes:
+      - ./nginx/admin-origin.envsh:/docker-entrypoint.d/18-solveit-admin-origin.envsh:ro
+      - ./nginx/admin-gateway.conf.template:/etc/nginx/templates/admin-gateway.conf.template:ro
+      - ./nginx/admin-gateway-routes.conf:/etc/nginx/solveit/admin-gateway-routes.conf:ro
+    # Private by default: loopback only. Set SOLVEIT_ADMIN_BIND to a VPN or private interface
+    # address, or keep loopback behind a TLS proxy or SSH tunnel; never 0.0.0.0 without an
+    # allowlist in front (docs/development/docker-production.md, Admin privat).
+    ports:
+      - "${SOLVEIT_ADMIN_BIND:-127.0.0.1}:${SOLVEIT_ADMIN_PORT:-8090}:8080"
+    networks: [admin-edge, admin-internal]
+    depends_on:
+      admin:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 128M }
+
 networks:
   # Only the gateway joins edge, the network with a published port.
   edge:
   # No route to the internet or the host: backend, frontend, and MySQL talk only to each other.
   internal:
+    internal: true
+  # The admin listener's own networks: the public gateway, the website, and MySQL are on none of
+  # them, so neither listener can reach the other side's containers.
+  admin-edge:
+  admin-internal:
     internal: true
 
 volumes:
