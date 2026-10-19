@@ -1,6 +1,6 @@
 # Konsol admin Solveit (`admin/`)
 
-Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38), B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`), B3.2c (ruang kerja administrasi owner; PR #43, `c0ecde9`), dan B3.2d (image produksi nginx statis tanpa Node dan listener admin privat; PR #44, rilis PR #45, `eb31fae`) dirilis ke `main`, belum di-deploy** (bagian Produksi). Tidak ada hostname admin, sertifikat, atau akun produksi. API pengelolaan inquiry (B4a, `docs/api/admin-inquiries.md`) dirilis ke `main` (PR #47, `58cead5`), tetapi konsol belum memanggilnya (B4b, sedang dibangun di branch ini). Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`, `docs/api/admin-inquiries.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
+Aplikasi admin website Solveit Indonesia, terpisah dari website publik (`frontend/`). Status: **fondasi B3.2a (PR #38), B3.2b (masuk, aktivasi, keamanan akun sendiri; PR #41, `02f3859`), B3.2c (ruang kerja administrasi owner; PR #43, `c0ecde9`), dan B3.2d (image produksi nginx statis tanpa Node dan listener admin privat; PR #44, rilis PR #45, `eb31fae`) dirilis ke `main`, belum di-deploy** (bagian Produksi). Tidak ada hostname admin, sertifikat, atau akun produksi. API pengelolaan inquiry (B4a, `docs/api/admin-inquiries.md`) dirilis ke `main` (PR #47, `58cead5`). **B4b** (konsol inquiry di atas API itu, bagian Inquiry) dibangun dan dites di branch `admin`, **belum dirilis, belum di-deploy**. Arsitektur: `docs/architecture/admin-dashboard.md`. Kontrak API: `docs/api/admin-auth.md`, `docs/api/admin-users.md`, `docs/api/admin-inquiries.md`. Standar UI dan motion admin: `docs/design/design-system.md`, Konsol admin.
 
 React 19, TypeScript strict, Vite 8, React Router 7 dalam **mode data** (bukan framework mode: tanpa skrip inline, CSP ketat), Tailwind CSS 4, ikon Phosphor, GSAP (inti saja, chunk lazy sejak B3.2c). Tanpa Axios, state manager global, pustaka komponen, pustaka grafik, atau pustaka smooth scroll (Lenis dievaluasi dan tidak dipakai, lihat Motion).
 
@@ -44,14 +44,15 @@ admin/
 │   ├── components/
 │   │   ├── brand/       logo dari path asli website (tanpa salinan), tanda yang merakit diri (momen fokus B3.2c)
 │   │   ├── admin/       ruang kerja owner (B3.2c): dialog tindakan sensitif, tautan sekali tampil, daftar cursor, kejadian audit, nama akun
+│   │   ├── inquiry/     konsol inquiry (B4b): kapsul status, kontak lengkap yang disengaja, riwayat status, catatan internal
 │   │   ├── account/     kode pemulihan sekali tampil, daftar fakta akun
 │   │   ├── layout/      shell dengan akun, bingkai autentikasi tanpa navigasi, navigasi, preferensi
 │   │   └── ui/          primitif: tombol, isian, status, panel, keadaan memuat/kosong/gagal
-│   ├── i18n/            Indonesia (default) dan Inggris; struktur sama dicek TypeScript dan tes; owner/ untuk teks ruang kerja owner
+│   ├── i18n/            Indonesia (default) dan Inggris; struktur sama dicek TypeScript dan tes; owner/ untuk teks ruang kerja owner, inquiry/ untuk teks konsol inquiry
 │   ├── lib/             tema, preferensi, tautan akses (fragmen), aturan kata sandi, waktu, hari lokal, media query, motion (GSAP lazy), cn
 │   ├── pages/           satu modul per layar
 │   ├── routes/          path
-│   ├── services/admin-api/  klien API bertipe: satu-satunya tempat yang memanggil Laravel; owner.ts untuk endpoint owner
+│   ├── services/admin-api/  klien API bertipe: satu-satunya tempat yang memanggil Laravel; owner.ts untuk endpoint owner, inquiry.ts untuk endpoint inquiry
 │   └── styles/admin.css lapisan admin di atas token merek bersama
 ├── tests/e2e/           Playwright pada build referensi, API di-mock
 ├── tests/integration/   Playwright pada build produksi terhadap Laravel dan MySQL nyata (playwright.integration.config.ts)
@@ -104,6 +105,23 @@ Admin membaca empat file website **di tempat, read-only, tanpa salinan** (`vite.
 - **Tanggal audit**: satu hari dikirim sebagai awal dan akhirnya di zona waktu perangkat dengan offset tertulis (`src/lib/local-day.ts`), karena Laravel membaca tanggal polos sebagai tengah malam UTC.
 - **Nama akun** di undangan dan audit berasal dari satu halaman `GET users` (100 akun) di memori layar; selebihnya "Akun #7", tidak pernah tebakan.
 - **Ukuran.** Teks owner (`src/i18n/owner/`) dan klien owner (`src/services/admin-api/owner.ts`) hanya diimpor kode owner, jadi tidak masuk JavaScript awal.
+
+## Inquiry (B4b)
+
+Konsol inquiry di atas API B4a (`docs/api/admin-inquiries.md`) untuk owner dan admin, per izin `inquiries.*` dari `GET me`. Dibangun dan dites di branch `admin`, belum dirilis, belum di-deploy. Kanal website ke API tetap nonaktif secara default, jadi belum ada inquiry nyata di mana pun.
+
+| Route          | Isi                                                                                                                                                                                                                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/inquiry`     | Daftar (`GET inquiries`), terbaru dulu: pengirim, referensi, layanan, status, waktu diterima. Filter di alamat: status, layanan, rentang tanggal diterima (batas hari lokal), referensi persis; muat inquiry lebih lama dengan cursor Laravel. Tanpa kontak (samaran sekalipun) dan tanpa pesan |
+| `/inquiry/:id` | Detail: kiriman pengunjung (kontak disamarkan, pesan sebagai teks polos), status dengan perpindahan yang diizinkan Laravel, riwayat status, catatan internal, dan pembukaan kontak lengkap. Owner mendapat tautan ke kejadian inquiry ini di audit log (`/audit?inquiry=<id>`)                  |
+
+- **Navigasi.** Grup "Operasional" dengan Inquiry tampil hanya bila `GET me` melaporkan `inquiries.view`; tombol status, form catatan, dan tombol kontak hanya bila izinnya ada, selain itu satu kalimat penjelasan. Akun tanpa izin yang membuka layar inquiry melihat "Tanpa izin inquiry" tanpa request; `403` memberi keadaan yang sama.
+- **Status** (`received` Baru, `in-review` Ditinjau, `contacted` Dihubungi, `closed` Selesai). Konsol tidak menyimpan tabel transisi: tombolnya dari `allowed_transitions` detail. Setiap perpindahan lewat `SensitiveActionDialog` dan mengirim `expected_status` = status yang tampil saat orangnya memutuskan (compare and set). `409 status_changed` atau `transition_not_allowed`: dialog menjelaskan, hanya Tutup tersisa, detail dibaca ulang, lalu pesan "status dimuat ulang: sekarang X" menerima fokus; tidak ada yang dikirim ulang. `200` tanpa riwayat baru (sudah berstatus itu) dikatakan apa adanya. Hasil tidak pasti: tombol **Periksa keadaan inquiry** membaca detail, tidak pernah mengirim lagi.
+- **Catatan** hanya-tambah: satu tekanan, teks di-trim, 1 sampai 2000 karakter (dihitung per code point seperti Laravel). Tidak ada kunci idempotensi untuk catatan, jadi setelah hasil tidak pasti (5xx termasuk `503`, jaringan, timeout) teksnya tetap di kolom, pengiriman ditahan, dan **Periksa catatan** membaca catatan terbaru untuk mencari catatan akun ini dengan teks yang sama: ada, kolom dikosongkan; tidak ada, orangnya boleh menekan lagi. `419`: belum diproses, tekan lagi. `429`: hitung mundur. Draf hanya di memori komponen.
+- **Kontak lengkap.** Samaran dari Laravel tampil apa adanya. Membukanya: tombol, dialog yang menjelaskan bahwa setiap pembukaan dicatat atas nama orangnya, kotak centang wajib (tanpa centang tidak ada yang dikirim), `423` membuka langkah kata sandi ("kontak belum dibuka dan belum ada yang dicatat"), lalu tekanan kedua yang disengaja. Batas `429` dihitung mundur di dialog. Nilai lengkap hanya di state komponen (`ContactFact`): tidak di penyimpanan browser, alamat, state router, judul, atribut, pesan, atau log; Sembunyikan membuangnya, dan meninggalkan layar meng-unmount-nya. Respons untuk inquiry lain diperlakukan sebagai jawaban tak terbaca. Hasil tidak pasti (termasuk `500` bila audit gagal ditulis) tidak menampilkan apa pun dan mengatakan bahwa pembukaan mungkin sudah tercatat.
+- **Data pribadi.** Pesan pengunjung dapat memuat nomor atau alamat yang tidak disamarkan; layar mengatakannya, menampilkannya sebagai teks polos (React meng-escape, tanpa tautan otomatis), dan judul dokumen tetap "Inquiry" tanpa nama pengirim. Alamat hanya membawa ID internal dan filter (referensi publik paling banyak), tidak pernah nama atau kontak. Kaki layar menyebut bahwa masa simpan, ekspor, dan penghapusan belum diputuskan pemilik; konsol tidak mengekspor atau menghapus apa pun.
+- **Audit log** (owner): tiga tindakan baru berlabel ("Kontak inquiry dibuka", "Status inquiry diubah", "Catatan inquiry ditambahkan") dalam grup filter Inquiry, metadata sebagai kata ("Status: Baru ke Ditinjau", "Catatan #12", tidak pernah isi catatan), sasaran "Inquiry #42" sebagai tautan ke detailnya, dan filter `?inquiry=<id>` yang dikirim sebagai `subject_inquiry_id` (tidak pernah bersama `subject_user_id`, yang ditolak Laravel). Pembukaan kontak memakai nada penuh seperti tindakan owner.
+- **Ukuran.** Teks inquiry (`src/i18n/inquiry/`) dan klien inquiry (`src/services/admin-api/inquiry.ts`) hanya diimpor kode inquiry dan audit, jadi tidak masuk JavaScript awal (136,5 KB gzip, sebelumnya 135,2 KB: navigasi, ikon Tray, dan teks inti). Bantuan cursor bersama ada di `pagination.ts`, sehingga klien inquiry tidak menarik klien owner.
 
 ## Motion (GSAP) dan Lenis
 

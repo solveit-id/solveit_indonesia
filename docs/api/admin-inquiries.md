@@ -1,6 +1,6 @@
 # Admin API: pengelolaan inquiry (B4a)
 
-Kontrak endpoint inquiry di `/api/v1/admin` yang dibangun pada B4a: daftar dan detail inquiry dengan kontak disamarkan, alur status dengan riwayat, catatan internal, dan pembukaan kontak lengkap yang dicatat. Status: **dibangun, dites, dan dirilis ke `main` (PR #46, rilis PR #47, merge `58cead5`), belum di-deploy**. Konsol admin belum memanggilnya (B4b, sedang dibangun di branch `admin`). Kanal website yang mengirim inquiry tetap nonaktif secara default (`VITE_INQUIRY_API_ENABLED=false`), jadi belum ada inquiry nyata di mana pun.
+Kontrak endpoint inquiry di `/api/v1/admin` yang dibangun pada B4a: daftar dan detail inquiry dengan kontak disamarkan, alur status dengan riwayat, catatan internal, dan pembukaan kontak lengkap yang dicatat. Status: **dibangun, dites, dan dirilis ke `main` (PR #46, rilis PR #47, merge `58cead5`), belum di-deploy**. Konsol admin memanggilnya sejak B4b (dibangun dan dites di branch `admin`, belum dirilis; `admin/README.md`, Inquiry). Kanal website yang mengirim inquiry tetap nonaktif secara default (`VITE_INQUIRY_API_ENABLED=false`), jadi belum ada inquiry nyata di mana pun.
 
 Konvensi B3.1a tetap berlaku tanpa perubahan (satu origin `ADMIN_URL`, sesi cookie database, CSRF, `Cache-Control: no-store, private`, `401` tanpa sesi): `admin-auth.md`. Cursor pagination, penolakan parameter yang tidak dikenal, dan format `409` dengan `code` sama dengan `admin-users.md`. Data inquiry dan endpoint publiknya: `inquiries.md`. Arsitektur: `docs/architecture/admin-dashboard.md` bagian 4 dan 6.
 
@@ -238,4 +238,4 @@ Uji mutasi: tanpa kunci baris, keenam perubahan status "berhasil" (pembaruan yan
 
 ## Yang tidak ada
 
-Endpoint publik untuk inquiry, ekspor (CSV atau lainnya), penghapusan inquiry, catatan, atau riwayat, pengubahan field kiriman pengunjung, pencarian teks bebas, penugasan inquiry ke orang tertentu, notifikasi atau email, penerusan ke Solveit OpsHub, dan antarmuka konsol (B4b).
+Endpoint publik untuk inquiry, ekspor (CSV atau lainnya), penghapusan inquiry, catatan, atau riwayat, pengubahan field kiriman pengunjung, pencarian teks bebas, penugasan inquiry ke orang tertentu, notifikasi atau email, penerusan ke Solveit OpsHub. Konsol B4b hanya memakai endpoint di atas: tidak ada ekspor, penghapusan, penugasan, atau penerusan di antarmukanya.

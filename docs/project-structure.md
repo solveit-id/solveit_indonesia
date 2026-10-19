@@ -219,13 +219,14 @@ admin/
 │   ├── components/brand/   Logo dari path asli website (tanpa salinan), tanda yang merakit diri (B3.2c)
 │   ├── components/account/ Komponen akun sendiri (kode pemulihan sekali tampil, daftar fakta)
 │   ├── components/admin/   Ruang kerja owner (B3.2c): dialog tindakan sensitif, tautan sekali tampil, daftar cursor, kejadian audit
+│   ├── components/inquiry/ Konsol inquiry (B4b): kapsul status, kontak lengkap yang disengaja, riwayat status, catatan internal
 │   ├── components/layout/  Shell: rail, bar ponsel, bingkai tanpa akun, navigasi, preferensi
 │   ├── components/ui/      Primitif lintas layar
 │   ├── i18n/               Pesan antarmuka per bahasa (Indonesia default, Inggris); owner/ hanya untuk ruang kerja owner
 │   ├── lib/                Utilitas tanpa UI (tema, preferensi, tautan akses, hari lokal, motion GSAP lazy)
 │   ├── pages/              Satu modul per layar, dimuat lazy
 │   ├── routes/             Path
-│   ├── services/admin-api/ Klien API admin bertipe: satu-satunya tempat yang memanggil Laravel (owner.ts: endpoint owner)
+│   ├── services/admin-api/ Klien API admin bertipe: satu-satunya tempat yang memanggil Laravel (owner.ts: endpoint owner; inquiry.ts: endpoint inquiry)
 │   └── styles/admin.css    Lapisan admin di atas token merek bersama
 ├── tests/e2e/              Playwright pada build referensi, API di-mock (support/mock-api.ts)
 ├── tests/integration/      Playwright pada build produksi terhadap Laravel dan MySQL tes (support/: harness, TOTP, rahasia)
@@ -238,7 +239,7 @@ Aturan:
 
 - Aplikasi terpisah dari `frontend/`: build, CI (`admin-ci.yml`), dan branch (`admin`) sendiri. Kode admin tidak pernah diimpor oleh website, dan halaman website tidak pernah memuat chunk admin.
 - **Sumber desain bersama (satu sumber, tanpa salinan).** Token merek (palet terang dan gelap, tipe, motion, radius) ada di `frontend/src/styles/tokens.css`; website mengimpornya dari `app.css`, admin dari `src/styles/admin.css`. Admin membaca persis empat file website, read-only: `tokens.css`, `frontend/src/assets/fonts/archivo-solveit.woff2`, `frontend/src/components/brand/logo-paths.ts`, `frontend/public/favicon.svg`. Daftarnya ditulis sekali di `admin/vite.config.ts` (`sharedDesignSources`, juga satu-satunya izin `server.fs.allow` di luar `admin/`), dan diulang di path trigger `admin-ci.yml` dan mount read-only `compose.dev.yaml`. Token yang hanya dipakai satu aplikasi (tinggi header website, skala tipe admin) tetap di stylesheet aplikasi itu. Menambah file bersama berarti memperbarui ketiga tempat itu; menyalin aset ke `admin/` tidak diizinkan.
-- **JavaScript awal tetap kecil.** Kode yang hanya dipakai layar owner (komponen `components/admin/`, teks `i18n/owner/`, klien `services/admin-api/owner.ts` dan `owner-contracts.ts`) diimpor hanya oleh layar owner, tidak pernah dari barrel `services/admin-api/index.ts` atau katalog inti, sehingga masuk chunk lazy. GSAP hanya lewat `lib/motion.ts` (import dinamis). `check-build.mjs` menegakkan anggaran 150 KB gzip.
+- **JavaScript awal tetap kecil.** Kode yang hanya dipakai layar owner (komponen `components/admin/`, teks `i18n/owner/`, klien `services/admin-api/owner.ts` dan `owner-contracts.ts`) diimpor hanya oleh layar owner, begitu juga kode inquiry (`components/inquiry/`, `i18n/inquiry/`, `services/admin-api/inquiry.ts` dan `inquiry-contracts.ts`) oleh layar inquiry dan audit, tidak pernah dari barrel `services/admin-api/index.ts` atau katalog inti, sehingga masuk chunk lazy. GSAP hanya lewat `lib/motion.ts` (import dinamis). `check-build.mjs` menegakkan anggaran 150 KB gzip.
 - Halaman yang hanya untuk pengembangan dan QA (referensi komponen) dipasang lewat konstanta build `__ADMIN_COMPONENT_REFERENCE__`, sehingga build produksi tidak memuatnya sama sekali (diperiksa `check-build.mjs`).
 - File hasil build (`dist/`, `dist-reference/`, `test-results/`, `playwright-report/`) tidak di-commit.
 
