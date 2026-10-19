@@ -47,10 +47,31 @@ CI pada PR #48 (head `1acb047`), semuanya hijau: Admin CI 39222015637 (suite ber
 
 Tangkapan layar 1440, 820, dan 390 px (daftar, detail, dialog kontak, kontak terbuka, gelap) diperiksa manual; satu temuan diperbaiki: tombol Cari meregang selebar sisa baris filter mulai 640 px.
 
+### Tinjauan keamanan akhir sebelum merge (2026-10-19)
+
+Dasar: diff `staging...admin` PR #48 (head `43ab204`, CI hijau). Temuan yang terverifikasi dan diperbaiki di branch `admin`:
+
+| ID | Tingkat | Temuan dan bukti | Tindakan | Verifikasi |
+|---|---|---|---|---|
+| R1 | P1, sedang | Kontak lengkap tetap di DOM saat tab tersembunyi atau halaman masuk back-forward cache; jawaban pembukaan yang tiba saat tab tersembunyi tetap ditampilkan (`components/inquiry/contact-reveal.tsx`) | Page Visibility API dan `pagehide` membuang nilai dengan `flushSync`; tiket per permintaan, sehingga jawaban terlambat (setelah Sembunyikan, saat tersembunyi, setelah unmount) tidak pernah tampil; tidak ada pembukaan ulang otomatis; listener dilepas saat unmount | Vitest (tab tersembunyi, `pagehide` lalu `pageshow`, jawaban saat tersembunyi, pindah rute saat menunggu, sesi berakhir), Chromium ber-mock dengan CSP produksi, Laravel nyata (dibuang lalu pembukaan kedua tercatat sebagai kejadian kedua); uji mutasi: tanpa listener dan tanpa cek tiket tes gagal |
+| R2 | P1, rendah | Setelah akun kehilangan `inquiries.reveal-contact` (dibaca ulang setelah `403`), kontak yang sudah terbuka tetap tampil | State disesuaikan saat render bila izin hilang, dan jawaban yang masih di jalan dibuang | Vitest dengan `GET me` tanpa izin setelah `403`; uji mutasi |
+| N1 | P1, sedang | Pemeriksaan catatan tidak pasti membandingkan draf yang masih dapat diubah, dan menganggap catatan identik apa pun dari akun yang sama sebagai bukti (termasuk catatan lama), lalu mengosongkan draf (`components/inquiry/inquiry-notes.tsx`) | Percobaan dibekukan (teks dan ID catatan terbaru yang diketahui sebelum mengirim); kolom hanya baca selama tidak pasti; tersimpan hanya bila ada catatan akun ini dengan teks persis dan ID lebih baru; selain itu tetap tidak pasti dengan pilihan sadar (periksa lagi, kirim lagi, buang teks) | Vitest (catatan identik lama bukan bukti, daftar belum termuat berarti tidak dapat dipastikan, kirim lagi hanya dengan tekanan, buang teks, tekanan ganda mengirim satu kali); uji mutasi |
+| D1 | P2, rendah | Jawaban baca detail yang tiba tidak berurutan dapat menimpa keadaan yang lebih baru di layar (penulisan tetap aman lewat compare and set) (`pages/inquiry-detail.tsx`) | Tiket per baca dan per penulisan yang dikonfirmasi; jawaban lama dibuang | Vitest dengan baca lambat yang selesai setelah perubahan status; uji mutasi |
+
+Diperiksa tanpa temuan: pesan dan nama pengunjung dirender React sebagai teks (markup, `<script>`, `onerror`, tautan `javascript:`, URL mencurigakan, karakter kontrol dan bidi tidak pernah menjadi elemen atau tautan; dibuktikan di jsdom dan Chromium dengan CSP produksi; URL panjang tanpa spasi terbungkus tanpa scroll samping); error boundary tidak pernah menampilkan pesan atau stack; tidak ada log, storage, atau telemetry di kode inquiry; daftar tanpa kontak dan pesan; salin hanya saat ditekan; setiap route dan tindakan mengikuti satu dari empat izin dan Laravel tetap otoritas; `401`, `403`, `409`, `429`, `5xx` tidak menampilkan pesan server dan tidak memicu penulisan otomatis.
+
+Tambahan tes nyata: perubahan oleh **operator kedua** (akun admin nyata dengan sesinya sendiri) menghasilkan `409` asli di layar owner, riwayat menyebut "Operator Kedua", tidak ada yang ditimpa; **batas laju nyata** di stack tes terisolasi: 10 pembukaan lewat API, pembukaan ke-11 di konsol menampilkan hitung mundur, tidak ada kontak, tetap 10 kejadian audit.
+
+| Pemeriksaan (lokal, setelah perbaikan) | Hasil |
+|---|---|
+| `npm run check` | Lulus. **28 file, 447 tes** (435 sebelum tinjauan) |
+| Suite ber-mock | desktop **60**, tablet **61**, mobile **61** lulus (2, 1, 1 dilewati) |
+| Suite nyata | `inquiries.spec.ts` desktop **5 lulus** (termasuk batas laju), responsif tablet **4** dan mobile **4** lulus. Run penuh desktop tidak diulang lokal (crash memori sebelumnya); run penuh bersih adalah Admin integration pada head PR terbaru |
+
 ### Tidak dijalankan atau tidak berlaku
 
 - **Backend:** tidak ada perubahan di `backend/`, jadi `php artisan test`, Pint, dan Composer tidak dijalankan ulang untuk B4b (baseline B4a: 529 tes). Laravel Boost MCP gagal tersambung saat sesi dimulai (`CONNECT_TIMEOUT`) dan tidak dipakai; tidak dibutuhkan karena tidak ada kode Laravel yang ditulis.
-- **Batas laju nyata** pembukaan kontak (10 per menit, 60 per jam) tidak dipicu di suite nyata (11 pembukaan per tes); perilaku `429` dibuktikan dengan mock dan oleh tes backend B4a.
+- **Batas laju nyata per jam** (60 per jam) tidak dipicu; batas per menit dibuktikan di stack tes terisolasi (tinjauan akhir di atas).
 - **WebKit dan Firefox:** tidak dijalankan untuk konsol admin (suite admin hanya Chromium). **Lighthouse:** tidak dijalankan.
 - **Idle 30 menit dengan jam server:** tidak dipakai di suite inquiry karena garbage collection sesi dapat menghapus sesi klien API pembanding; sesi berakhir dibuktikan dengan pencabutan sesi yang deterministik dan oleh tes idle B3.2b.
 - **Tinjauan desain akhir** (finish reviewer Impeccable) dan waiver concept-seed: menunggu pemilik; tidak ada yang dicatat sebagai disetujui.
