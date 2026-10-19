@@ -9,7 +9,7 @@ export const en: Messages = {
   shell: {
     skipToContent: "Skip to content",
     consoleName: "Admin console",
-    environmentLead: "B3.2c console",
+    environmentLead: "B3.2d console",
     environmentDetail: "not deployed",
     navigation: "Main navigation",
     openMenu: "Menu",

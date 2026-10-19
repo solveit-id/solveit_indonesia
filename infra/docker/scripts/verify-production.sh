@@ -3,7 +3,10 @@
 # Used by .github/workflows/docker-ci.yml and for local QA; never point it at a real deployment
 # with real data: it submits test inquiries.
 #
-#   SOLVEIT_PROD_PROJECT  Compose project name (default solveit-indonesia-prod)
+#   SOLVEIT_PROD_PROJECT  Compose project of the throwaway stack (required, no default)
+#   SOLVEIT_ENV_FILE, SOLVEIT_SECRETS_DIR  those of the stack (required)
+# It writes inquiries and audit rows and restarts the backend, so check-synthetic-stack.sh must
+# accept the stack first; nothing runs before that.
 #   SOLVEIT_BASE_URL      gateway URL (default http://127.0.0.1:8080)
 #   SOLVEIT_SECRETS_DIR   secrets folder used by the stack (to read the MySQL root password)
 #
@@ -13,8 +16,11 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-project="${SOLVEIT_PROD_PROJECT:-solveit-indonesia-prod}"
+project="${SOLVEIT_PROD_PROJECT:-}"
 base="${SOLVEIT_BASE_URL:-http://127.0.0.1:8080}"
+
+bash "$(dirname "${BASH_SOURCE[0]}")/check-synthetic-stack.sh" || { echo "FAIL  the guard refused this stack; nothing was changed" >&2; exit 1; }
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 

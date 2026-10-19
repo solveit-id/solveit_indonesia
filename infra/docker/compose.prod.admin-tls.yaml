@@ -1,0 +1,28 @@
+# Optional override of compose.prod.yaml: the private admin listener terminates TLS itself
+# (B3.2d, prepared and validated, NOT deployed; no certificate for a real domain exists).
+# Use it when nothing in front of admin-gateway terminates TLS, for example on a VPN or private
+# interface address, or behind an SSH tunnel:
+#
+#   docker compose -f infra/docker/compose.prod.yaml -f infra/docker/compose.prod.admin-tls.yaml \
+#     --profile admin up -d --wait
+#
+# The certificate (full chain) and private key for the ADMIN_URL host are Docker secrets in
+# ${SOLVEIT_SECRETS_DIR:-./secrets}/ (ignored by Git), like the other secrets. CI uses a
+# throwaway self-signed certificate for admin.solveit.test, generated per run and never kept.
+# Guide: docs/development/docker-production.md, Admin privat.
+
+services:
+  admin-gateway:
+    volumes:
+      - ./nginx/admin-gateway-tls.conf.template:/etc/nginx/templates/admin-gateway-tls.conf.template:ro
+    secrets: [admin_tls_certificate, admin_tls_private_key]
+    # Loopback by default. SOLVEIT_ADMIN_TLS_BIND (for example a VPN interface address) moves
+    # only this TLS port; the plain HTTP port keeps its own SOLVEIT_ADMIN_HTTP_BIND (loopback).
+    ports:
+      - "${SOLVEIT_ADMIN_TLS_BIND:-127.0.0.1}:${SOLVEIT_ADMIN_TLS_PORT:-8443}:8443"
+
+secrets:
+  admin_tls_certificate:
+    file: ${SOLVEIT_SECRETS_DIR:-./secrets}/admin_tls_certificate
+  admin_tls_private_key:
+    file: ${SOLVEIT_SECRETS_DIR:-./secrets}/admin_tls_private_key

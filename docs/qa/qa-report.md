@@ -2,6 +2,61 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B3.2d infrastruktur admin privat (2026-10-19)
+
+Cakupan: image produksi konsol admin, listener admin privat `admin-gateway` (profil `admin`, TLS opsional lewat `compose.prod.admin-tls.yaml`), gagal tertutup pada `ADMIN_URL` di listener dan entrypoint backend, isolasi dari gateway publik, smoke test, tes browser nyata pada image produksi, latihan backup dan pemulihan, dan dokumen B3.2c yang basi setelah rilis PR #43. **Tidak ada deployment**: semua bukti berasal dari proyek Docker sintetis yang terisolasi (`solveit-b32d-smoke`, dihapus beserta volumenya setelahnya) dengan secret acak dan sertifikat self-signed sekali pakai untuk `admin.solveit.test` (tidak pernah di-resolve DNS). `solveit-mysql`, volumenya, XAMPP, dan database pengembangan tidak disentuh.
+
+### Audit sebelum implementasi
+
+| Area | Temuan | Tindakan |
+|---|---|---|
+| Gateway publik | Sudah menolak setiap ejaan `/api/v1/admin` (26 ejaan diuji) | Tidak diubah; sekarang juga diuji dengan header `Host` admin palsu dan path konsol |
+| Batas host dan origin Laravel | `AdminRequestBoundary` membandingkan `Host` dan `Origin` dengan `ADMIN_URL`, termasuk port | Listener meneruskan `Host` asli lewat FastCGI; tanpa perubahan backend |
+| Cookie | `Secure` dan `__Host-` hanya bila `ADMIN_URL` diawali `https://`; nilai `http://` diam-diam melemahkannya | Listener dan entrypoint backend menolak start tanpa origin `https://` |
+| CSP | Hanya `<meta>` di build (tanpa `frame-ancestors`); header hanya di `vite preview` | Header HTTP dibuat saat build dari `security-policy.ts` yang sama; smoke test membandingkan header dengan meta |
+| TLS, proxy, backup | Hanya teks; tidak ada prosedur yang dites | Override TLS, `SOLVEIT_ADMIN_REAL_IP_FROM`, latihan pemulihan, semuanya di CI |
+| CI | Docker CI, Admin CI, dan Admin integration menjalankan `skrip \| tee` tanpa `pipefail`, sehingga skrip yang gagal dapat lolos | `defaults.run.shell: bash` (`-eo pipefail`) di ketiga workflow |
+
+### Hasil lokal (Windows 11, Docker Desktop 29.8.2, Compose 5.6.0, Git Bash)
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Build image | `admin` 91,3 MB (nginx unprivileged + `dist/`), `frontend` 94,6 MB, `backend` 805 MB. Tahap build admin menjalankan `check-build.mjs`: JS awal 135,2 KB gzip (tidak berubah), CSS 8,8 KB |
+| `verify-production.sh` | **67 PASS**, termasuk dengan profil admin berjalan |
+| `verify-admin.sh` | **72 PASS**: isi image, port loopback, isolasi jaringan dengan kontrol positif, header konsol dan CSP = meta + `frame-ancestors`, fallback SPA, cache aset, TLS 1.0/1.1 ditolak, SNI asing ditolak, `Host` asing `421`, cookie `__Host-` dan `XSRF-TOKEN`, `Origin`/`Sec-Fetch-Site`/CSRF (`403`, `419`), path non-admin `404`, listener HTTP di belakang proxy (`X-Forwarded-For` palsu tercatat sebagai peer `172.25.0.1`; setelah alamat itu dipercaya, `203.0.113.77` tercatat), isolasi gateway publik, gagal tertutup (5 nilai `ADMIN_URL` buruk dan injeksi alamat proxy di listener; 3 kasus di backend; kontrol positif), backend dan konsol mati lalu pulih (`502` JSON `no-store`, konsol tetap termuat), rollback ke tag sebelumnya dan kembali |
+| Tes browser produksi (Chromium 156, TLS nyata) | **1 lulus** (13,8 s): owner pertama dari `admin:bootstrap-owner`, aktivasi dengan TOTP dan kode pemulihan, `window.isSecureContext`, cookie `__Host-solveit-admin-session` (host-only, `Path=/`, `Secure`, `HttpOnly`, `Strict`, sesi browser), header yang diterima browser, layar Pengguna (chunk lazy), keluar, masuk lagi dengan kata sandi dan TOTP dengan ID sesi baru, nol pelanggaran CSP, tanpa rahasia di penyimpanan browser |
+| `drill-backup-restore.sh` | **10 PASS**: backup 13 KB gzip dengan kedua trigger dan tanpa akun atau grant, volume latihan dihapus, MySQL baru, jumlah baris dan `CHECKSUM TABLE` tujuh tabel identik, trigger dan grant utuh, audit tetap hanya-tambah, `migrate:status` tanpa `Pending`, `/up` sehat. Waktu pulih 86 sampai 88 detik |
+| Admin `npm run check` | Bersih (format, lint, typecheck, Vitest, build, build checks) |
+| Admin Playwright di-mock | desktop 48 lulus dan 2 dilewati, tablet 49 dan 1, mobile 49 dan 1 (sama dengan B3.2c) |
+| Admin browser nyata ke Laravel dan MySQL (database tes, gerbang keamanan lulus) | desktop 40, tablet 3, mobile 3 lulus (sama dengan B3.2c) |
+| shellcheck 0.10.0 | Bersih untuk semua skrip, entrypoint, dan `admin-origin.envsh` |
+| Rahasia | Tidak ada kunci, `.env`, atau kredensial di diff; asersi Playwright tidak mencetak nilai cookie (ditemukan saat satu percobaan awal mencetaknya di pesan galat, lalu diperbaiki sebelum commit) |
+
+### Ditemukan dan diperbaiki selama QA
+
+- nginx menjawab `/api/v1/admin` tanpa garis miring dengan `301` (perilaku bawaan prefix dengan `fastcgi_pass`): sekarang `404` JSON lewat lokasi persis.
+- Di Git Bash, MSYS mengubah path container (`/usr/share/nginx/html`) dan `/dev/null` untuk curl Windows: skrip mematikan konversi dan memberi Docker path bentuk Windows (`pwd -W`), tanpa efek di Linux.
+- Pemeriksaan "variabel template belum dirender" ikut membaca komentar: sekarang hanya baris konfigurasi.
+- Permintaan dari konteks Node Playwright tidak memakai pemetaan host Chromium dan mencetak cookie saat gagal: diganti `fetch` di dalam halaman, dan atribut cookie dibandingkan tanpa nilainya.
+
+### Pengerasan keselamatan operasional (tinjauan PR #44, 2026-10-19)
+
+| Temuan | Risiko | Perbaikan |
+|---|---|---|
+| `verify-admin.sh` dan `verify-production.sh` memakai default proyek `solveit-indonesia-prod` (nama proyek produksi) | Dijalankan tanpa variabel di server, skrip akan me-restart dan me-retag container, membuat ulang listener, dan menulis inquiry serta audit di produksi | Tanpa default; `check-synthetic-stack.sh` (baca saja) wajib menerima stack lebih dulu |
+| Harness Playwright produksi memakai default proyek yang sama dan origin default, lalu menjalankan `admin:bootstrap-owner` | Owner pertama dapat dibuat di lingkungan nyata | Konfigurasi gagal dimuat tanpa proyek dan origin `.test`; global setup dan langkah bootstrap menjalankan penjaga; origin harus sama dengan `ADMIN_URL` backend |
+| Override TLS memakai `SOLVEIT_ADMIN_BIND` untuk port TLS dan HTTP | Memindahkan TLS ke antarmuka VPN ikut membuka HTTP polos di VPN | `SOLVEIT_ADMIN_TLS_BIND` dan `SOLVEIT_ADMIN_HTTP_BIND` terpisah (default loopback); opsi reverse proxy tetap memakai port HTTP di loopback |
+| `SOLVEIT_ADMIN_PORT` sudah berarti port server dev konsol (5174) di `compose.dev.yaml` | Satu `infra/docker/.env` untuk keduanya akan memindahkan port yang salah | Variabel produksi diganti `SOLVEIT_ADMIN_HTTP_PORT` |
+| Latihan pemulihan tidak memeriksa file env, folder secret, origin, atau port | Penjaganya lebih lemah dari skrip lain | Memakai penjaga yang sama, ditambah opt-in kedua `SOLVEIT_DRILL_PROJECT` |
+
+Bukti lokal pada proyek sintetis baru (`solveit-b32d-smoke`, dihapus beserta volumenya setelahnya; `solveit-mysql` dan volumenya tidak tersentuh):
+
+- `test-safety-guards.sh`: **46 PASS**. Kontrol positif (7 pemeriksaan penjaga), lalu 32 penolakan pengaturan: masing-masing dari empat konsumen menolak tanpa proyek, dengan `solveit-indonesia-prod`, dengan nama tanpa penanda, dengan proyek yang tidak ada, tanpa file env, dan tanpa folder secret; penjaga menolak `solveit-indonesia`, file env `production.env`, template di dalam repository, dan folder secret repository; Playwright dan penjaga menolak origin bukan `.test`; Playwright dan `verify-admin.sh` menolak origin yang berbeda dari stack. Snapshot container, waktu start, image, dan jumlah baris **identik** sebelum dan sesudah semua penolakan (tidak ada owner, restart, atau retag). Lalu 9 penolakan stack: akun non-sintetis (penjaga dan latihan pemulihan, sebelum menghapus apa pun), `ADMIN_URL` publik (penjaga dan `verify-admin.sh`), `APP_URL` publik, `DB_HOST` eksternal (penjaga dan `verify-production.sh`), port di `127.0.0.2`; setiap perubahan dibatalkan dan penjaga menerima stack yang dipulihkan, jumlah akun tetap 0.
+- Konfigurasi Compose: dengan `SOLVEIT_ADMIN_TLS_BIND=10.8.0.5` port HTTP tetap `127.0.0.1` dan TLS `10.8.0.5`; dengan `SOLVEIT_ADMIN_HTTP_BIND=10.8.0.6` hanya HTTP yang pindah (juga di job konfigurasi Docker CI dengan `jq`).
+- Semua hasil B3.2d tetap lulus setelah pengerasan: `verify-production.sh`, `verify-admin.sh`, tes browser produksi (1 lulus), latihan pemulihan (pulih 73 detik). Admin Prettier, ESLint, `tsc` bersih; shellcheck bersih untuk semua skrip.
+
+Hasil Docker CI, Admin CI, dan Admin integration pada head PR dicatat di `.ai/project-status.md` dan di PR.
+
 ## B3.2c ruang kerja administrasi owner di konsol admin (2026-10-18)
 
 Cakupan: layar `/pengguna`, `/pengguna/:id`, `/undangan`, `/undangan/baru`, `/audit` di atas API B3.1b, klien API owner bertipe, dialog tindakan sensitif, tautan sekali tampil, motion GSAP, dan pembaruan dokumen B3.2b yang basi setelah rilis PR #41. Backend tidak berubah. Tidak ada deployment, akun nyata, perubahan database atau volume pengembangan, B3.2d, atau B4. Baseline: `origin/main`, `origin/admin`, `origin/backend`, `origin/frontend` = `02f3859` (rilis B3.2b), `origin/staging` `d3fb8f7` (tree sama); working tree bersih. Laravel Boost MCP dan Playwright MCP tidak tersambung di sesi ini (timeout); kontrak dibaca dari `docs/api/admin-users.md` dan kode controller, request, resource, dan enum di `backend/app/`.
