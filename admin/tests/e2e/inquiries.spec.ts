@@ -147,3 +147,46 @@ test("a revealed contact stays in memory: no storage, address, or history state 
   await expect(page.getByText(mockRevealedContact)).toHaveCount(0);
   expect(violations).toEqual([]);
 });
+
+test("visitor markup stays text under the production CSP and long links wrap", async ({ page }) => {
+  await mockOwner(page);
+  await page.goto("/inquiry/42");
+  await settled(page);
+
+  await expect(page.getByText(/onerror=/)).toBeVisible();
+  expect(await page.locator("main img, main script").count()).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBe(
+    undefined,
+  );
+  await noSidewaysScroll(page);
+});
+
+test("a revealed contact is dropped when the tab is hidden or the page is put away", async ({
+  page,
+}) => {
+  await mockOwner(page);
+  await page.goto("/inquiry/42");
+  await settled(page);
+  const reveal = async () => {
+    await page.getByRole("button", { name: "Buka kontak lengkap" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("checkbox").check();
+    await dialog.getByRole("button", { name: "Buka kontak lengkap" }).click();
+    await expect(page.getByText(mockRevealedContact)).toBeVisible();
+  };
+  const setVisibility = (state: "hidden" | "visible") =>
+    page.evaluate((value) => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, state);
+
+  await reveal();
+  await setVisibility("hidden");
+  await setVisibility("visible");
+  await expect(page.getByText(/disembunyikan karena tab ini ditinggalkan/)).toBeVisible();
+  expect(await page.content()).not.toContain(mockRevealedContact);
+
+  await reveal();
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  expect(await page.content()).not.toContain(mockRevealedContact);
+});

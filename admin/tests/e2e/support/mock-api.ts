@@ -221,6 +221,9 @@ const mockInquiryDetail = (id: number) => {
         message: [
           "Kami butuh sistem stok untuk tiga cabang toko, dengan laporan harian per cabang.",
           "Mohon dihubungi lewat email pada jam kerja.",
+          // Visitor text is untrusted: markup stays text, a long unbroken link must wrap.
+          '<img src=x onerror="window.__pwned=1"><script>window.__pwned=1</script>',
+          `https://contoh.example.test/${"a".repeat(160)}`,
         ].join(String.fromCharCode(10)),
         allowed_transitions:
           found.status === "received"

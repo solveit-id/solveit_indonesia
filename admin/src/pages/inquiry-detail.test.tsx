@@ -347,14 +347,17 @@ describe("a note", () => {
     expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(0);
   });
 
-  it("holds an uncertain note, keeps the text, and finds it saved by reading", async () => {
+  it("holds an uncertain note read only, and calls it saved only for a newer note of this account", async () => {
     const { api, user } = await openInquiry({
       "POST inquiries/42/notes": json(503, {
         message: "The note could not be saved. Read the notes again before retrying.",
       }),
       "GET inquiries/42/notes": [
-        page([]),
-        page([sampleNote({ body: "Catatan uji", author: { user_id: 2, name: "Contoh Admin" } })]),
+        page([sampleNote({ id: 10, body: "Lama", author: { user_id: 5, name: "Admin Lain" } })]),
+        page([
+          sampleNote({ id: 13, body: "Catatan uji", author: { user_id: 2, name: "Contoh Admin" } }),
+          sampleNote({ id: 10, body: "Lama", author: { user_id: 5, name: "Admin Lain" } }),
+        ]),
       ],
     });
 
@@ -362,19 +365,42 @@ describe("a note", () => {
     await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
 
     expect(await screen.findByText(/catatan ini mungkin sudah tersimpan/)).toBeVisible();
-    expect(screen.getByLabelText("Catatan baru")).toHaveValue("Catatan uji");
+    const field = screen.getByLabelText("Catatan baru");
+    expect(field).toHaveValue("Catatan uji");
+    expect(field).toHaveAttribute("readonly");
 
     // Pressing again sends nothing while the outcome is unknown.
     await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
     expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
 
     await user.click(screen.getByRole("button", { name: "Periksa catatan" }));
-    expect(await screen.findByText(/Catatan Anda sudah tersimpan/)).toBeVisible();
+    expect(await screen.findByText(/tersimpan sebagai catatan #13/)).toBeVisible();
     expect(screen.getByLabelText("Catatan baru")).toHaveValue("");
     expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
   });
 
-  it("after an uncertain note that was not saved, lets the person send it once more", async () => {
+  it("never takes an older identical note of this account as proof", async () => {
+    const older = sampleNote({ id: 12, body: "Catatan uji", author: { user_id: 2, name: "A" } });
+    const { api, user } = await openInquiry({
+      "POST inquiries/42/notes": json(502, { message: "Bad Gateway" }),
+      "GET inquiries/42/notes": [page([older]), page([older])],
+    });
+    await screen.findByText("Catatan uji");
+
+    await user.type(screen.getByLabelText("Catatan baru"), "Catatan uji");
+    await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
+    await user.click(await screen.findByRole("button", { name: "Periksa catatan" }));
+
+    expect(await screen.findByText(/hasilnya tetap belum pasti/)).toBeVisible();
+    expect(screen.queryByText(/tersimpan sebagai catatan/)).not.toBeInTheDocument();
+    // Still held: the text stays, read only, and Add sends nothing.
+    expect(screen.getByLabelText("Catatan baru")).toHaveValue("Catatan uji");
+    expect(screen.getByLabelText("Catatan baru")).toHaveAttribute("readonly");
+    await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
+    expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
+  });
+
+  it("after a check that proves nothing, sends again only on a deliberate press", async () => {
     const { api, user } = await openInquiry({
       "POST inquiries/42/notes": [
         json(500, { message: "Server Error" }),
@@ -386,11 +412,69 @@ describe("a note", () => {
     await user.type(screen.getByLabelText("Catatan baru"), "Catatan uji");
     await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
     await user.click(await screen.findByRole("button", { name: "Periksa catatan" }));
-    expect(await screen.findByText(/belum ada di catatan terbaru/)).toBeVisible();
+    expect(await screen.findByText(/catatan ganda tidak dapat dihapus/)).toBeVisible();
+    expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
 
-    await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
+    await user.click(screen.getByRole("button", { name: "Kirim lagi" }));
     expect(await screen.findByText("Catatan ditambahkan.")).toBeVisible();
     expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(2);
+    expect(api.callsTo("POST inquiries/42/notes")[1]!.body).toEqual({ body: "Catatan uji" });
+  });
+
+  it("lets the person drop a held text instead of sending it again", async () => {
+    const { api, user } = await openInquiry({
+      "POST inquiries/42/notes": json(504, { message: "Gateway Timeout" }),
+      "GET inquiries/42/notes": page([]),
+    });
+
+    await user.type(screen.getByLabelText("Catatan baru"), "Catatan uji");
+    await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
+    await user.click(await screen.findByRole("button", { name: "Periksa catatan" }));
+    await user.click(await screen.findByRole("button", { name: "Buang teks ini" }));
+
+    expect(screen.getByLabelText("Catatan baru")).toHaveValue("");
+    expect(screen.getByLabelText("Catatan baru")).not.toHaveAttribute("readonly");
+    expect(screen.getByText(/Teks catatan dibuang dari kolom/)).toBeVisible();
+    expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
+  });
+
+  it("calls a match unprovable when the notes had not loaded before sending", async () => {
+    const { api, user } = await openInquiry({
+      "POST inquiries/42/notes": json(500, { message: "Server Error" }),
+      "GET inquiries/42/notes": [
+        json(500, { message: "Server Error" }),
+        page([sampleNote({ id: 13, body: "Catatan uji", author: { user_id: 2, name: "A" } })]),
+      ],
+    });
+    expect(await screen.findByText("Catatan belum dapat dimuat.")).toBeVisible();
+
+    await user.type(screen.getByLabelText("Catatan baru"), "Catatan uji");
+    await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
+    await user.click(await screen.findByRole("button", { name: "Periksa catatan" }));
+
+    expect(await screen.findByText(/tidak dapat memastikan itu catatan tadi/)).toBeVisible();
+    expect(screen.getByLabelText("Catatan baru")).toHaveValue("Catatan uji");
+    expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
+  });
+
+  it("sends one note however fast the button is pressed", async () => {
+    let release: (response: Response) => void = () => undefined;
+    const { api, user } = await openInquiry({
+      "POST inquiries/42/notes": () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    });
+
+    await user.type(screen.getByLabelText("Catatan baru"), "Catatan uji");
+    const add = screen.getByRole("button", { name: "Tambah catatan" });
+    await user.click(add);
+    await user.click(screen.getByRole("button", { name: /Menyimpan catatan|Tambah catatan/ }));
+    await user.keyboard("{Enter}");
+    release(json(201, { data: sampleNote({ body: "Catatan uji" }) }));
+
+    expect(await screen.findByText("Catatan ditambahkan.")).toBeVisible();
+    expect(api.callsTo("POST inquiries/42/notes")).toHaveLength(1);
   });
 
   it("says a 419 was not processed and a 429 must wait, sending nothing more", async () => {
@@ -592,5 +676,199 @@ describe("for an owner", () => {
     expect(
       screen.queryByRole("link", { name: /Lihat kejadiannya di audit log/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+/** Simulates the Page Visibility API (tab switch, minimise, phone locked) in jsdom. */
+function setVisibility(state: "hidden" | "visible") {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+async function confirmReveal(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Buka kontak lengkap" }));
+  await user.click(within(dialog()).getByRole("checkbox"));
+  await user.click(within(dialog()).getByRole("button", { name: "Buka kontak lengkap" }));
+}
+
+describe("the revealed contact's lifetime", () => {
+  afterEach(() => setVisibility("visible"));
+
+  it("is dropped when the tab is hidden and never comes back by itself", async () => {
+    const { api, user } = await openInquiry({ "POST inquiries/42/contact-reveal": revealed() });
+    await confirmReveal(user);
+    expect(await screen.findByText(REVEALED_CONTACT)).toBeVisible();
+
+    setVisibility("hidden");
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+    setVisibility("visible");
+
+    expect(await screen.findByText(/disembunyikan karena tab ini ditinggalkan/)).toBeVisible();
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+    expect(screen.getByText("p•••@e•••.test")).toBeVisible();
+    expect(api.callsTo("POST inquiries/42/contact-reveal")).toHaveLength(1);
+  });
+
+  it("is dropped on pagehide, so the back-forward cache keeps nothing", async () => {
+    const { api, user } = await openInquiry({ "POST inquiries/42/contact-reveal": revealed() });
+    await confirmReveal(user);
+    expect(await screen.findByText(REVEALED_CONTACT)).toBeVisible();
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+    window.dispatchEvent(new Event("pageshow"));
+
+    await waitFor(() => expect(screen.getByText("p•••@e•••.test")).toBeVisible());
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+    expect(api.callsTo("POST inquiries/42/contact-reveal")).toHaveLength(1);
+  });
+
+  it("never shows an answer that arrives while the tab is hidden", async () => {
+    let release: (response: Response) => void = () => undefined;
+    const { api, user } = await openInquiry({
+      "POST inquiries/42/contact-reveal": () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    });
+    await confirmReveal(user);
+
+    setVisibility("hidden");
+    release(revealed());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    setVisibility("visible");
+
+    expect(await screen.findByText(/tidak ditampilkan karena tab ini ditinggalkan/)).toBeVisible();
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.callsTo("POST inquiries/42/contact-reveal")).toHaveLength(1);
+  });
+
+  it("never shows an answer that arrives after leaving the inquiry", async () => {
+    let release: (response: Response) => void = () => undefined;
+    const { api, user, router } = await openInquiry({
+      "POST inquiries/42/contact-reveal": () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+      "GET inquiries": page([]),
+    });
+    await confirmReveal(user);
+
+    await router.navigate("/inquiry");
+    expect(await screen.findByText("Belum ada inquiry")).toBeVisible();
+    release(revealed());
+    await router.navigate("/inquiry/42");
+
+    expect(await screen.findByText("p•••@e•••.test")).toBeVisible();
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+    expect(api.callsTo("POST inquiries/42/contact-reveal")).toHaveLength(1);
+  });
+
+  it("is dropped when the account no longer holds the reveal permission", async () => {
+    const withoutReveal = adminAccount({
+      permissions: ["account.manage-own", "inquiries.view", "inquiries.change-status"],
+    });
+    const { user } = await openInquiry({
+      "GET me": [me(adminAccount()), me(withoutReveal)],
+      "POST inquiries/42/contact-reveal": revealed(),
+      "PUT inquiries/42/status": json(403, { message: "This action is unauthorized." }),
+    });
+    await confirmReveal(user);
+    expect(await screen.findByText(REVEALED_CONTACT)).toBeVisible();
+
+    // A refused write makes the console read the account again (refreshAccount).
+    await user.click(screen.getByRole("button", { name: "Tandai ditinjau" }));
+    await user.click(within(dialog()).getByRole("button", { name: "Tandai ditinjau" }));
+
+    expect(
+      await screen.findByText("Akun Anda tidak mendapat izin membuka kontak lengkap."),
+    ).toBeVisible();
+    expect(screen.queryByText(REVEALED_CONTACT)).not.toBeInTheDocument();
+  });
+
+  it("leaves the DOM with the account when the session ends", async () => {
+    const { user, router } = await openInquiry({ "POST inquiries/42/contact-reveal": revealed() });
+    await confirmReveal(user);
+    expect(await screen.findByText(REVEALED_CONTACT)).toBeVisible();
+    mockAdminApi({ "GET me": unauthenticated(), "POST inquiries/42/notes": unauthenticated() });
+
+    await user.type(screen.getByLabelText("Catatan baru"), "Catatan uji");
+    await user.click(screen.getByRole("button", { name: "Tambah catatan" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/masuk"));
+    expect(document.body.textContent).not.toContain(REVEALED_CONTACT);
+  });
+});
+
+describe("visitor content", () => {
+  it("is plain text: markup, scripts, and links are shown, never run or linked", async () => {
+    const hostile = [
+      '<img src=x onerror="window.__pwned=1">',
+      "<script>window.__pwned=1</script>",
+      '<a href="javascript:alert(1)">klik</a>',
+      "https://phishing.example.test/login?next=admin",
+      `Tanda khusus: ${String.fromCharCode(0x202e)}txt.exe & < > " ' ${String.fromCharCode(0)}`,
+    ].join(String.fromCharCode(10));
+    mockAdminApi({
+      "GET me": me(adminAccount()),
+      "GET inquiries/42": json(200, {
+        data: sampleInquiry({ name: "<b>Nama</b> & co", message: hostile }),
+      }),
+      "GET inquiries/42/status-changes": page([]),
+      "GET inquiries/42/notes": page([]),
+    });
+    renderApp("/inquiry/42");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "<b>Nama</b> & co" }),
+    ).toBeVisible();
+    const message = screen.getByText(/onerror/);
+    expect(message.querySelector("img, script, a, b")).toBeNull();
+    expect(message.textContent).toContain("<script>window.__pwned=1</script>");
+    expect(screen.queryByRole("link", { name: /phishing|klik/ })).not.toBeInTheDocument();
+    expect(document.querySelector("main img, main script")).toBeNull();
+    expect((window as unknown as { __pwned?: number }).__pwned).toBeUndefined();
+  });
+});
+
+describe("answers out of order", () => {
+  it("never lets an older read paint over a newer state", async () => {
+    let releaseRead: (response: Response) => void = () => undefined;
+    const { user } = await openInquiry({
+      "GET inquiries/42": [
+        json(200, { data: sampleInquiry() }),
+        () =>
+          new Promise<Response>((resolve) => {
+            releaseRead = resolve;
+          }),
+      ],
+      "PUT inquiries/42/status": [
+        json(502, { message: "Bad Gateway" }),
+        json(200, {
+          data: sampleInquiry({
+            status: "in-review",
+            allowed_transitions: ["contacted", "closed"],
+            status_changes_count: 1,
+          }),
+        }),
+      ],
+    });
+
+    // An uncertain change, then a check whose read is slow.
+    await user.click(screen.getByRole("button", { name: "Tandai ditinjau" }));
+    await user.click(within(dialog()).getByRole("button", { name: "Tandai ditinjau" }));
+    await user.click(await screen.findByRole("button", { name: "Periksa keadaan inquiry" }));
+
+    // Meanwhile a confirmed change lands first.
+    await user.click(screen.getByRole("button", { name: "Tandai ditinjau" }));
+    await user.click(within(dialog()).getByRole("button", { name: "Tandai ditinjau" }));
+    expect(await screen.findByText("Status inquiry sekarang Ditinjau.")).toBeVisible();
+
+    // The slow read answers with the older state: dropped.
+    releaseRead(json(200, { data: sampleInquiry() }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole("button", { name: "Tandai sudah dihubungi" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Tandai ditinjau" })).not.toBeInTheDocument();
   });
 });

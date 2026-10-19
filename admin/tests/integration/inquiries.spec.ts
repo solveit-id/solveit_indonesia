@@ -171,16 +171,24 @@ test("a status changed behind the screen is a 409: the screen shows the current 
   page,
 }) => {
   const inquiry = await submitInquiry();
+  // A second operator: a real admin account with its own session.
+  const person = newPerson("admin");
+  const other = await activateThroughApi(
+    await inviteThroughApi(owner, person.email),
+    person,
+    "Operator Kedua",
+  );
   await signInThroughUi(page, owner);
   await page.goto(`/inquiry/${inquiry.id}`);
   await expect(page.getByRole("button", { name: "Tandai ditinjau" })).toBeVisible();
 
-  // Someone else moves it after this screen read it.
-  const behind = await owner.api.write("PUT", `inquiries/${inquiry.id}/status`, {
+  // The other operator moves it after this screen read it.
+  const behind = await other.api.write("PUT", `inquiries/${inquiry.id}/status`, {
     status: "contacted",
     expected_status: "received",
   });
   expect(behind.status()).toBe(200);
+  await other.api.dispose();
 
   await page.getByRole("button", { name: "Tandai ditinjau" }).click();
   const dialog = page.getByRole("dialog");
@@ -188,6 +196,10 @@ test("a status changed behind the screen is a 409: the screen shows the current 
   await expect(dialog.getByText(/sudah diubah sejak Anda membukanya/)).toBeVisible();
   await dialog.getByRole("button", { name: "Tutup" }).click();
   await expect(page.getByText(/Status dimuat ulang dari server: sekarang Dihubungi/)).toBeVisible();
+  // The history names who moved it; this screen wrote nothing.
+  const history = page.getByRole("region", { name: "Riwayat status" });
+  await expect(history.getByText("Baru ke Dihubungi")).toBeVisible();
+  await expect(history.getByText("Operator Kedua")).toBeVisible();
 
   const now = (await (await owner.api.get(`inquiries/${inquiry.id}`)).json()) as {
     data: { status: string; status_changes_count: number };
@@ -241,6 +253,29 @@ test("an admin handles inquiries: the contact opens only deliberately, after the
   expect(events[0]).toMatchObject({ action: "inquiry.contact-revealed", metadata: null });
   assertAbsent(JSON.stringify(events), [inquiry.contact], "the audit events");
 
+  // Leaving the tab drops it; coming back never reveals it again by itself.
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.getByText(/disembunyikan karena tab ini ditinggalkan/)).toBeVisible();
+  assertAbsent(await page.content(), [inquiry.contact], "the page after the tab was left");
+
+  // A new look is a new deliberate opening (the password confirmation is still fresh, so no
+  // 423 step), recorded as a second event.
+  await page.getByRole("button", { name: "Buka kontak lengkap" }).click();
+  await page.getByRole("dialog").getByRole("checkbox").check();
+  await page.getByRole("dialog").getByRole("button", { name: "Buka kontak lengkap" }).click();
+  await expect(page.locator(".secret-value")).toBeVisible();
+  expect(
+    (await auditFor(inquiry.id)).filter((event) => event.action === "inquiry.contact-revealed"),
+  ).toHaveLength(2);
+
   // Hidden again, and gone from the page.
   await page.getByRole("button", { name: "Sembunyikan" }).click();
   assertAbsent(await page.content(), [inquiry.contact], "the page after hiding the contact");
@@ -270,4 +305,37 @@ test("a session that ended meanwhile sends the person to sign-in and writes noth
     data: unknown[];
   };
   expect(notes.data).toEqual([]);
+});
+
+test("the reveal limit is Laravel's: a reveal past it counts down and records nothing", async ({
+  page,
+}) => {
+  const inquiry = await submitInquiry();
+
+  // Use up the per-account limit (10 per minute, admin-inquiries.md) on the isolated testing
+  // stack, through the owner's API session.
+  expect(
+    (await owner.api.write("POST", "auth/confirm-password", { password: owner.password })).status(),
+  ).toBe(201);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await owner.api.write("POST", `inquiries/${inquiry.id}/contact-reveal`, {
+      acknowledge_personal_data: true,
+    });
+    expect(response.status()).toBe(200);
+  }
+
+  await signInThroughUi(page, owner);
+  await page.goto(`/inquiry/${inquiry.id}`);
+  await page.getByRole("button", { name: "Buka kontak lengkap" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Buka kontak lengkap" }).click();
+
+  await expect(dialog.getByText(/Coba lagi dalam \d+ detik/)).toBeVisible();
+  // Pressing during the countdown sends nothing; nothing was revealed or recorded.
+  await dialog.getByRole("button", { name: "Buka kontak lengkap" }).click();
+  assertAbsent(await page.content(), [inquiry.contact], "the page after a refused reveal");
+  expect(
+    (await auditFor(inquiry.id)).filter((event) => event.action === "inquiry.contact-revealed"),
+  ).toHaveLength(10);
 });
