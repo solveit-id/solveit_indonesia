@@ -37,9 +37,19 @@ trait InteractsWithAdminApi
     protected const ADMIN_PASSWORD = 'correct horse battery staple';
 
     /**
-     * What GET me reports for an owner (B3.1b). An admin holds only account.manage-own.
+     * Inquiry handling (B4a), held by both roles.
      */
-    protected const OWNER_PERMISSIONS = ['account.manage-own', 'users.view', 'users.invite', 'users.change-role', 'users.suspend', 'users.reset-credentials', 'audit.view-all'];
+    protected const INQUIRY_PERMISSIONS = ['inquiries.view', 'inquiries.reveal-contact', 'inquiries.change-status', 'inquiries.add-note'];
+
+    /**
+     * What GET me reports for an owner (B3.1b, B4a).
+     */
+    protected const OWNER_PERMISSIONS = ['account.manage-own', 'users.view', 'users.invite', 'users.change-role', 'users.suspend', 'users.reset-credentials', 'audit.view-all', ...self::INQUIRY_PERMISSIONS];
+
+    /**
+     * What GET me reports for an admin: its own account and inquiry handling.
+     */
+    protected const ADMIN_PERMISSIONS = ['account.manage-own', ...self::INQUIRY_PERMISSIONS];
 
     /**
      * Switch to another browser with its own cookies.

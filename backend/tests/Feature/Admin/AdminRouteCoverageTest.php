@@ -44,6 +44,9 @@ class AdminRouteCoverageTest extends TestCase
         'DELETE api/v1/admin/me/sessions/{session}',
         ...self::OWNER_READS,
         ...self::OWNER_WRITES,
+        ...self::INQUIRY_READS,
+        ...self::INQUIRY_WRITES,
+        ...self::INQUIRY_CONTACT,
     ];
 
     /**
@@ -68,6 +71,33 @@ class AdminRouteCoverageTest extends TestCase
         'POST api/v1/admin/users/{user}/suspension' => 'users.suspend',
         'DELETE api/v1/admin/users/{user}/suspension' => 'users.suspend',
         'POST api/v1/admin/users/{user}/credential-reset' => 'users.reset-credentials',
+    ];
+
+    /**
+     * Tier 3 routes of inquiry management (B4a), with the exact permission each asks for.
+     * Reads show contacts masked.
+     */
+    private const INQUIRY_READS = [
+        'GET api/v1/admin/inquiries' => 'inquiries.view',
+        'GET api/v1/admin/inquiries/{inquiry}' => 'inquiries.view',
+        'GET api/v1/admin/inquiries/{inquiry}/status-changes' => 'inquiries.view',
+        'GET api/v1/admin/inquiries/{inquiry}/notes' => 'inquiries.view',
+    ];
+
+    /**
+     * Inquiry workflow writes: their permission and their own limit.
+     */
+    private const INQUIRY_WRITES = [
+        'PUT api/v1/admin/inquiries/{inquiry}/status' => 'inquiries.change-status',
+        'POST api/v1/admin/inquiries/{inquiry}/notes' => 'inquiries.add-note',
+    ];
+
+    /**
+     * Opening a full contact: its permission, then a fresh password confirmation, and the
+     * contact limit.
+     */
+    private const INQUIRY_CONTACT = [
+        'POST api/v1/admin/inquiries/{inquiry}/contact-reveal' => 'inquiries.reveal-contact',
     ];
 
     /**
@@ -149,6 +179,38 @@ class AdminRouteCoverageTest extends TestCase
 
         foreach (array_keys(self::OWNER_READS) as $key) {
             $this->assertNotContains('password.confirm', $this->adminRoutes()[$key]->gatherMiddleware());
+        }
+    }
+
+    public function test_inquiry_routes_ask_for_their_exact_permission_and_contacts_for_a_fresh_password(): void
+    {
+        foreach ([...self::INQUIRY_READS, ...self::INQUIRY_WRITES, ...self::INQUIRY_CONTACT] as $key => $permission) {
+            $middleware = $this->adminRoutes()[$key]->gatherMiddleware();
+
+            $this->assertSame(["can:{$permission}"], array_values(preg_grep('/^can:/', $middleware)), "{$key} must ask for exactly {$permission}");
+        }
+
+        foreach (array_keys(self::INQUIRY_READS) as $key) {
+            $middleware = $this->adminRoutes()[$key]->gatherMiddleware();
+
+            $this->assertNotContains('password.confirm', $middleware, "{$key} is a read");
+            $this->assertEmpty(preg_grep('/^throttle:admin-inquiry-/', $middleware), "{$key} is a read");
+        }
+
+        foreach (array_keys(self::INQUIRY_WRITES) as $key) {
+            $this->assertContains('throttle:admin-inquiry-write', $this->adminRoutes()[$key]->gatherMiddleware(), "{$key} lacks the inquiry write limit");
+        }
+
+        foreach (self::INQUIRY_CONTACT as $key => $permission) {
+            $middleware = $this->adminRoutes()[$key]->gatherMiddleware();
+
+            $this->assertContains('throttle:admin-inquiry-contact', $middleware, "{$key} lacks the contact limit");
+            $this->assertContains('password.confirm', $middleware, "{$key} lacks password confirmation");
+            $this->assertLessThan(
+                array_search('password.confirm', $middleware, true),
+                array_search("can:{$permission}", $middleware, true),
+                "{$key} must check the permission before asking for a password",
+            );
         }
     }
 
