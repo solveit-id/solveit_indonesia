@@ -25,11 +25,14 @@ Peta seluruh dokumentasi proyek. Aturan penempatan dan penamaan file ada di [pro
 | | [integration-plan.md](architecture/integration-plan.md) | Batas sistem dengan Solveit OpsHub, endpoint usulan, peta jalan backend |
 | | [admin-dashboard.md](architecture/admin-dashboard.md) | Dashboard admin website: identitas dan administrasi (B3.1a, B3.1b), konsol (B3.2a sampai B3.2c), rilis privat (B3.2d, dirilis, belum di-deploy), API inquiry (B4a), keputusan autentikasi, sesi, peran, audit, modul, desain, dan performa |
 | | [visitor-analytics.md](architecture/visitor-analytics.md) | Rancangan (Planned) analitik pengunjung first-party: definisi metrik, privasi dan UU PDP, penyimpanan, near-real-time |
+| | [shared-hosting-assessment.md](architecture/shared-hosting-assessment.md) | Asesmen konseptual (Owner decision required) kelayakan shared hosting: MySQL 8.4, trigger, PHP 8.5, isolasi admin, backup, kriteria minimum |
 | | [github-integration.md](architecture/github-integration.md) | Rancangan (Planned) integrasi GitHub organisasi `solveit-id`: kepemilikan OpsHub, GitHub App, webhook, tindakan berisiko |
 | [design/](design) | [design-system.md](design/design-system.md) | Prinsip visual, token, komponen, aturan motion dan aksesibilitas |
 | [development/](development) | [development-guide.md](development/development-guide.md) | Prasyarat, perintah, environment, aset, cara mengganti konten, deployment statis; setup backend native dengan MySQL 8.4, CI, MCP Laravel Boost untuk Claude Code dan Codex, pemecahan masalah |
 | | [docker-development.md](development/docker-development.md) | Pengembangan penuh di Docker: setup sekali jalan, perintah harian, MySQL yang dipakai bersama, hot reload, pemecahan masalah |
 | | [docker-production.md](development/docker-production.md) | Konfigurasi Docker produksi (disiapkan, belum di-deploy): arsitektur, rahasia, TLS, migrasi, pembaruan dan rollback, backup, uji lokal |
+| | [cloudflare-demo.md](development/cloudflare-demo.md) | Runbook demo tim (B5a): website lewat Quick Tunnel, Admin dengan data sintetis lewat berbagi layar atau Quick Tunnel dengan email allowlist, perintah PowerShell, troubleshooting, cleanup, security checklist |
+| | [demo-walkthrough.md](development/demo-walkthrough.md) | Urutan presentasi website dan Admin untuk tim non-teknis |
 | [product/](product) | [product-naming.md](product/product-naming.md) | Arsitektur nama ekosistem (Solveit Orbit, OpsHub, usulan nama lain) dan pemeriksaan sebelum peluncuran |
 | [seo/](seo) | [seo-geo.md](seo/seo-geo.md) | Strategi SEO/GEO, kata kunci per halaman, pekerjaan yang menunggu domain |
 | [qa/](qa) | [qa-report.md](qa/qa-report.md) | Laporan QA per putaran: hasil tes, Lighthouse, bukti, keputusan |
