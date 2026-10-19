@@ -2,6 +2,14 @@
 
 Semua angka di bawah adalah hasil eksekusi nyata di mesin pengembang (Windows 11, Node 22.23, Playwright 1.64 dengan Chromium 156, Firefox, dan WebKit, Lighthouse 13.5) terhadap build produksi yang disajikan oleh `scripts/serve.mjs` (clean URL, 404 per bahasa, kompresi brotli).
 
+## B4b rilis dan rekonsiliasi status (2026-10-19, putaran B5a)
+
+- **Rilis:** PR #48 (`admin` ke `staging`, head `ccdb022`) di-merge pemilik sebagai `37db32a`; PR rilis #49 (`staging` ke `main`) di-merge sebagai `11b0a7d`, tree `738517f`. `admin`, `backend`, dan `frontend` di-fast-forward ke `11b0a7d`; `staging` tetap di `37db32a` dengan tree yang sama. Diperiksa ulang di awal B5a dengan `git fetch --prune` dan `git rev-parse` (kelima branch remote: tree `738517f`).
+- **CI:** head `ccdb022`: Admin CI 39243316078 dan 39243304100, Admin integration 39243316335 dan 39243304572, Docker CI 39243316035 dan 39243303976; PR #49: Admin CI 39246628252, Admin integration 39246628059, Docker CI 39246628012. Semua hijau.
+- **Penerimaan pemilik (komentar PR #48):** desain konsol inquiry dan layout Opsi B diterima; waiver concept-seed **khusus B4b** dengan tetap mengacu pada design system B3.2c; RBAC owner dan admin dipertahankan untuk operator internal tepercaya; pembacaan biasa tidak diaudit, sedangkan pembukaan kontak dan mutasi tetap wajib diaudit; risiko residual B4b diterima; kebijakan privasi, retensi, penghapusan, aktivasi formulir publik, dan integrasi OpsHub tetap pending.
+- **Persetujuan rilis (komentar PR #49):** hanya merge ke `main`; bukan deployment produksi dan bukan aktivasi kanal inquiry publik.
+- **Konsol:** jalur fase kini menandai B4b dirilis, tidak ada fase "sedang dibangun", dan tidak ada fase B5 yang ditambahkan (belum ada keputusan desain). Pengantar jalur fase berbunyi "API dan konsol admin sudah dirilis ke main, tetapi belum di-deploy ke mana pun" (EN: "The admin API and console are released to main but not deployed anywhere"); label status tetap "Dirilis, belum di-deploy". Tes baru di `admin/src/app/app.test.tsx` memeriksa delapan fase, semua dirilis, tanpa `aria-current`; tes itu gagal bila B4b dikembalikan ke `current` (diperiksa).
+
 ## B4b konsol inquiry (2026-10-19)
 
 Cakupan: layar `/inquiry` dan `/inquiry/:id` di `admin/` di atas API B4a (`docs/api/admin-inquiries.md`), klien inquiry bertipe, label audit `inquiry.*` dan filter `?inquiry=` di audit log, grup navigasi Operasional, jalur fase (B3.2d dan B4a dirilis, B4b sekarang) dan kapsul lingkungan "Konsol B4b". Dibangun dan dites di branch `admin` dari `58cead5`; **belum dirilis, belum di-deploy**. Backend, kontrak API, infrastruktur, dan website publik tidak diubah.

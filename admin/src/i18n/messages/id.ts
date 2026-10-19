@@ -381,8 +381,7 @@ export const id = {
   },
   phases: {
     title: "Tahap pembangunan",
-    intro:
-      "API admin sudah dirilis ke main, tetapi belum di-deploy ke mana pun. Konsol ini menyusul per fase.",
+    intro: "API dan konsol admin sudah dirilis ke main, tetapi belum di-deploy ke mana pun.",
     status: {
       released: "Dirilis, belum di-deploy",
       current: "Sedang dibangun",
