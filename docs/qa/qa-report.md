@@ -67,6 +67,10 @@ Laravel Boost MCP gagal tersambung saat sesi dimulai (`CONNECT_TIMEOUT`) dan tid
 
 - Dua migrasi aditif B4a dijalankan pada database pengembangan `solveit_indonesia` (index, satu trigger pada `inquiries`, dua tabel dengan empat trigger). `solveit-mysql`, volumenya, XAMPP, dan file secret tidak diubah; tidak ada `.env` yang dibaca atau diedit; tidak ada akun atau inquiry dibuat.
 
+### CI pertama pada PR #46
+
+Backend CI 39204677043 dan 39204709249 serta job pengembangan Docker CI 39204676988 dan 39204709197 gagal dengan **529 lulus, 1 warning**: provider `singleInquiryRoutes` memberi empat argumen kepada `test_a_missing_inquiry_is_404` yang hanya menerima tiga, dan runner CI keluar dengan kode 1 untuk warning. Lokal warning itu tidak terlihat karena keluaran ringkas untuk agen hanya melaporkan "passed". Diperbaiki pada signature tes (tanpa melemahkan asersi), lalu suite penuh dijalankan ulang dengan keluaran biasa untuk memastikan nol warning. Job lain pada run itu hijau: smoke test produksi Docker dengan listener admin (migrasi B4a sebagai `solveit_migrator`), Admin CI, dan Admin integration (browser nyata ke Laravel dan MySQL).
+
 ### Belum diverifikasi
 
 - HTTP nyata lewat `php artisan serve` atau listener admin: butuh akun di database pengembangan, dan "tidak ada akun admin di mana pun" harus tetap benar. Seluruh stack middleware, sesi database, CSRF, dan TOTP dijalankan oleh tes fitur.

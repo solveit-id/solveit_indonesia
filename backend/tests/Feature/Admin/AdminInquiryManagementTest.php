@@ -111,7 +111,7 @@ class AdminInquiryManagementTest extends TestCase
      * @param  array<string, mixed>  $data
      */
     #[DataProvider('singleInquiryRoutes')]
-    public function test_a_missing_inquiry_is_404(string $method, string $path, array $data): void
+    public function test_a_missing_inquiry_is_404(string $method, string $path, array $data, string $permission): void
     {
         $this->signInConfirmedAdmin();
 
