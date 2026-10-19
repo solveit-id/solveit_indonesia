@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Page, expect, test } from "@playwright/test";
 import { bootstrapOwner, resetBackend } from "./support/backend";
+import { LARAVEL_ORIGIN } from "./support/env.mjs";
 import {
   activateThroughApi,
   inviteThroughApi,
@@ -113,4 +114,63 @@ test("owner screens with real accounts, invitations, and audit events", async ({
   await page.getByRole("heading", { name: "Aktivitas terbaru" }).waitFor();
   await expect(page.getByRole("heading", { name: "Undangan diterbitkan" }).first()).toBeVisible();
   await check(page, "account detail");
+});
+
+test("inquiry screens with real inquiries, a status move, and a note", async ({ page }) => {
+  const person = newPerson("owner");
+  const owner = await activateThroughApi(bootstrapOwner(person.email), person, "Owner Utama");
+
+  // Two synthetic inquiries through the real public endpoint, as the website sends them.
+  for (const [name, service] of [
+    ["Pengirim dengan nama yang cukup panjang untuk baris tabel", "sistem-informasi"],
+    ["Pengirim Kedua", "website"],
+  ] as const) {
+    const response = await fetch(`${LARAVEL_ORIGIN}/api/v1/inquiries`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        name,
+        organization: "Organisasi Uji",
+        contact: `${service}@example.test`,
+        service,
+        budget: "belum-tahu",
+        timeline: "fleksibel",
+        message: "Pesan uji sintetis untuk tampilan responsif konsol inquiry.",
+      }),
+    });
+    expect(response.status).toBe(201);
+  }
+
+  const listed = (await (await owner.api.get("inquiries")).json()) as { data: { id: number }[] };
+  const id = listed.data[0]!.id;
+  expect(
+    (
+      await owner.api.write("PUT", `inquiries/${id}/status`, {
+        status: "in-review",
+        expected_status: "received",
+      })
+    ).status(),
+  ).toBe(200);
+  expect(
+    (await owner.api.write("POST", `inquiries/${id}/notes`, { body: "Catatan uji." })).status(),
+  ).toBe(201);
+  expect((await owner.api.write("POST", "auth/logout")).status()).toBe(204);
+  await owner.api.dispose();
+
+  await signInThroughUi(page, owner);
+
+  await page.goto("/inquiry");
+  await page.getByRole("heading", { level: 1, name: "Inquiry" }).waitFor();
+  await expect(page.getByRole("link", { name: "Pengirim Kedua" })).toBeVisible();
+  await check(page, "/inquiry");
+
+  await page.goto(`/inquiry/${id}`);
+  await page.getByRole("heading", { name: "Riwayat status" }).waitFor();
+  await expect(page.getByText("Catatan uji.")).toBeVisible();
+  await expect(page.getByText("Baru ke Ditinjau")).toBeVisible();
+  await check(page, "inquiry detail");
 });

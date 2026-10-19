@@ -9,7 +9,7 @@ import { useOwnerI18n } from "~/i18n/owner";
 import { retryAt, useSecondsUntil } from "~/lib/time";
 import { type AdminApiError, accountApi, isAdminApiError } from "~/services/admin-api";
 
-/** One owner write, described for the person before anything is sent. */
+/** One owner or inquiry write, described for the person before anything is sent. */
 export interface SensitiveAction<R> {
   title: string;
   description: ReactNode;
@@ -20,6 +20,8 @@ export interface SensitiveAction<R> {
   children?: ReactNode;
   /** While set, pressing the action sends nothing and this sentence explains why. */
   blockedReason?: string | null;
+  /** What the 423 password step says, when the general sentence would not be exact. */
+  reauthBody?: string;
   /** The write. Called once per explicit press, never by itself. */
   run: () => Promise<R>;
   /** Laravel applied it. The caller closes the dialog and says what changed. */
@@ -45,7 +47,8 @@ interface Message {
 
 /**
  * Every owner write goes through this dialog (B3.2c, owner brief: sensitive writes need an
- * explicit confirmation and are never retried automatically). One dialog whose content
+ * explicit confirmation and are never retried automatically), and so do the inquiry status
+ * change and the contact reveal (B4b). One dialog whose content
  * advances, as in the B3.2b recovery-code flow:
  *
  * 1. `confirm`: what will happen, in words; the person presses the named action.
@@ -253,7 +256,7 @@ export function SensitiveActionDialog<R>({
         : (action?.title ?? "");
   const description =
     step === "reauth"
-      ? copy.reauthBody
+      ? (action?.reauthBody ?? copy.reauthBody)
       : step === "reauthed"
         ? copy.reauthedBody(action?.confirmLabel ?? "")
         : action?.description;

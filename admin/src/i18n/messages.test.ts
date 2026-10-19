@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { referenceCopy } from "~/pages/component-reference-copy";
+import { inquiryEn } from "./inquiry/en";
+import { inquiryId } from "./inquiry/id";
 import { en } from "./messages/en";
 import { id } from "./messages/id";
 import { ownerEn } from "./owner/en";
@@ -34,6 +36,8 @@ const catalogues = {
   en,
   ownerId,
   ownerEn,
+  inquiryId,
+  inquiryEn,
   referenceId: referenceCopy.id,
   referenceEn: referenceCopy.en,
 };
@@ -44,6 +48,7 @@ describe("interface copy", () => {
 
     expect(keys(en)).toEqual(keys(id));
     expect(keys(ownerEn)).toEqual(keys(ownerId));
+    expect(keys(inquiryEn)).toEqual(keys(inquiryId));
     expect(keys(referenceCopy.en)).toEqual(keys(referenceCopy.id));
   });
 
@@ -57,8 +62,17 @@ describe("interface copy", () => {
     },
   );
 
+  it("lets no lazy catalogue hide a core key when the two are merged", () => {
+    // useOwnerI18n and useInquiryI18n spread their catalogue over the core one.
+    for (const lazy of [ownerId, inquiryId]) {
+      expect(Object.keys(lazy).filter((key) => Object.hasOwn(id, key))).toEqual([]);
+    }
+  });
+
   it("makes no claim the console cannot back (no welcome, no email sent)", () => {
-    const all = [...strings(id), ...strings(ownerId)].map(([, text]) => text).join("\n");
+    const all = [...strings(id), ...strings(ownerId), ...strings(inquiryId)]
+      .map(([, text]) => text)
+      .join("\n");
 
     expect(all).not.toMatch(/berhasil masuk|selamat datang kembali|dasbor siap/i);
     // Invitations and resets are handed over by the owner; the console never claims to send one.

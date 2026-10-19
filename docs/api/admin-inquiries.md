@@ -1,6 +1,6 @@
 # Admin API: pengelolaan inquiry (B4a)
 
-Kontrak endpoint inquiry di `/api/v1/admin` yang dibangun pada B4a: daftar dan detail inquiry dengan kontak disamarkan, alur status dengan riwayat, catatan internal, dan pembukaan kontak lengkap yang dicatat. Status: **dibangun dan dites di backend, belum di-deploy**. Konsol admin belum memanggilnya (B4b, belum dibangun). Kanal website yang mengirim inquiry tetap nonaktif secara default (`VITE_INQUIRY_API_ENABLED=false`), jadi belum ada inquiry nyata di mana pun.
+Kontrak endpoint inquiry di `/api/v1/admin` yang dibangun pada B4a: daftar dan detail inquiry dengan kontak disamarkan, alur status dengan riwayat, catatan internal, dan pembukaan kontak lengkap yang dicatat. Status: **dibangun, dites, dan dirilis ke `main` (PR #46, rilis PR #47, merge `58cead5`), belum di-deploy**. Konsol admin memanggilnya sejak B4b (dibangun dan dites di branch `admin`, belum dirilis; `admin/README.md`, Inquiry). Kanal website yang mengirim inquiry tetap nonaktif secara default (`VITE_INQUIRY_API_ENABLED=false`), jadi belum ada inquiry nyata di mana pun.
 
 Konvensi B3.1a tetap berlaku tanpa perubahan (satu origin `ADMIN_URL`, sesi cookie database, CSRF, `Cache-Control: no-store, private`, `401` tanpa sesi): `admin-auth.md`. Cursor pagination, penolakan parameter yang tidak dikenal, dan format `409` dengan `code` sama dengan `admin-users.md`. Data inquiry dan endpoint publiknya: `inquiries.md`. Arsitektur: `docs/architecture/admin-dashboard.md` bagian 4 dan 6.
 
@@ -108,7 +108,7 @@ Riwayat status dan catatan dibaca per halaman lewat endpoint masing-masing. Memb
 | `contacted` | Tim sudah menghubungi pengirim | `in-review`, `closed` |
 | `closed` | Selesai (dijawab, tidak cocok, atau spam); dapat dibuka lagi | `in-review` |
 
-Tidak ada yang kembali ke `received`: inquiry yang sudah disentuh tidak lagi baru. Nilai dan transisi ini adalah usulan teknis B4a (rencana arsitektur menyebut `in_review`, `contacted`, `closed` sebagai contoh; ejaan mengikuti nilai enum proyek yang memakai tanda hubung) dan dapat diubah pemilik sebelum B4b.
+Tidak ada yang kembali ke `received`: inquiry yang sudah disentuh tidak lagi baru. Nilai ini berasal dari usulan teknis B4a (rencana arsitektur menyebut `in_review`, `contacted`, `closed` sebagai contoh; ejaan mengikuti nilai enum proyek yang memakai tanda hubung). Pemilik menyetujui keempat nilai ini untuk B4b (brief B4b, 2026-10-19); transisinya tetap aturan backend di atas (`InquiryStatus::allowedTransitions()`), dan konsol membaca transisi yang berlaku dari `allowed_transitions`, tidak menyalinnya.
 
 **Status internal, tidak publik.** Respons `POST /api/v1/inquiries`, termasuk percobaan ulang idempoten, **selalu** `"status": "received"`, apa pun status alurnya sekarang (`InquiryResource`). Status alur tidak pernah bocor ke pemegang `Idempotency-Key`, dan website B2.2 tetap membaca replay sebagai sukses (dites).
 
@@ -234,9 +234,8 @@ Uji mutasi: tanpa kunci baris, keenam perubahan status "berhasil" (pembaruan yan
 - Masa simpan inquiry, catatan, dan riwayat; penghapusan otomatis; prosedur ekspor dan penghapusan atas permintaan subjek data (UU PDP) dan siapa yang menanganinya. Sampai itu diputuskan, tidak ada yang dihapus atau diekspor. Catatan yang keliru tidak dapat dihapus satu per satu.
 - Siapa yang menangani inquiry: kedua peran memegang keempat izin (rencana arsitektur). Mempersempitnya cukup dengan mengubah `AdminRole::permissions()`.
 - Apakah membaca daftar atau detail inquiry juga dicatat di audit log (sekarang hanya pembukaan kontak lengkap dan penulisan), bersama keputusan terbuka tentang pencatatan pembacaan audit.
-- Nilai dan transisi status (di atas), sebelum B4b.
 - Batas laju pembukaan kontak (10 per menit, 60 per jam per akun): default teknis.
 
 ## Yang tidak ada
 
-Endpoint publik untuk inquiry, ekspor (CSV atau lainnya), penghapusan inquiry, catatan, atau riwayat, pengubahan field kiriman pengunjung, pencarian teks bebas, penugasan inquiry ke orang tertentu, notifikasi atau email, penerusan ke Solveit OpsHub, dan antarmuka konsol (B4b).
+Endpoint publik untuk inquiry, ekspor (CSV atau lainnya), penghapusan inquiry, catatan, atau riwayat, pengubahan field kiriman pengunjung, pencarian teks bebas, penugasan inquiry ke orang tertentu, notifikasi atau email, penerusan ke Solveit OpsHub. Konsol B4b hanya memakai endpoint di atas: tidak ada ekspor, penghapusan, penugasan, atau penerusan di antarmukanya.

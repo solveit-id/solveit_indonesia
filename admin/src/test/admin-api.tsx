@@ -4,6 +4,11 @@ import { vi } from "vitest";
 import { routes } from "~/app/router";
 import { I18nProvider } from "~/i18n/i18n";
 import type { AdminAccount } from "~/services/admin-api";
+import type {
+  AdminInquiryDetail,
+  AdminInquiryNote,
+  AdminInquiryStatusChange,
+} from "~/services/admin-api/inquiry";
 import type { AdminUserDetail } from "~/services/admin-api/owner";
 
 /**
@@ -64,7 +69,79 @@ export const ownerPermissions: AdminAccount["permissions"] = [
 ];
 
 export const ownerAccount = (overrides: Partial<AdminAccount> = {}) =>
-  sampleAccount({ permissions: ownerPermissions, ...overrides });
+  sampleAccount({ permissions: [...ownerPermissions, ...inquiryPermissions], ...overrides });
+
+/** The inquiry permissions both roles hold (docs/api/admin-inquiries.md, Izin dan peran). */
+export const inquiryPermissions: AdminAccount["permissions"] = [
+  "inquiries.view",
+  "inquiries.change-status",
+  "inquiries.add-note",
+  "inquiries.reveal-contact",
+];
+
+/** An admin as Laravel reports it today: its own account and the inquiry permissions. */
+export const adminAccount = (overrides: Partial<AdminAccount> = {}) =>
+  sampleAccount({
+    id: 2,
+    name: "Contoh Admin",
+    email: "admin@example.test",
+    role: "admin",
+    permissions: ["account.manage-own", ...inquiryPermissions],
+    ...overrides,
+  });
+
+/**
+ * A synthetic inquiry as `GET inquiries/{id}` returns it: masked contact, example.test only.
+ * The full contact of this inquiry (for reveal tests) is `REVEALED_CONTACT`.
+ */
+export function sampleInquiry(overrides: Partial<AdminInquiryDetail> = {}): AdminInquiryDetail {
+  return {
+    id: 42,
+    reference: "INQ-7K3M-9QX2-HD4T",
+    status: "received",
+    name: "Pengirim Contoh",
+    organization: "Toko Contoh",
+    contact: { type: "email", masked: "p•••@e•••.test" },
+    service: "sistem-informasi",
+    budget: "10-50jt",
+    timeline: "1-3-bulan",
+    received_at: "2026-10-19T03:12:45+00:00",
+    updated_at: "2026-10-19T03:12:45+00:00",
+    message: [
+      "Kami butuh sistem stok untuk tiga cabang toko.",
+      "Mohon dihubungi lewat email.",
+    ].join(String.fromCharCode(10)),
+    allowed_transitions: ["in-review", "contacted", "closed"],
+    notes_count: 0,
+    status_changes_count: 0,
+    ...overrides,
+  };
+}
+
+export const REVEALED_CONTACT = "pengirim.contoh@example.test";
+
+export function sampleStatusChange(
+  overrides: Partial<AdminInquiryStatusChange> = {},
+): AdminInquiryStatusChange {
+  return {
+    id: 7,
+    from_status: "received",
+    to_status: "in-review",
+    changed_by: { user_id: 2, name: "Contoh Admin" },
+    changed_at: "2026-10-19T04:02:11+00:00",
+    ...overrides,
+  };
+}
+
+export function sampleNote(overrides: Partial<AdminInquiryNote> = {}): AdminInquiryNote {
+  return {
+    id: 12,
+    body: "Minta ditelepon setelah jam 16.00.",
+    author: { user_id: 2, name: "Contoh Admin" },
+    created_at: "2026-10-19T04:10:00+00:00",
+    ...overrides,
+  };
+}
 
 /** A synthetic admin account as `GET users/{id}` returns it. */
 export function sampleUser(overrides: Partial<AdminUserDetail> = {}): AdminUserDetail {

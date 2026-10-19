@@ -281,6 +281,15 @@
   }
 }
 
+/* Multi-line text (an inquiry note): the field radius, room for a few lines, grows by hand. */
+@utility field-textarea {
+  min-height: 7.5rem;
+  border-radius: var(--radius-field, 1.25rem);
+  padding: 0.75rem 1.1rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
 /* Codes and keys: monospace digits with room between them, still the capsule. */
 @utility field-code {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);

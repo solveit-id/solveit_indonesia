@@ -14,7 +14,7 @@ export const id = {
   shell: {
     skipToContent: "Langsung ke konten",
     consoleName: "Konsol admin",
-    environmentLead: "Konsol B3.2d",
+    environmentLead: "Konsol B4b",
     environmentDetail: "belum di-deploy",
     navigation: "Navigasi utama",
     openMenu: "Menu",
@@ -35,6 +35,7 @@ export const id = {
     users: "Pengguna",
     invitations: "Undangan",
     audit: "Audit log",
+    inquiries: "Inquiry",
     invite: "Undang admin",
     reference: "Referensi komponen",
   },
@@ -246,6 +247,9 @@ export const id = {
     authenticatorOn: "autentikator aktif",
     authenticatorOff: "autentikator belum terkonfirmasi",
     securityLink: "Keamanan",
+    operationsTitle: "Operasional",
+    inquiriesLink: "Inquiry",
+    inquiriesDetail: "Pesan dari formulir website, status, dan catatan tim",
     administrationTitle: "Administrasi",
     usersLink: "Pengguna",
     usersDetail: "Akun, peran, penangguhan, dan reset kredensial",
@@ -267,8 +271,8 @@ export const id = {
     role: "Peran",
     roleDetail: {
       owner:
-        "Mengelola pengguna, undangan, peran, penangguhan, dan reset kredensial, serta membaca audit log.",
-      admin: "Mengelola keamanan akun sendiri.",
+        "Mengelola pengguna, undangan, peran, penangguhan, dan reset kredensial, membaca audit log, dan menangani inquiry.",
+      admin: "Mengelola keamanan akun sendiri dan menangani inquiry.",
       none: "Akun tanpa peran tidak dapat memakai konsol.",
     },
     authenticatorTitle: "Autentikator",
@@ -413,6 +417,16 @@ export const id = {
         title: "Rilis admin privat",
         detail:
           "Image produksi, listener admin terpisah (loopback secara default), header keamanan, smoke test.",
+      },
+      b4a: {
+        title: "Pengelolaan inquiry (API)",
+        detail:
+          "Kontak disamarkan, alur status dengan riwayat, catatan internal hanya-tambah, pembukaan kontak yang dicatat.",
+      },
+      b4b: {
+        title: "Konsol inquiry",
+        detail:
+          "Daftar dan detail inquiry, perubahan status yang aman dari tabrakan, catatan tim, dan pembukaan kontak yang disengaja.",
       },
     } satisfies Record<PhaseCode, { title: string; detail: string }>,
   },

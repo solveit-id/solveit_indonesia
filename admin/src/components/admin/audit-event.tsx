@@ -1,8 +1,11 @@
 import { CaretRight } from "@phosphor-icons/react/dist/csr/CaretRight";
+import { Link } from "react-router";
+import { useVerifiedAccount } from "~/auth/use-account";
 import { type GlyphTone, PhaseGlyph } from "~/components/ui/status-capsule";
 import { useOwnerI18n } from "~/i18n/owner";
 import type { OwnerCopy } from "~/i18n/owner";
 import { formatDateTime } from "~/lib/time";
+import { inquiryPath } from "~/routes/paths";
 import { type AdminRole } from "~/services/admin-api";
 import {
   type AdminAuditAction,
@@ -54,6 +57,10 @@ export const auditActionGroups: {
     ],
   },
   { key: "security", actions: ["mfa.recovery-codes-regenerated", "password.changed"] },
+  {
+    key: "inquiry",
+    actions: ["inquiry.contact-revealed", "inquiry.status-changed", "inquiry.note-added"],
+  },
 ];
 
 const failures: ReadonlySet<string> = new Set([
@@ -64,12 +71,19 @@ const failures: ReadonlySet<string> = new Set([
   "owner.bootstrap-refused",
 ]);
 
-const administration: ReadonlySet<string> = new Set(auditActionGroups[0]!.actions);
+// Opening a full contact is access to personal data: marked like the owner's own actions.
+const administration: ReadonlySet<string> = new Set([
+  ...auditActionGroups[0]!.actions,
+  "inquiry.contact-revealed",
+]);
 
 export const isAuditAction = (value: unknown): value is AdminAuditAction =>
   typeof value === "string" && (adminAuditActions as readonly string[]).includes(value);
 
-/** Owner actions filled, refusals and failures in danger, everything else a quiet outline. */
+/**
+ * Owner actions and contact openings filled, refusals and failures in danger, everything else
+ * (sign-in, sessions, inquiry status changes and notes) a quiet outline.
+ */
 export function auditTone(action: string): GlyphTone {
   if (administration.has(action)) {
     return "released";
@@ -84,6 +98,11 @@ export function auditActionLabel(action: string, t: OwnerCopy): string {
 
 const roleLabel = (value: unknown, t: OwnerCopy): string | null =>
   value === "owner" || value === "admin" ? t.roles[value as AdminRole] : null;
+
+const inquiryStatusLabel = (value: unknown, t: OwnerCopy): string | null =>
+  typeof value === "string" && Object.hasOwn(t.inquiryStatus, value)
+    ? t.inquiryStatus[value as keyof OwnerCopy["inquiryStatus"]]
+    : null;
 
 const count = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -110,6 +129,17 @@ export function metadataChips(event: AdminAuditEvent, t: OwnerCopy): string[] {
 
   if (to !== null) {
     chips.push(copy.roles(roleLabel(metadata.from_role, t), to));
+  }
+
+  const toStatus = inquiryStatusLabel(metadata.to_status, t);
+
+  if (toStatus !== null) {
+    chips.push(copy.status(inquiryStatusLabel(metadata.from_status, t) ?? "?", toStatus));
+  }
+
+  if (typeof metadata.note_id === "number" || typeof metadata.note_id === "string") {
+    // The note's ID only: the audit log never holds a note's text (admin-inquiries.md, Audit).
+    chips.push(copy.note(metadata.note_id));
   }
 
   if (typeof metadata.reason === "string" && metadata.reason !== "") {
@@ -183,6 +213,10 @@ export function subjectText(
     return accountLabel(subject.id, directory, currentId, t);
   }
 
+  if (subject.type === "inquiry") {
+    return t.owner.inquiryNumber(subject.id);
+  }
+
   return subject.type === "access-link" ? t.owner.linkNumber(subject.id) : null;
 }
 
@@ -217,8 +251,16 @@ export function AuditEventItem({
   showDate?: boolean;
 }) {
   const { t, locale } = useOwnerI18n();
+  const account = useVerifiedAccount();
   const copy = t.audit;
   const subject = subjectText(event, directory, currentId, t);
+  // An inquiry subject leads to the inquiry, for an account that may read it (Laravel decides).
+  const subjectLink =
+    event.subject?.type === "inquiry" &&
+    event.subject.id !== null &&
+    account.permissions.includes("inquiries.view")
+      ? inquiryPath(event.subject.id)
+      : null;
   const chips = metadataChips(event, t);
 
   return (
@@ -243,7 +285,18 @@ export function AuditEventItem({
           {subject ? (
             <div className="flex gap-1.5">
               <dt className="text-ink-muted">{copy.on}</dt>
-              <dd className="font-medium text-ink">{subject}</dd>
+              <dd className="font-medium text-ink">
+                {subjectLink ? (
+                  <Link
+                    to={subjectLink}
+                    className="text-accent-text underline-offset-4 hover:underline"
+                  >
+                    {subject}
+                  </Link>
+                ) : (
+                  subject
+                )}
+              </dd>
             </div>
           ) : null}
         </dl>

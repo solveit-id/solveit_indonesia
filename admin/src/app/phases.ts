@@ -8,7 +8,7 @@
  */
 export type PhaseStatus = "released" | "current" | "planned";
 
-export type PhaseCode = "b31a" | "b31b" | "b32a" | "b32b" | "b32c" | "b32d";
+export type PhaseCode = "b31a" | "b31b" | "b32a" | "b32b" | "b32c" | "b32d" | "b4a" | "b4b";
 
 export interface Phase {
   code: PhaseCode;
@@ -22,5 +22,7 @@ export const phases: Phase[] = [
   { code: "b32a", label: "B3.2a", status: "released" },
   { code: "b32b", label: "B3.2b", status: "released" },
   { code: "b32c", label: "B3.2c", status: "released" },
-  { code: "b32d", label: "B3.2d", status: "current" },
+  { code: "b32d", label: "B3.2d", status: "released" },
+  { code: "b4a", label: "B4a", status: "released" },
+  { code: "b4b", label: "B4b", status: "current" },
 ];
